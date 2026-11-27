@@ -11,19 +11,25 @@ import { ReportsSkeleton } from '@/components/skeletons';
 import { getReport } from '@/lib/custom-report';
 import { currentUser } from '@/lib/session';
 import { getT } from '@/lib/i18n/server';
+import { resolveView } from '@/lib/dataset';
+import { ViewBanner } from '@/components/dataset';
+import { connection } from 'next/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('rep.report') };
 }
 type P = Promise<{ id: string }>;
 
-export default function CustomReportPage({ params }: { params: P }) {
-  return <Suspense fallback={<ReportsSkeleton />}><CustomReport params={params} /></Suspense>;
+type SP = Promise<{ run?: string }>;
+export default function CustomReportPage({ params, searchParams }: { params: P; searchParams: SP }) {
+  return <Suspense fallback={<ReportsSkeleton />}><CustomReport params={params} searchParams={searchParams} /></Suspense>;
 }
 
-async function CustomReport({ params }: { params: P }) {
+async function CustomReport({ params, searchParams }: { params: P; searchParams: SP }) {
+  await connection();
   const { id } = await params;
   const t = await getT();
+  const view = await resolveView((await searchParams).run);   // figures from the operator's dataset
   const user = await currentUser();
   const r = user ? getReport(user.id, id) : null;
   if (!r) notFound();
@@ -37,6 +43,7 @@ async function CustomReport({ params }: { params: P }) {
           <a className="btn btn-secondary" href={`/api/v1/reports/pdf?id=${r.id}`}><Download aria-hidden />{t('rep.pdf')}</a><PrintButton />
         </PageHeader>
       </div>
+      <div className="no-print"><ViewBanner view={view} path={`/reports/${r.id}`} /></div>
       <ReportDocument r={r} />
     </>
   );

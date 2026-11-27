@@ -9,7 +9,7 @@ import { model } from '@/lib/model';
 import { CHANNEL_VAR, LIFECYCLE, categoryLabel, channelLabel } from '@/lib/labels';
 import { engineText } from '@/lib/i18n/engine';
 import { getT } from '@/lib/i18n/server';
-import { OfficialOnly } from '@/components/dataset';
+import { ViewBanner } from '@/components/dataset';
 import { Gauge, MerchantTiles, RateBars } from '@/components/visuals';
 import { symptomLabel } from '@/components/satim-evidence';
 import { PageHeader } from '@/components/ui';
@@ -26,7 +26,7 @@ export default function AdvisoryPage({ params, searchParams }: { params: Params;
 
 async function AdvisoryView({ params, searchParams }: { params: Params; searchParams: SP }) {
   const t = await getT();
-  const run = (await resolveView((await searchParams).run)).runId;
+  const view = await resolveView((await searchParams).run), run = view.runId;
   const data = getAdvisory(decodeURIComponent((await params).id), run);
   if (!data) notFound();
   const { advisory: a, otherRate, hypotheses, incidents } = data;
@@ -42,7 +42,7 @@ async function AdvisoryView({ params, searchParams }: { params: Params; searchPa
     <>
       <PageHeader crumbs={<><Link transitionTypes={['nav-back']} href="/intelligence">{t('nav.intelligence')}</Link><span>/</span><span>{a.id}</span></>}
         title={`${channelLabel(a.channel)} · ${symptomLabel(a.symptom)}`} />
-      <OfficialOnly />
+      <ViewBanner view={view} path={`/intelligence/${a.id}`} />
 
       <Balanced className="detail-grid">
         <div className="stack">

@@ -7,7 +7,9 @@ import { cookies } from 'next/headers';
 import { currentUser } from '@/lib/session';
 import { getConversation, listConversations } from '@/lib/conversations';
 import { getT } from '@/lib/i18n/server';
-import { OfficialOnly } from '@/components/dataset';
+import { ViewBanner } from '@/components/dataset';
+import { resolveView } from '@/lib/dataset';
+import { connection } from 'next/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('nav.assistant') };
@@ -24,8 +26,10 @@ export default function AssistantPage({ searchParams }: { searchParams: SP }) {
 }
 
 async function Assistant({ searchParams }: { searchParams: SP }) {
+  await connection();
   const p = flat(await searchParams);
   const t = await getT();
+  const view = await resolveView(p.run);
   const user = await currentUser();
   const conversations = user ? listConversations(user.id) : [];
   const conversation = user ? getConversation(user.id, p.c) : null;
@@ -33,7 +37,7 @@ async function Assistant({ searchParams }: { searchParams: SP }) {
   return (
     <div className="assistant-page">
       <PageHeader title={t('asst.title')} />
-      <OfficialOnly />
+      <ViewBanner view={view} path="/assistant" />
       <Chat initial={conversation ? undefined : p.q} examples={EXAMPLES} conversations={conversations} conversation={conversation} folded={folded} />
     </div>
   );

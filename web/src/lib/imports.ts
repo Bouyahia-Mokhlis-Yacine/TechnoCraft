@@ -62,7 +62,7 @@ export interface ImportStatus {
 }
 
 export const SATIM_ID = 'satim';
-const ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
+export const ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), '..');
 const dir = () => path.join(/*turbopackIgnore: true*/ runsDir(), 'imports');
 const uploads = () => path.join(dir(), 'uploads');
 const cdir = () => path.join(/*turbopackIgnore: true*/ runsDir(), 'collections');
@@ -74,11 +74,11 @@ const isSha = (s: string) => /^[a-f0-9]{64}$/.test(s);
 const digest = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
 /** Same interpreter choice as scripts/engine.mjs: SATIM_PYTHON, an active conda env, the repo .venv, python3. */
-function python(): string {
+export function python(): string {
   const venv = path.join(ROOT, '.venv', ...(process.platform === 'win32' ? ['Scripts', 'python.exe'] : ['bin', 'python']));
   return process.env.SATIM_PYTHON ?? (process.env.CONDA_PREFIX ? 'python' : fs.existsSync(venv) ? venv : process.platform === 'win32' ? 'python' : 'python3');
 }
-const env = () => ({ ...process.env, RUNS_DIR: runsDir(), PYTHONNOUSERSITE: '1' });
+export const env = () => ({ ...process.env, RUNS_DIR: runsDir(), PYTHONNOUSERSITE: '1' });
 const engine = (args: string[], timeout = 180_000) => new Promise<string>((resolve, reject) => execFile(python(), ['-m', 'engine.import_batch', ...args],
   { cwd: ROOT, env: env(), timeout, maxBuffer: 16 * 1024 * 1024 }, (err, stdout) => (err ? reject(new Error('engine process failed')) : resolve(stdout))));
 const lastJson = <X,>(out: string) => JSON.parse(out.trim().split('\n').pop() ?? '{}') as X;

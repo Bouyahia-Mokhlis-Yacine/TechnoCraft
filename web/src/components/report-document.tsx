@@ -13,7 +13,7 @@ export function ReportDocument({ r, version }: { r: StoredReport; version?: numb
     <article className="panel report m-rise">
       <header className="report-head">
         <div><span className="report-brand"><Image src="/brand/satim-emblem.png" alt="" width={22} height={22} /><b>SATIM</b> · Anomaly Intelligence</span><h2 dir="auto">{spec.title}</h2>{spec.subtitle && <p dir="auto">{spec.subtitle}</p>}</div>
-        <dl><dt>{t('rep.engineRun')}</dt><dd>{meta.run} ({meta.version})</dd><dt>{t('rs.asOf')}</dt><dd>{fmtDate(meta.asOf)} · {t('data.batch', { status: meta.batch }).toLowerCase()}</dd><dt>{t('rs.prepared')}</dt><dd>{t('rs.preparedBy', { date: fmtDate((r.updated ?? r.created).slice(0, 10)), v })}</dd></dl>
+        <dl><dt>{t('rep.dataset')}</dt><dd>{meta.imported ? t('rep.datasetImported', { names: meta.imported }) : t('ds.satimName')}</dd><dt>{t('rep.engineRun')}</dt><dd>{meta.run} ({meta.version})</dd><dt>{t('rs.asOf')}</dt><dd>{fmtDate(meta.asOf)} · {t('data.batch', { status: meta.batch }).toLowerCase()}</dd><dt>{t('rs.prepared')}</dt><dd>{t('rs.preparedBy', { date: fmtDate((r.updated ?? r.created).slice(0, 10)), v })}</dd></dl>
       </header>
       {sections.map((s, i) => <ReportSection key={i} s={s} />)}
       <p className="report-foot">{t('rs.foot', { engine: meta.version, run: meta.run })}{r.run_id !== meta.run ? ` ${t('rs.otherRun', { run: r.run_id })}` : ''} · {t('rs.footTail')}</p>

@@ -1682,3 +1682,22 @@ body.dr-open .dock-launch, body:has(.dataset-menu[open], .row-menu[open]) .dock-
 .run-history summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: var(--space-2); }
 .run-history .table-scroll { margin-top: var(--space-3); overflow-x: auto; }
 .run-history td { font-size: 13px; vertical-align: top; }
+
+/* ══ 2026-11-28: forecast history (components/forecast-history.tsx) ══ */
+.forecast-history { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-3); }
+.forecast-history td { vertical-align: top; font-size: 13px; }
+.fh-chart { margin: 0; } .fh-chart figcaption { font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-2); }
+.fh-chart svg { width: 100%; height: auto; } .fh-chart text { font-size: 11px; fill: var(--text-muted); }
+.fh-grid { stroke: var(--border); } .fh-band { stroke: var(--text-muted); stroke-width: 4; opacity: .35; stroke-linecap: round; }
+.fh-mean { stroke: var(--satim-charcoal); stroke-width: 2; } :root[data-theme="dark"] .fh-mean { stroke: var(--text); }
+.fh-in { fill: var(--satim-charcoal); } :root[data-theme="dark"] .fh-in { fill: var(--text); } .fh-out { fill: var(--primary); }
+.fh-chart .legend i { display: inline-block; width: 12px; height: 6px; margin-inline-end: 4px; border-radius: 2px; }
+.fh-l-band { background: var(--text-muted); opacity: .35; } .fh-l-mean { background: var(--satim-charcoal); height: 2px !important; }
+.fh-l-in { background: var(--satim-charcoal); border-radius: 50% !important; width: 6px !important; } .fh-l-out { background: var(--primary); border-radius: 50% !important; width: 6px !important; }
+
+/* ══ 2026-11-28: controlled learning (components/learning.tsx) ══ */
+.learning .cl-actions { align-items: flex-end; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.cl-queue { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.cl-item { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); display: grid; gap: var(--space-2); }
+.cl-item-head { font-size: 14px; } .cl-history { margin: 0; padding-inline-start: 1.2em; font-size: 13px; }
+.cl-cmp { display: grid; gap: var(--space-2); }

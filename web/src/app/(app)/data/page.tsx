@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/ui';
 import { HitDots, MethodNote, Pipeline } from '@/components/visuals';
 import { DataCollections } from '@/components/collections';
 import { collectionsPayload } from '@/app/api/v1/collections/shared';
+import { ForecastHistory } from '@/components/forecast-history';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('nav.data') };
@@ -26,7 +27,7 @@ export default function DataPage() {
 async function Data() {
   const user = await currentUser();
   const t = await getT();
-  const meta = getMeta(), { run: r } = meta;
+  const meta = getMeta(null), { run: r } = meta;   // this section describes the official run
   const v = r.validation, c = r.cleaning;
   const audit = can(user, 'audit') ? readAll().slice(-40).reverse() : null;
   const collections = collectionsPayload(await selectedIds());
@@ -40,6 +41,7 @@ async function Data() {
       </PageHeader>
       <DataCollections initial={collections} canManage={can(user, 'import')} canExport={can(user, 'export')}
         official={{ runId: meta.run.run_id, sealed: meta.run.parity.sealed, first: meta.firstDate, last: meta.asOf, flagged: meta.run.flagged_days }} />
+      <ForecastHistory />
       <h2 className="section-h">{t('data.officialHeading')}</h2>
       <section className="panel m-rise">
         <div className="panel-head"><div><h2>{t('data.cleaning')}</h2><p>{t('data.beforeScoring')}</p></div></div>

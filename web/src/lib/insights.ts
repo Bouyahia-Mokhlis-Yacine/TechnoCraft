@@ -175,8 +175,9 @@ export function simulatorBaseline() {
   return { asOf, from, channels, categories: m.categories, merchants };
 }
 
+/** The frozen model's labelled development results: an evaluation of the model, so always the official run's. */
 export function valueCurve() {
-  const r = model().snap.run;
+  const r = model(null).snap.run;
   const { tp, fp, fn } = r.validation;
   return { curve: [{ threshold: r.policy.high, tp, fp, fn, flagged: tp + fp }], policy: r.policy.high, trainEnd: r.train_end };
 }

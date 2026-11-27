@@ -95,7 +95,7 @@ try {
   await page.getByRole('button', { name: 'Start', exact: true }).click();
   const early = page.locator('details').filter({ hasText: /Activity shortfall.*POS terminals/ }).first();
   await early.locator('summary').click({ timeout: 45_000 });
-  await early.getByText(/Directional CUSUM crossed the replay warning threshold/).waitFor();
+  await early.getByText(/Directional CUSUM crossed the replay warning threshold/).first().waitFor();   // the composed explanation (the service's original follows it)
   await early.getByText('Resolved', { exact: true }).first().waitFor();
   await page.getByRole('button', { name: 'Stop', exact: true }).click();
   await page.getByRole('button', { name: 'Start', exact: true }).waitFor();

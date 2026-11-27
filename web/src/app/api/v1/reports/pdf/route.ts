@@ -7,9 +7,18 @@ import { briefQuery, renderBriefPdf, renderReportPdf, type BriefParams } from '@
 import { getReport } from '@/lib/custom-report';
 import { appendEvent } from '@/lib/reviews';
 import { can, COOKIE } from '@/lib/session';
+import { resolveView } from '@/lib/dataset';
+import { withRun } from '@/lib/run-scope';
 
+// the brief is printed from the dataset the operator is viewing (run pinned in the printed URL), in their language
 export async function GET(req: NextRequest) {
+  const view = await resolveView(req.nextUrl.searchParams.get('run'));
+  return withRun(view.runId, () => handle(req, view.runId));
+}
+
+async function handle(req: NextRequest, run: string | null) {
   const user = userOf(req);
+  const lang = req.cookies.get('pai_lang')?.value, pin = run ? `?run=${run}` : '';
   if (!user) return fail(401, 'unauthenticated', 'Sign in to download reports.');
   if (!can(user, 'export')) return fail(403, 'forbidden', 'Your account cannot export.');
   const p = params(req), meta = getMeta();
@@ -18,7 +27,7 @@ export async function GET(req: NextRequest) {
     const r = getReport(user.id, p.id);
     if (!r) return fail(404, 'not_found', 'Report not found.');
     let doc: Buffer;
-    try { doc = await renderReportPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, `/reports/${r.id}`); } catch (e) {
+    try { doc = await renderReportPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, `/reports/${r.id}${pin}`, lang); } catch (e) {
       console.warn('[reports] PDF engine unavailable:', e instanceof Error ? e.message.split('\n')[0] : e);
       return Response.redirect(new URL(`/reports/${r.id}?print=1`, req.nextUrl.origin), 303); // no browser here: the print dialog instead
     }
@@ -36,7 +45,7 @@ export async function GET(req: NextRequest) {
       : { type, date: day(p.date) ?? meta.asOf };
   let pdf: Buffer;
   try {
-    pdf = await renderBriefPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, brief);
+    pdf = await renderBriefPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, { ...brief, ...(run ? { run } : {}) }, lang);
   } catch (e) {
     // no browser on this machine: open the brief with the print dialog ("Save as PDF") instead
     console.warn('[reports] PDF engine unavailable, opening the print dialog instead:', e instanceof Error ? e.message.split('\n')[0] : e);

@@ -15,6 +15,10 @@ import { localeOf } from '@/lib/i18n/server';
 import { withLocale } from '@/lib/i18n/scope';
 import { liveContext, LIVE_QUESTION } from '@/lib/live-context';
 import { canSee } from '@/lib/session';
+import { resolveView } from '@/lib/dataset';
+import { withRun } from '@/lib/run-scope';
+import { model } from '@/lib/model';
+import { makeT } from '@/lib/i18n';
 
 export async function POST(req: NextRequest) {
   const user = userOf(req);
@@ -33,14 +37,24 @@ export async function POST(req: NextRequest) {
   // asked from another page through the dock: the server rebuilds that page's figures itself
   const path = typeof body.page?.path === 'string' && /^\/[\w\-/%.]*$/.test(body.page.path) && body.page.path.length < 120 && !body.page.path.startsWith('/api') ? body.page.path : null;
   const search = typeof body.page?.search === 'string' && body.page.search.length < 400 ? body.page.search.replace(/^\?/, '') : '';
+  // the dataset the operator is viewing (a run pinned on the asking page, else their selection), for the whole answer
+  const view = await resolveView(new URLSearchParams(search).get('run'));
+  return withRun(view.runId, () => answer(req, user, question, conv, path, search, body.selection, view));
+}
+
+async function answer(req: NextRequest, user: NonNullable<ReturnType<typeof userOf>>, question: string, conv: ReturnType<typeof getConversation>,
+  path: string | null, search: string, rawSelection: unknown, view: Awaited<ReturnType<typeof resolveView>>) {
   const live = path === '/live' || LIVE_QUESTION.test(question);
   if (live && !canSee(user, '/live')) return fail(403, 'forbidden', 'Your account does not have access to Live Monitoring.');
   const page = live ? await liveContext(user.id, question)
     : path && path !== '/assistant' ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
-  const selection = page ? sanitizeSelections(body.selection) : [];
+  const selection = page ? sanitizeSelections(rawSelection) : [];
   // the language model answers; the built-in assistant stands in (marked `fallback`) when it cannot
   const locale = localeOf(req);
-  const reply = await withLocale(locale, () => ask(question, conv?.turns ?? [], page, selection, user.id, locale));
+  const asked = await withLocale(locale, () => ask(question, conv?.turns ?? [], page, selection, user.id, locale));
+  // provenance on every answer: which dataset and run its figures come from (live replay answers name the replay instead)
+  const t = makeT(locale), label = view.kind === 'official' ? t('ds.satimName') : view.combined ? t('ds.combined', { n: view.ids.length }) : t('ds.collection', { name: view.names[0] ?? '' });
+  const reply = live ? asked : { ...asked, scope: [asked.scope, t('asst.provenance', { label, run: model().snap.run.run_id })].filter(Boolean).join(' · ') };
   const saved = appendTurn(user.id, conv?.id, question, reply, page ? { title: page.title, href: page.link.href } : undefined, selection);
   return Response.json({ ...reply, conversation: { id: saved.id, title: saved.title, updated: saved.updated }, page: page ? { title: page.title, href: page.link.href } : null });
 }

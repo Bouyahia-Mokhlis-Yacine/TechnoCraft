@@ -6,6 +6,8 @@ import type { Metadata } from 'next';
 import { ReportDocument } from '@/components/report-document';
 import { getReport } from '@/lib/custom-report';
 import { currentUser } from '@/lib/session';
+import { resolveView } from '@/lib/dataset';
+import { connection } from 'next/server';
 
 export const metadata: Metadata = { title: 'Report preview' };
 type P = Promise<{ id: string }>;
@@ -16,9 +18,11 @@ export default function EmbedReport({ params, searchParams }: { params: P; searc
 }
 
 async function Doc({ params, searchParams }: { params: P; searchParams: SP }) {
+  await connection();
   const [{ id }, sp, user] = await Promise.all([params, searchParams, currentUser()]);
   const r = user ? getReport(user.id, id) : null;
   if (!r) notFound();
+  await resolveView(typeof sp.run === 'string' ? sp.run : undefined);   // figures from the operator's dataset
   const v = Number(sp.v) || undefined;
   return <div className="embed-report"><ReportDocument r={r} version={v} /></div>;
 }

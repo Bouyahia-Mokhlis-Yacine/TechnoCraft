@@ -5,6 +5,7 @@ import { snapshot, type AdvisoryRaw, type Explanation, type IncidentEvidence, ty
 import { currentLocale, fmtDzd, fmtInt, fmtPct, na } from './format';
 import { translate, type Key } from './i18n';
 import { engineText, explanationText } from './i18n/engine';
+import { pinnedRun } from './run-scope';
 
 export type AnomalyType = 'INTERRUPTION' | 'DROP_VOLUME' | 'ATYPICAL_SURGE' | 'SPIKE_AMOUNT' | 'SPIKE_DECLINED' | 'NETWORK_DECLINES' | 'CANCEL_SPIKE';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -79,7 +80,9 @@ let memo: { id: string; m: Model } | null = null;
 const importedMemo = new Map<string, Model>();
 
 /** The official run's model, or an imported run's when `run` is given (Data & runs → Import). */
+/** run: an imported run id; null: the official run explicitly; omitted: the run pinned for this request (lib/run-scope.ts), else official. */
 export function model(run?: string | null): Model {
+  if (run === undefined) run = pinnedRun() ?? null;
   const snap = snapshot(run);
   if (!run && memo?.id === snap.run.run_id) return memo.m;
   if (run && importedMemo.has(run)) return importedMemo.get(run)!;

@@ -293,7 +293,11 @@ export function reportSummary(sections: BuiltSection[]) {
   });
 }
 
-export const reportMeta = () => { const meta = getMeta(); return { run: meta.run.run_id, version: meta.run.policy.version, asOf: meta.asOf, batch: meta.run.batch_status }; };
+export const reportMeta = () => {
+  const meta = getMeta(), run = meta.run as typeof meta.run & { data_status?: string; selection?: { name: string }[] };
+  return { run: run.run_id, version: run.policy.version, asOf: meta.asOf, batch: run.batch_status,
+    imported: run.data_status === 'imported_batch' ? (run.selection ?? []).map((s) => s.name).join(', ') || '—' : null };
+};
 
 /* ── the tool the model calls ────────────────────────────────────────── */
 export function composeToolDef() {

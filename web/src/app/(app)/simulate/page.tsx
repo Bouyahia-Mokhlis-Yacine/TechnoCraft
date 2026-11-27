@@ -6,7 +6,8 @@ import { simulatorBaseline, valueCurve } from '@/lib/insights';
 import { ReviewCost, WhatIf } from '@/components/simulator';
 import { PageHeader } from '@/components/ui';
 import { getT } from '@/lib/i18n/server';
-import { OfficialOnly } from '@/components/dataset';
+import { ViewBanner } from '@/components/dataset';
+import { resolveView } from '@/lib/dataset';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('nav.simulator') };
@@ -19,11 +20,12 @@ export default function SimulatePage() {
 async function Simulate() {
   await connection();
   const t = await getT();
+  const view = await resolveView();   // the simulator's baseline is the operator's dataset
   const base = simulatorBaseline(), v = valueCurve();
   return (
     <>
       <PageHeader title={t('nav.simulator')} />
-      <OfficialOnly />
+      <ViewBanner view={view} path="/simulate" />
       <section className="panel m-rise">
         <div className="panel-head"><div><h2>{t('sim.whatIf')}</h2><p>{t('sim.whatIfSub')}</p></div></div>
         <WhatIf base={base} />

@@ -20,7 +20,9 @@ import { weeklyBrief } from '@/lib/insights';
 import { GaugeCell } from '@/components/visuals';
 import { makeT } from '@/lib/i18n';
 import { getT } from '@/lib/i18n/server';
-import { OfficialOnly } from '@/components/dataset';
+import { ViewBanner } from '@/components/dataset';
+import { resolveView } from '@/lib/dataset';
+import { connection } from 'next/server';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('nav.reports') };
@@ -32,8 +34,10 @@ export default function ReportsPage({ searchParams }: { searchParams: SP }) {
 }
 
 async function Reports({ searchParams }: { searchParams: SP }) {
+  await connection();
   const p = flat(await searchParams);
   const t = await getT();
+  const view = await resolveView(p.run);   // pins the run for every brief below
   const meta = getMeta();
   const type = p.type === 'merchant' ? 'merchant' : p.type === 'weekly' ? 'weekly' : p.type === 'alerts' ? 'alerts' : p.type === 'incident' ? 'incident' : 'daily';
   const date = p.date && p.date >= meta.firstDate && p.date <= meta.asOf ? p.date : meta.asOf;
@@ -47,7 +51,7 @@ async function Reports({ searchParams }: { searchParams: SP }) {
     <>
       <AutoPrint />
       <div className="no-print"><PageHeader title={t('nav.reports')}><a className="btn btn-secondary" href={pdf}><Download aria-hidden />{t('rep.pdf')}</a><PrintButton /></PageHeader></div>
-      <div className="no-print"><OfficialOnly /></div>
+      <div className="no-print"><ViewBanner view={view} path="/reports" /></div>
       <div className="no-print">
         <FilterForm>
           <label className="field">{t('rep.brief')}<select name="type" defaultValue={type}><option value="daily">{t('rep.daily')}</option><option value="weekly">{t('rep.weekly')}</option><option value="merchant">{t('rep.merchant')}</option><option value="alerts">{t('rep.alerts')}</option>{incident && <option value="incident">{t('incd.brief')}</option>}</select></label>
@@ -120,13 +124,17 @@ function AlertsBrief({ from, to, severity, merchant, channel }: ReturnType<typeo
   );
 }
 
+/** Where a brief's figures come from: the official run, or the imported collections of the run shown. */
+const datasetLabel = (run: { data_status?: string; selection?: { name: string }[] }, t: ReturnType<typeof makeT>) =>
+  run.data_status === 'imported_batch' ? t('rep.datasetImported', { names: (run.selection ?? []).map((s) => s.name).join(', ') || '—' }) : t('ds.satimName');
+
 function ReportHead({ title, scope }: { title: string; scope: string }) {
   const t = makeT();
   const meta = getMeta();
   return (
     <header className="report-head">
       <div><span className="report-brand"><Image src="/brand/satim-emblem.png" alt="" width={22} height={22} /><b>SATIM</b> · Anomaly Intelligence</span><h2>{title}</h2><p>{scope}</p></div>
-      <dl><dt>{t('rep.engineRun')}</dt><dd>{meta.run.run_id} ({meta.run.policy.version})</dd><dt>{t('rep.cutoff')}</dt><dd>{fmtDate(meta.asOf)} · {t('data.batch', { status: t(`batch.${meta.run.batch_status}` as 'batch.complete') }).toLowerCase()} · {meta.run.parity.sealed ? t('rep.sealed') : t('rep.unsealed')}</dd></dl>
+      <dl><dt>{t('rep.dataset')}</dt><dd>{datasetLabel(meta.run, t)}</dd><dt>{t('rep.engineRun')}</dt><dd>{meta.run.run_id} ({meta.run.policy.version})</dd><dt>{t('rep.cutoff')}</dt><dd>{fmtDate(meta.asOf)} · {t('data.batch', { status: t(`batch.${meta.run.batch_status}` as 'batch.complete') }).toLowerCase()} · {meta.run.parity.sealed ? t('rep.sealed') : t('rep.unsealed')}</dd></dl>
     </header>
   );
 }

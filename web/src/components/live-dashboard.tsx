@@ -11,6 +11,18 @@ import styles from './live-dashboard.module.css';
 const scopeKinds = ['network', 'channel', 'merchant', 'category'] as const;
 /** A value from the replay service (status, state, symptom…) in the interface language; unknown values pass through. */
 const tv = (t: T, prefix: string, v?: string | null) => { if (!v) return ''; const k = `${prefix}.${v}` as Key, s = t(k); return s === k ? v : s; };
+/** The warning's explanation in the interface language, composed from the service's structured evidence
+ *  (scope, window, observed, expected, unit, signal, kind) with the same numbers; the service's own English
+ *  text stays available as the original evidence. */
+function explain(t: T, w: ReplayWarning) {
+  const rejection = /rejection/i.test(w.symptom), collective = w.kind === 'Collective advisory';
+  return {
+    text: t('live.expl', { scope: scopeLabel(t, w.scope), obs: fmtInt(w.observed, t.locale), unit: tv(t, 'live.unit', w.unit),
+      exp: fmtNum(w.expected, 1, t.locale), from: stamp(w.from), to: stamp(w.through), signal: tv(t, 'live.signal', w.signal) }),
+    action: t(rejection ? 'live.actRejection' : 'live.actActivity'),
+    limitation: t(collective ? 'live.limitCollective' : 'live.limitIndividual'),
+  };
+}
 const scopeLabel = (t: T, [kind, name]: Scope) => kind === 'channel' || kind === 'network' ? tv(t, 'live.ch', name) : name;
 const stamp = (time?: string | null) => time?.replace('T', ' ').slice(0, 19) || '—';
 const minute = (time: string) => time.slice(11, 16);
@@ -93,12 +105,13 @@ function Warnings({ title, values }: { title: string; values: ReplayWarning[] })
       <summary><span><strong>{tv(t, 'live.symptom', w.symptom)}</strong><small>{scopeLabel(t, w.scope)} · {stamp(w.opened)}</small></span>
         <span className="chip">{tv(t, 'live.state', w.state)}</span></summary>
       <div className={styles.detail}>
-        <p lang="en">{w.explanation}</p>
+        <p>{explain(t, w).text}</p>
         <p className="muted">{t('live.fromTo', { from: stamp(w.from), to: stamp(w.through) })} · {t('live.score', { v: fmtNum(w.score, 1, t.locale) })}
           {w.reference_days !== undefined && ` · ${t('live.priorDates', { n: w.reference_days })}`}</p>
         {w.cusum && <p>{t('live.cusum')} ↓ {fmtNum(w.cusum[0], 1, t.locale)} · ↑ {fmtNum(w.cusum[1], 1, t.locale)}</p>}
         {w.merchants && <p><strong>{t('intel.selected')}</strong> {w.merchants.join(', ')}. {t('live.corroborated', { list: w.corroborated?.join(', ') || t('common.none').toLowerCase() })}</p>}
-        <p lang="en">{w.action} {w.limitation}</p>
+        <p>{explain(t, w).action} {explain(t, w).limitation}</p>
+        <p className={styles.original}><span>{t('live.original')} :</span> <span lang="en">{w.explanation} {w.action} {w.limitation}</span></p>
         <ol className={styles.timeline} aria-label={t('live.timeline')}>{w.timeline.map((step, i) =>
           <li key={i}><time>{stamp(step.time)}</time> {tv(t, 'live.state', step.state)}</li>)}</ol>
       </div>

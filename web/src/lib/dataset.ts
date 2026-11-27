@@ -7,6 +7,7 @@ import path from 'node:path';
 import { cookies } from 'next/headers';
 import { getActive, getImport, getCollection, isCollectionId, isRunId, lastGoodRun, listCollections, selectionRun, usable, type Collection, type ImportStatus } from './imports';
 import { runsDir } from './snapshot';
+import { pinRun } from './run-scope';
 
 export const VIEW_COOKIE = 'pai_view';
 export const parseIds = (v: string | undefined | null) => [...new Set((v ?? '').split('.').filter(isCollectionId))];
@@ -32,7 +33,14 @@ export async function selectedIds(): Promise<string[]> {
 }
 
 /** The view for a page: a pinned `run` when given and available, else the cookie selection, else the official run. */
+/** The view for a page; it also pins its run for the rest of the request (lib/run-scope.ts). */
 export async function resolveView(runParam?: string | null): Promise<View> {
+  const view = await viewFor(runParam);
+  pinRun(view.runId);
+  return view;
+}
+
+async function viewFor(runParam?: string | null): Promise<View> {
   if (runParam && isRunId(runParam) && fs.existsSync(path.join(/*turbopackIgnore: true*/ runsDir(), 'imports', runParam, 'snapshot.json'))) {
     const s = getImport(runParam);
     let ids = s?.selection.map((x) => x.id) ?? [], names = s?.selection.map((x) => x.name) ?? [];
