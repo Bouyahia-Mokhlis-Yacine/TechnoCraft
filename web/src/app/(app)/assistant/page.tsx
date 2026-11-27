@@ -6,13 +6,17 @@ import { PageHeader, flat } from '@/components/ui';
 import { cookies } from 'next/headers';
 import { currentUser } from '@/lib/session';
 import { getConversation, listConversations } from '@/lib/conversations';
+import { getT } from '@/lib/i18n/server';
+import { OfficialOnly } from '@/components/dataset';
 
-export const metadata: Metadata = { title: 'Assistant' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT())('nav.assistant') };
+}
 type SP = Promise<Record<string, string | string[] | undefined>>;
 
 const EXAMPLES = {
   en: ['Which merchants had the largest activity shortfall this week?', 'Why was MER-6434 flagged, and what should I check?', 'What if e-commerce goes down for 3 hours tomorrow at 10:00?', 'Prepare this week’s management report as a PDF'],
-  fr: ['Pourquoi MER-1494 a-t-il été signalé ?', 'Compare MER-6434 et MER-1494'],
+  fr: ['Quels commerçants ont eu la plus forte baisse d’activité cette semaine ?', 'Pourquoi MER-6434 a-t-il été signalé, et que dois-je vérifier ?', 'Et si l’e-commerce tombe en panne 3 heures demain à 10:00 ?', 'Prépare le rapport de gestion de cette semaine en PDF'],
 };
 
 export default function AssistantPage({ searchParams }: { searchParams: SP }) {
@@ -21,13 +25,15 @@ export default function AssistantPage({ searchParams }: { searchParams: SP }) {
 
 async function Assistant({ searchParams }: { searchParams: SP }) {
   const p = flat(await searchParams);
+  const t = await getT();
   const user = await currentUser();
   const conversations = user ? listConversations(user.id) : [];
   const conversation = user ? getConversation(user.id, p.c) : null;
   const folded = (await cookies()).get('pai-rail')?.value === 'folded';
   return (
     <div className="assistant-page">
-      <PageHeader title="Ask the dashboard" />
+      <PageHeader title={t('asst.title')} />
+      <OfficialOnly />
       <Chat initial={conversation ? undefined : p.q} examples={EXAMPLES} conversations={conversations} conversation={conversation} folded={folded} />
     </div>
   );

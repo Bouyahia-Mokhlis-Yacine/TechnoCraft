@@ -5,8 +5,12 @@ import type { Metadata } from 'next';
 import { simulatorBaseline, valueCurve } from '@/lib/insights';
 import { ReviewCost, WhatIf } from '@/components/simulator';
 import { PageHeader } from '@/components/ui';
+import { getT } from '@/lib/i18n/server';
+import { OfficialOnly } from '@/components/dataset';
 
-export const metadata: Metadata = { title: 'Simulator' };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: (await getT())('nav.simulator') };
+}
 
 export default function SimulatePage() {
   return <Suspense fallback={<SimulatorSkeleton />}><Simulate /></Suspense>;
@@ -14,16 +18,18 @@ export default function SimulatePage() {
 
 async function Simulate() {
   await connection();
+  const t = await getT();
   const base = simulatorBaseline(), v = valueCurve();
   return (
     <>
-      <PageHeader title="Simulator" />
+      <PageHeader title={t('nav.simulator')} />
+      <OfficialOnly />
       <section className="panel m-rise">
-        <div className="panel-head"><div><h2>What if a disruption hits?</h2><p>Hypothetical impact using the published forecast</p></div></div>
+        <div className="panel-head"><div><h2>{t('sim.whatIf')}</h2><p>{t('sim.whatIfSub')}</p></div></div>
         <WhatIf base={base} />
       </section>
       <section className="panel m-rise" style={{ '--i': 1 } as React.CSSProperties}>
-        <div className="panel-head"><div><h2>Review cost vs missed anomalies</h2><p>Illustrative costs applied to the frozen Sequential Detection development results</p></div></div>
+        <div className="panel-head"><div><h2>{t('sim.costTitle')}</h2><p>{t('sim.costSub')}</p></div></div>
         <ReviewCost curve={v.curve} policy={v.policy} trainEnd={v.trainEnd} />
       </section>
     </>

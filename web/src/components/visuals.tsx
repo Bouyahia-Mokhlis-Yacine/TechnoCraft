@@ -3,16 +3,20 @@
 import Link from 'next/link';
 import { ArrowRight, CircleHelp, Cog, UserRound, Wrench } from 'lucide-react';
 import type { Severity } from '@/lib/api';
-import { fmtInt, fmtNum } from '@/lib/format';
+import { fmtInt, fmtNum, fmtPct, na } from '@/lib/format';
+import { makeT, type Key, type Vars } from '@/lib/i18n';
+
+// server components: the request locale was set by the page (getT)
+const tr = (key: string, vars?: Vars) => makeT()(key as Key, vars);
 
 const css = (o: Record<string, string | number>) => o as React.CSSProperties;
 type Unit = 'tx' | 'ratio' | 'DZD';
 
 /** Short value for gauges: 18, 3,5 %, 37 k DZD */
 export function fmtShort(v: number | null, unit: Unit) {
-  if (v === null) return 'n/a';
-  if (unit === 'ratio') return `${fmtNum(v * 100, v < 0.1 ? 1 : 0)} %`;
-  if (unit === 'DZD') return v >= 1e6 ? `${fmtNum(v / 1e6, 1)} M DZD` : v >= 1e4 ? `${fmtInt(v / 1e3)} k DZD` : `${fmtInt(v)} DZD`;
+  if (v === null) return na();
+  if (unit === 'ratio') return fmtPct(v, v < 0.1 ? 1 : 0);
+  if (unit === 'DZD') return v >= 1e6 ? `${fmtNum(v / 1e6, 1)}\u00a0M\u00a0DZD` : v >= 1e4 ? `${fmtInt(v / 1e3)}\u00a0k\u00a0DZD` : `${fmtInt(v)}\u00a0DZD`;
   return fmtInt(v);
 }
 
@@ -24,7 +28,7 @@ export function Gauge({ observed, expected, lo = null, hi = null, unit, severity
   observed: number | null; expected: number | null; lo?: number | null; hi?: number | null; unit: Unit;
   severity?: Severity | 'normal'; size?: 'sm' | 'lg'; label: string; tone?: 'surface' | 'hero';
 }) {
-  if (observed === null) return <span className="muted">Observation unavailable</span>;
+  if (observed === null) return <span className="muted">{tr('vis.unavailable')}</span>;
   const max = Math.max(observed, expected ?? 0, hi ?? 0) * 1.15 || 1;
   const pc = (v: number) => `${Math.min(100, Math.max(0, (v / max) * 100))}%`;
   return (
@@ -55,7 +59,7 @@ export function GaugeCell(p: { observed: number | null; expected: number | null;
   );
 }
 
-const OWNER_ICON: Record<string, typeof UserRound> = { 'Operations analyst': UserRound, 'Technical investigator': Wrench, 'technical investigator': Wrench };
+const OWNER_ICON: Record<string, typeof UserRound> = { 'Operations analyst': UserRound, 'Technical investigator': Wrench, 'technical investigator': Wrench, 'Analyste d’exploitation': UserRound, 'Enquêteur technique': Wrench, 'enquêteur technique': Wrench };
 
 /** Who acts and the checks in order. The cause stays unconfirmed. */
 export function NextSteps({ owner, steps, href }: { owner: string; steps: string[]; href?: { to: string; label: string } }) {
@@ -64,7 +68,7 @@ export function NextSteps({ owner, steps, href }: { owner: string; steps: string
     <div className="next-steps">
       <div className="ns-owners">{owners.map((o) => { const I = OWNER_ICON[o] ?? Cog; return <span key={o} className="ns-owner"><I aria-hidden />{o[0].toUpperCase() + o.slice(1)}</span>; })}</div>
       <ol className="ns-list">{steps.map((s, i) => <li key={s} className="m-rise" style={css({ '--i': i })}><span className="ns-n">{i + 1}</span>{s}</li>)}</ol>
-      <p className="ns-foot"><CircleHelp aria-hidden />Cause not confirmed by the platform{href && <> · <Link href={href.to}>{href.label} <ArrowRight aria-hidden /></Link></>}</p>
+      <p className="ns-foot"><CircleHelp aria-hidden />{tr('vis.causeUnconfirmed')}{href && <> · <Link href={href.to}>{href.label} <ArrowRight aria-hidden /></Link></>}</p>
     </div>
   );
 }
@@ -75,8 +79,8 @@ export function PriorityStack({ total, parts }: { total: number; parts: { key: s
   return (
     <div className="prio-stack">
       <div className="ps-row"><b className="ps-total num">{total}<small>/100</small></b>
-      <div className="ps-bar" role="img" aria-label={`Priority ${total} of 100: ${pts.map((p) => `${p.label} ${fmtNum(p.pts, 0)} of ${fmtNum(p.weight * 100, 1)}`).join(', ')}`}>
-        {pts.map((p, i) => <span key={p.key} className={`ps-seg ps-${p.key} m-grow-x`} style={css({ width: `${p.pts}%`, '--i': i })} title={`${p.label}: ${fmtNum(p.pts, 0)} of ${fmtNum(p.weight * 100, 1)} points`} />)}
+      <div className="ps-bar" role="img" aria-label={tr('vis.priorityAria', { total, parts: pts.map((p) => tr('vis.ptsOf', { label: p.label, pts: fmtNum(p.pts, 0), of: fmtNum(p.weight * 100, 1) })).join(', ') })}>
+        {pts.map((p, i) => <span key={p.key} className={`ps-seg ps-${p.key} m-grow-x`} style={css({ width: `${p.pts}%`, '--i': i })} title={tr('vis.ptsOfTitle', { label: p.label, pts: fmtNum(p.pts, 0), of: fmtNum(p.weight * 100, 1) })} />)}
       </div></div>
       <ul className="ps-legend">
         {pts.map((p) => (
@@ -101,14 +105,14 @@ export function MerchantTiles({ items }: { items: { id: string; k: number; n: nu
           const state = m.flagged ? 'flagged' : m.affected ? 'affected' : 'normal';
           return (
             <Link key={m.id} href={`/merchants/${m.id}`} className={`m-tile t-${state} m-pop`} style={css({ '--fill': `${r * 100}%`, '--delay': `${Math.min(i, 24) * 20}ms` })}
-              aria-label={`${m.id}: ${m.k} of ${m.n} declined${m.flagged ? ', flagged' : m.affected ? ', corroborated' : ''}`} title={`${m.id} · ${m.k} of ${m.n} declined`}>
+              aria-label={`${m.id} : ${tr('vis.declinedOf', { k: m.k, n: m.n })}${m.flagged ? `, ${tr('vis.flagged').toLowerCase()}` : m.affected ? `, ${tr('vis.corroborated').toLowerCase()}` : ''}`} title={`${m.id} · ${tr('vis.declinedOf', { k: m.k, n: m.n })}`}>
               <span className="mt-fill" /><span className="mt-id">{m.id.replace('MER-', '')}</span><span className="mt-r num">{m.k}/{m.n}</span>
             </Link>
           );
         })}
       </div>
       <div className="legend m-tiles-legend">
-        <span><i className="lg-flagged" />Flagged</span><span><i className="lg-affected" />Corroborated</span><span><i className="lg-normal" />Normal</span><span><i className="lg-fill" />Fill = share declined</span>
+        <span><i className="lg-flagged" />{tr('vis.flagged')}</span><span><i className="lg-affected" />{tr('vis.corroborated')}</span><span><i className="lg-normal" />{tr('sev.normal')}</span><span><i className="lg-fill" />{tr('vis.fill')}</span>
       </div>
     </>
   );
@@ -152,16 +156,17 @@ export function HitDots({ hit, miss, falsePos }: { hit: number; miss: number; fa
   const dots = [...Array(hit).fill('hit'), ...Array(miss).fill('miss'), ...Array(falsePos).fill('false')];
   return (
     <div className="hit-dots">
-      <div className="hd-grid" role="img" aria-label={`${hit} labelled anomaly days caught, ${miss} missed, ${falsePos} false alerts`}>
+      <div className="hd-grid" role="img" aria-label={tr('vis.hitDots', { hit, miss, fp: falsePos })}>
         {dots.map((d, i) => <i key={i} className={`hd hd-${d} m-pop`} style={css({ '--delay': `${Math.min(i, 30) * 18}ms` })} />)}
       </div>
-      <div className="legend"><span><i className="lg-hit" />{hit} caught</span><span><i className="lg-miss" />{miss} missed</span><span><i className="lg-false" />{falsePos} false alerts</span></div>
+      <div className="legend"><span><i className="lg-hit" />{tr('vis.caught', { n: hit })}</span><span><i className="lg-miss" />{tr('vis.missed', { n: miss })}</span><span><i className="lg-false" />{tr('vis.falseAlerts', { n: falsePos })}</span></div>
     </div>
   );
 }
 
 /** Small "i" disclosure for method notes: shown on demand, not by default. */
-export function MethodNote({ children, label = 'How it’s computed' }: { children: React.ReactNode; label?: string }) {
+export function MethodNote({ children, label }: { children: React.ReactNode; label?: string }) {
+  label ??= tr('common.howComputed');
   return <details className="method"><summary><CircleHelp aria-hidden />{label}</summary><div className="method-body">{children}</div></details>;
 }
 
@@ -199,7 +204,7 @@ export function Counterfactuals({ items, severity, threshold }: { items: CF[]; s
           </div>
         );
       })}
-      <p className="ns-foot"><CircleHelp aria-hidden />Bounds come from the engine’s own tests at the alert threshold ({threshold}).</p>
+      <p className="ns-foot"><CircleHelp aria-hidden />{tr('vis.bounds', { threshold })}</p>
     </div>
   );
 }
@@ -210,11 +215,15 @@ export function HealthMeter({ score, parts, coverage }: { score: number | null; 
     <div className="hm">
       <div className="hm-top">
         <b className={`hm-score num hm-${score === null ? 'unknown' : score >= 80 ? 'ok' : score >= 50 ? 'watch' : 'issue'}`}>{score ?? '—'}<small>/100</small></b>
-        <div className="hm-bar" role="img" aria-label={`Health ${score ?? 'unknown'} of 100. ${parts.map((p) => `${p.label}: ${p.level}`).join(', ')}`}>
-          {parts.map((p, i) => <span key={p.label} className={`hm-seg hm-${p.level} m-grow-x`} style={css({ flexGrow: p.weight, '--i': i })} title={`${p.label}: ${p.level} · ${p.detail}`} />)}
+        <div className="hm-bar" role="img" aria-label={tr('vis.healthAria', { score: score ?? tr('health.unknown'), parts: parts.map((p) => `${p.label} : ${tr(`health.${p.level}`)}`).join(', ') })}>
+          {parts.map((p, i) => <span key={p.label} className={`hm-seg hm-${p.level} m-grow-x`} style={css({ flexGrow: p.weight, '--i': i })} title={`${p.label} : ${tr(`health.${p.level}`)} · ${p.detail}`} />)}
         </div>
       </div>
-      {coverage < 0.999 && <p className="ns-foot"><CircleHelp aria-hidden />Based on {Math.round(coverage * 100)} % of the components; the rest have no data yet.</p>}
+      {coverage < 0.999 && <p className="ns-foot"><CircleHelp aria-hidden />{tr('vis.coverage', { pct: fmtPct(coverage, 0) })}</p>}
+      <MethodNote>
+        {tr('vis.hmRule')}
+        <ul className="hm-criteria">{parts.map((p) => <li key={p.label}><b>{p.label}</b> · {tr('vis.hmWeight', { w: fmtPct(p.weight, 0) })} · {tr(`health.${p.level}`)}{p.level === 'unknown' ? ` (${tr('vis.hmExcluded')})` : ''}</li>)}</ul>
+      </MethodNote>
     </div>
   );
 }

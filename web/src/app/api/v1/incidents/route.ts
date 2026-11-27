@@ -6,8 +6,8 @@ import { snapshot } from '@/lib/snapshot';
 
 export async function GET(req: NextRequest) {
   if (!userOf(req)) return fail(401, 'unauthenticated', 'Sign in first.');
-  const run = snapshot();
+  const p = params(req), run = snapshot(p.run);
   return Response.json({ run_id: run.run.run_id,
-    incidents: listIncidents(params(req)).map((i) => ({ ...i, latest: undefined })),
+    incidents: listIncidents(p, p.run).map((i) => ({ ...i, latest: undefined })),
     collective_priority: run.priority_queue.filter((i) => i.kind === 'collective_advisory') });
 }

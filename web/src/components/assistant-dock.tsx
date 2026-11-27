@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Maximize2, Sparkles, SquarePen, X } from 'lucide-react';
 import { Chat } from './chat';
+import { useT } from './i18n';
+import type { Key, T } from '@/lib/i18n';
 import { AskSelection, PickOverlay } from './page-select';
 import { MAX_SELECTIONS, type Selection } from '@/lib/selection';
 
@@ -20,34 +22,36 @@ const clampPos = (p: Pos, el: HTMLElement | null): Pos => {
 };
 
 /** Short name of the page, as the panel header shows it. */
-function pageName(path: string): string {
+function pageName(path: string, t: T): string {
   const [a, b] = path.split('/').filter(Boolean);
-  if (!a) return 'Network overview';
-  const names: Record<string, string> = { incidents: 'Incidents', alerts: 'Alerts', merchants: 'Merchants', intelligence: 'Network intelligence', transactions: 'Transactions', reports: 'Reports', data: 'Data & runs', simulate: 'Simulator' };
-  if (!b) return names[a] ?? a;
-  if (a === 'alerts') return `Alert ${decodeURIComponent(b).replace('_', ' · ')}`;
-  if (a === 'reports') return 'Report';
-  return `${{ incidents: 'Incident', merchants: 'Merchant', intelligence: 'Advisory' }[a] ?? names[a] ?? a} ${b}`;
+  if (!a) return t('ov.title');
+  const names: Record<string, Key> = { incidents: 'nav.incidents', alerts: 'nav.alerts', merchants: 'nav.merchants', intelligence: 'intel.title', transactions: 'nav.transactions', reports: 'nav.reports', data: 'nav.data', simulate: 'nav.simulator', admin: 'nav.accounts' };
+  if (!b) return names[a] ? t(names[a]) : a;
+  if (a === 'alerts') return t('dock.alert', { id: decodeURIComponent(b).replace('_', ' · ') });
+  if (a === 'reports') return t('rep.report');
+  const kind: Record<string, Key> = { incidents: 'inc.incident', merchants: 'f.merchant', intelligence: 'dock.advisory' };
+  return `${kind[a] ? t(kind[a]) : names[a] ? t(names[a]) : a} ${decodeURIComponent(b)}`;
 }
 
-/** Questions worth asking on each kind of page. */
-function suggestionsFor(path: string): string[] {
+/** Questions worth asking on each kind of page, in the interface language. */
+function suggestionsFor(path: string, t: T): string[] {
   const [a, b] = path.split('/').filter(Boolean);
-  if (!a) return ['What stands out on this page?', 'Explain the Network activity chart', 'Which channel changed the most?', 'What should I look at first?'];
-  if (b && a === 'merchants') return ['Explain this merchant’s health score', 'What does the Transactions per day chart show?', 'What stands out for this merchant?', 'What should I check first?'];
-  if (b && a === 'incidents') return ['Why does this incident rank here?', 'Explain the possible causes', 'What does the timeline show?', 'What should I check first?'];
-  if (b && a === 'alerts') return ['Explain this alert in plain words', 'What would have been normal?', 'Which hours and channels were affected?', 'What should I check first?'];
-  if (b && a === 'intelligence') return ['Explain this advisory', 'Which merchants were hit the hardest?', 'Is the cause confirmed?'];
-  if (b && a === 'reports') return ['Summarise this report', 'What stands out in it?', 'Add a section on open incidents to this report'];
-  if (a === 'reports') return ['Summarise this report', 'Make me a report on this week’s alerts with explanations and the open incidents', 'Compare MER-6434 and MER-1494 in a PDF'];
-  if (a === 'data') return ['How reliable is the engine?', 'Explain the Calibration panel', 'What did the data cleaning change?'];
-  if (a === 'simulate') return ['How do I read the review cost chart?', 'What if e-commerce goes down for 3 hours tomorrow at 10:00?'];
-  if (a === 'intelligence') return ['Explain the collective anomalies', 'What is a network advisory?'];
-  return ['Summarise what this list shows', 'What stands out here?'];
+  const list = (key: string) => t(`dock.q.${key}` as Key).split(' | ');
+  if (!a) return list('overview');
+  if (b && a === 'merchants') return list('merchant');
+  if (b && a === 'incidents') return list('incident');
+  if (b && a === 'alerts') return list('alert');
+  if (b && a === 'intelligence') return list('advisory');
+  if (b && a === 'reports') return list('report');
+  if (a === 'reports') return list('reports');
+  if (a === 'data') return list('data');
+  if (a === 'simulate') return list('simulate');
+  if (a === 'intelligence') return list('intelligence');
+  return list('list');
 }
 
 export function AssistantDock() {
-  const path = usePathname(), search = useSearchParams().toString(), router = useRouter();
+  const path = usePathname(), search = useSearchParams().toString(), router = useRouter(), t = useT();
   const [open, setOpen] = useState(false);
   const [session, setSession] = useState(0);            // bumps to start a new conversation
   const [convId, setConvId] = useState<string | null>(null);
@@ -110,24 +114,24 @@ export function AssistantDock() {
   }, [open]);
 
   if (path === '/assistant') return null;                // the full assistant is already on screen
-  const name = pageName(path);
+  const name = pageName(path, t);
   return (
     <div className="dock no-print" style={{ viewTransitionName: 'assistant-dock' }}>
-      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}`} onClick={openPanel} aria-label="Ask the assistant about this page" title="Ask the assistant" aria-expanded={open}>
+      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}`} onClick={openPanel} aria-label={t('dock.launch')} title={t('dock.launchShort')} aria-expanded={open}>
         <Sparkles aria-hidden />
       </button>
       <AskSelection onAsk={attach} />
       {picking && <PickOverlay onPick={attach} onCancel={cancelPick} />}
-      <section ref={panel} className={`dock-panel${open ? ' open' : ''}${pos ? ' moved' : ''}${picking ? ' picking' : ''}`} role="dialog" aria-label="Assistant" inert={!open}
+      <section ref={panel} className={`dock-panel${open ? ' open' : ''}${pos ? ' moved' : ''}${picking ? ' picking' : ''}`} role="dialog" aria-label={t('nav.assistant')} inert={!open}
         style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}>
-        <header className="dock-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onDoubleClick={resetPos} title="Drag to move · double-click to put it back">
-          <span className="dock-title"><Sparkles aria-hidden /><span><b>Assistant</b><small>On {name}</small></span></span>
-          <button type="button" onClick={() => { setSession((n) => n + 1); setConvId(null); setAttachments(() => []); }} aria-label="New conversation" title="New conversation"><SquarePen aria-hidden /></button>
-          <Link href={convId ? `/assistant?c=${convId}` : '/assistant'} onClick={() => setOpen(false)} aria-label="Open in the assistant page" title="Open in the assistant page"><Maximize2 aria-hidden /></Link>
-          <button type="button" onClick={() => { setOpen(false); launcher.current?.focus(); }} aria-label="Close the assistant" title="Close"><X aria-hidden /></button>
+        <header className="dock-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onDoubleClick={resetPos} title={t('dock.drag')}>
+          <span className="dock-title"><Sparkles aria-hidden /><span><b>{t('nav.assistant')}</b><small>{t('dock.on', { page: name })}</small></span></span>
+          <button type="button" onClick={() => { setSession((n) => n + 1); setConvId(null); setAttachments(() => []); }} aria-label={t('chat.new')} title={t('chat.new')}><SquarePen aria-hidden /></button>
+          <Link href={convId ? `/assistant?c=${convId}` : '/assistant'} onClick={() => setOpen(false)} aria-label={t('dock.openPage')} title={t('dock.openPage')}><Maximize2 aria-hidden /></Link>
+          <button type="button" onClick={() => { setOpen(false); launcher.current?.focus(); }} aria-label={t('dock.close')} title={t('common.close')}><X aria-hidden /></button>
         </header>
-        <Chat key={session} variant="dock" page={{ path, search }} onConversation={setConvId} emptyTitle="Ask about this page"
-          examples={{ en: suggestionsFor(path), fr: [] }} conversations={[]} conversation={null}
+        <Chat key={session} variant="dock" page={{ path, search }} onConversation={setConvId} emptyTitle={t('dock.emptyTitle')}
+          examples={{ en: suggestionsFor(path, t), fr: suggestionsFor(path, t) }} conversations={[]} conversation={null}
           attachments={attachments} onRemoveAttachment={(i) => setAttachments((a) => a.filter((_, j) => j !== i))} onSent={() => setAttachments(() => [])}
           onPick={() => setPicking((v) => !v)} picking={picking}
           // the report on screen was just changed: show the new version in place

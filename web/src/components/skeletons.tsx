@@ -1,4 +1,5 @@
 // Loading skeletons that mirror each page's real layout: same header, filter bar, grids, panel
+import { makeT } from '@/lib/i18n';
 // sizes and dark hero, so content fills in place instead of jumping. Heights are the measured
 // heights of the real panels at 1366 px; they stretch naturally on other widths.
 const css = (o: Record<string, string | number>) => o as React.CSSProperties;
@@ -85,11 +86,11 @@ function Table({ cols, rows }: { cols: number[]; rows: number }) {
 }
 
 const Note = () => <Bar w={150} h={14} />;
-const wrap = (children: React.ReactNode) => <div className="sk-page" aria-busy="true" aria-label="Loading">{children}</div>;
+const wrap = (children: React.ReactNode) => <div className="sk-page" aria-busy="true" aria-label={makeT()('common.loading')}>{children}</div>;
 
 /* ── one skeleton per page ─────────────────────────────────────────── */
 export const OverviewSkeleton = () => wrap(<>
-  <Header title="Network overview" />
+  <Header />
   <Filters fields={5} />
   <div className="ov">
     <div className="stack"><Kpis n={6} cols="three" h={206} /><Panel h={368} sub={false} body="block" /><Panel h={224} body="tiles" rows={3} className="sk-signals" /></div>
@@ -113,7 +114,7 @@ export const IncidentSkeleton = () => wrap(<>
 </>);
 
 export const AlertSkeleton = () => wrap(<>
-  <Header title="Alert explanation" crumbs actions={1} />
+  <Header crumbs actions={1} />
   <div className="detail-grid">
     <div className="stack"><Hero h={292} /><Panel h={185} sub={false} body="lines" rows={3} /><Panel h={284} sub={false} body="bars" rows={2} /><Panel h={329} sub={false} body="rows" rows={3} /></div>
     <div className="stack"><Panel h={345} body="block" /><Panel h={367} body="bars" rows={5} /><Panel h={268} body="block" /></div>
@@ -129,7 +130,7 @@ export const AdvisorySkeleton = () => wrap(<>
 </>);
 
 export const IntelligenceSkeleton = () => wrap(<>
-  <Header title="Network intelligence" />
+  <Header />
   <section className="panel sk-panel" style={{ minHeight: 128 }}><div className="sk-head"><Bar w={110} h={11} /><Bar w={360} h={20} r={6} /><Bar w={300} h={12} /></div></section>
   <div className="sk-head"><Bar w={220} h={20} r={6} /><Bar w={340} h={11} /></div>
   <section className="panel sk-panel" style={{ minHeight: 166 }}><div className="sk-head"><Bar w={240} h={11} /><Bar w={420} h={20} r={6} /><Bar w={360} h={10} r={99} /></div></section>
@@ -147,7 +148,7 @@ export const MerchantSkeleton = () => wrap(<>
 </>);
 
 export const ReportsSkeleton = () => wrap(<>
-  <Header title="Reports" actions={2} />
+  <Header actions={2} />
   <Filters fields={2} />
   <article className="panel report sk-panel" style={{ minHeight: 848 }}>
     <div className="sk-head"><Bar w={200} h={11} /><Bar w={460} h={28} r={8} /><Bar w={280} h={12} /></div>
@@ -158,7 +159,7 @@ export const ReportsSkeleton = () => wrap(<>
 </>);
 
 export const DataSkeleton = () => wrap(<>
-  <Header title="Data & runs" />
+  <Header />
   <Panel h={197} body="tiles" rows={7} className="sk-pipeline" />
   <div className="ov">
     <div className="stack"><Panel h={416} sub={false} body="bars" rows={6} /><Panel h={322} body="block" /><Panel h={342} body="block" /></div>
@@ -177,7 +178,7 @@ export const AssistantSkeleton = () => wrap(
 );
 
 export const SimulatorSkeleton = () => wrap(<>
-  <Header title="Simulator" />
+  <Header />
   <Panel h={639} body="block" />
   <Panel h={541} body="block" />
 </>);

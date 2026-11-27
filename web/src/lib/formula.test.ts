@@ -17,8 +17,17 @@ for (const bad of ['', 'transactions +', '(declined', 'declined)', 'foo / 2', 'p
 const u = parse('declined / transactions');
 assert.deepEqual(u.ok ? u.uses : null, ['declined', 'transactions']);
 
+assert.equal(parse('accepted_value + transactions').ok, false);                  // DZD + count
+assert.equal(parse('accepted_value - affected_value').ok, true);                   // DZD - DZD
+assert.equal(parse('accepted_value / accepted + 5').ok, true);                     // DZD per event + constant
+assert.equal(parse('declined / transactions + accepted_value / attempted_value').ok, true);   // ratio + ratio
+const mix = parse('open_incidents / merchants_flagged');
+assert.ok(mix.ok && mix.mixesNow);                                                 // "now" state with a period measure
+const pure = parse('critical_incidents / open_incidents');
+assert.ok(pure.ok && !pure.mixesNow);
+
 assert.ok(checkKpis(DEFAULT_KPIS).ok);
-assert.ok(checkKpis(SUGGESTED_KPIS.map((k, i) => ({ ...k, id: `s-${i}` }))).ok);   // every suggestion is a valid formula
+for (const [i, k] of SUGGESTED_KPIS.entries()) assert.ok(checkKpis([{ ...k, id: `s-${i}` }]).ok, k.formula);   // every suggestion is a valid formula
 assert.equal(checkKpis([]).ok, false);
 assert.equal(checkKpis([{ ...DEFAULT_KPIS[0], formula: 'oops(' }]).ok, false);
 assert.equal(checkKpis([{ ...DEFAULT_KPIS[0], chart: 'pie3d' }]).ok, false);

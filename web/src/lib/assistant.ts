@@ -26,7 +26,9 @@ const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,
 /* ── language ── */
 const FR = /\b(pourquoi|quel(le)?s?|commercant|semaine|aujourd|hier|combien|prevision|canal|canaux|incidents? (non|ouverts)|refus|baisse|chute|donne|montre|est-ce|que dois|sante|resume|exposition|demain)\b/;
 const DARIJA = /\b(wach|chhal|3lach|kifach|kayn|dyal|lyoum|lbare7|semana|chno|achno|smahli)\b/;
-export const detectLang = (q: string): Lang => (FR.test(norm(q)) || DARIJA.test(norm(q)) ? 'fr' : 'en');
+const EN = /\b(what|why|which|how|who|when|where|show|explain|compare|give|list|tell|is|are|was|were|the|did|does|should|can|could|would|today|week|yesterday|tomorrow)\b/;
+/** French (or Darija) words → French; English words → English; otherwise the interface language. */
+export const detectLang = (q: string, ui: Lang = 'en'): Lang => (FR.test(norm(q)) || DARIJA.test(norm(q)) ? 'fr' : EN.test(norm(q)) ? 'en' : ui);
 
 const T = {
   en: {
@@ -267,7 +269,7 @@ function hybrid(c: Ctx, out: Reply) {
   if (!rows.length) out.text.push(c.lang === 'fr' ? 'Aucun résultat pour ce périmètre.' : 'No matching evidence in this period.');
   out.table = { head: ['Merchant', 'Date', 'Fusion score', 'Ordinary ML tail rank', 'Candidate'],
     rows: rows.slice(0, MAX_ROWS).map((r) => [r.merchant_id, r.date, fmtNum(r.v4_advisory_score, 3), fmtPct(r.v4_ordinary_rank, 2), r.investigation_candidate ? 'Yes' : '—']) };
-  out.evidence.push({ label: 'Hybrid ML investigation evidence', href: '/intelligence#ml-candidates' });
+  out.evidence.push({ label: 'Hybrid ML investigation evidence', href: '/intelligence?tab=ml' });
 }
 
 function domain(c: Ctx, out: Reply) {

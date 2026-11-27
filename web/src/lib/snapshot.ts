@@ -124,8 +124,24 @@ export const runsDir = () => process.env.RUNS_DIR ?? path.join(/*turbopackIgnore
 
 let cache: { directory: string; id: string; snap: Snapshot } | null = null;
 
-/** Latest exported run. Re-reads only when runs/latest.json points to a new run. */
-export function snapshot(): Snapshot {
+const imported = new Map<string, Snapshot>();
+/** An operator-imported run (runs/imports/<id>/snapshot.json): read-only, never the dashboard's run. */
+function importedSnapshot(run: string): Snapshot {
+  if (!/^[a-f0-9]{16}$/.test(run)) throw new Error('Unknown run.');
+  const hit = imported.get(run);
+  if (hit) return hit;
+  const file = path.join(/*turbopackIgnore: true*/ runsDir(), 'imports', run, 'snapshot.json');
+  let snap: Snapshot;
+  try { snap = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { throw new Error(`Imported run ${run} is not available.`); }
+  if (snap.schema_version !== 2 || snap.run.run_id !== run || snap.run.data_status !== 'imported_batch') throw new Error('The imported run failed schema validation.');
+  if (imported.size >= 4) imported.delete(imported.keys().next().value!);
+  imported.set(run, snap);
+  return snap;
+}
+
+/** The official run (latest exported), or an imported run when `run` names one. Re-reads only when runs/latest.json points to a new run. */
+export function snapshot(run?: string | null): Snapshot {
+  if (run) return importedSnapshot(run);
   const dir = runsDir();
   let latest: { run_id: string; path: string; schema_version: number };
   try {

@@ -12,43 +12,47 @@ export const MEASURES = {
   attempted_value: { label: 'Attempted value', unit: 'dzd', help: 'Sum of all non-refund amounts (DZD)' },
   alerts: { label: 'Alerts', unit: 'int', help: 'Official engine alerts (flagged merchant-days)' },
   merchants_flagged: { label: 'Merchants with alerts', unit: 'int', help: 'Distinct merchants with at least one alert' },
-  open_incidents: { label: 'Open incidents', unit: 'int', help: 'Incidents open now (no history: no trend or prior period)' },
-  critical_incidents: { label: 'Critical incidents', unit: 'int', help: 'Open incidents of critical severity, now' },
-  affected_transactions: { label: 'Affected transactions', unit: 'int', help: 'Estimated transaction shortfall of open incidents (engine impact model), now' },
-  affected_value: { label: 'Gross affected activity', unit: 'dzd', help: 'Estimated gross payment activity affected by open incidents (DZD, engine impact model; not a confirmed loss), now' },
+  open_incidents: { label: 'Open incidents', unit: 'int', now: true, help: 'Incidents open now (no history: no trend or prior period)' },
+  critical_incidents: { label: 'Critical incidents', unit: 'int', now: true, help: 'Open incidents of critical severity, now' },
+  affected_transactions: { label: 'Affected transactions', unit: 'int', now: true, help: 'Estimated transaction shortfall of open incidents (engine impact model), now' },
+  affected_value: { label: 'Gross affected activity', unit: 'dzd', now: true, help: 'Estimated gross payment activity affected by open incidents (DZD, engine impact model; not a confirmed loss), now' },
   days: { label: 'Days', unit: 'int', help: 'Number of days in the period (for daily averages)' },
+  expected_transactions: { label: 'Expected transactions', unit: 'int', help: 'Sum of the engine’s expected transaction counts (no channel filter; unavailable while a merchant is still building its reference)' },
+  expected_declines: { label: 'Expected declines', unit: 'int', help: 'Sum of the engine’s expected declines at the observed volume (no channel filter)' },
+  collective_warnings: { label: 'Collective warnings', unit: 'int', help: 'Collective Detection advisories in the period (advisory, not official alerts)' },
+  ml_candidates: { label: 'Hybrid ML candidates', unit: 'int', help: 'Hybrid ML investigation candidates in the period (advisory ranking)' },
 } as const;
 export type Measure = keyof typeof MEASURES;
 export type Values = Partial<Record<Measure, number | null>>;
 
 type Node = { k: 'num'; v: number } | { k: 'var'; name: Measure } | { k: 'neg'; a: Node } | { k: 'op'; op: '+' | '-' | '*' | '/'; a: Node; b: Node };
-export type Parsed = { ok: true; tree: Node; uses: Measure[] } | { ok: false; error: string };
+export type Parsed = { ok: true; tree: Node; uses: Measure[]; mixesNow: boolean } | { ok: false; error: string; code: string; arg?: string };
 
 export const MAX_FORMULA = 200;
 
 export function parse(src: string): Parsed {
-  if (!src.trim()) return { ok: false, error: 'Write a formula, e.g. declined / transactions' };
-  if (src.length > MAX_FORMULA) return { ok: false, error: `Keep formulas under ${MAX_FORMULA} characters` };
+  if (!src.trim()) return { ok: false, error: 'Write a formula, e.g. declined / transactions', code: 'empty' };
+  if (src.length > MAX_FORMULA) return { ok: false, error: `Keep formulas under ${MAX_FORMULA} characters`, code: 'long', arg: String(MAX_FORMULA) };
   const toks: string[] = [];
   const re = /\s*(\d+(?:\.\d+)?|[a-z_][a-z0-9_]*|[-+*/()×÷])/gy;
   let m: RegExpExecArray | null, at = 0;
   while (at < src.length && (m = re.exec(src))) { toks.push(m[1] === '×' ? '*' : m[1] === '÷' ? '/' : m[1]); at = re.lastIndex; }
-  if (src.slice(at).trim()) return { ok: false, error: `Unexpected “${src.slice(at).trim()[0]}”: use measure names, numbers, + − × ÷ and ( )` };
+  if (src.slice(at).trim()) return { ok: false, error: `Unexpected “${src.slice(at).trim()[0]}”: use measure names, numbers, + − × ÷ and ( )`, code: 'char', arg: src.slice(at).trim()[0] };
   const uses = new Set<Measure>();
   let i = 0;
-  const fail = (msg: string): never => { throw new Error(msg); };
+  const fail = (msg: string, code = 'syntax', arg?: string): never => { throw Object.assign(new Error(msg), { code, arg }); };
   const factor = (): Node => {
     const t = toks[i++];
-    if (t === undefined) return fail('The formula ends too early');
+    if (t === undefined) return fail('The formula ends too early', 'early');
     if (t === '-') return { k: 'neg', a: factor() };
-    if (t === '(') { const e = expr(); if (toks[i++] !== ')') fail('A “(” is not closed'); return e; }
+    if (t === '(') { const e = expr(); if (toks[i++] !== ')') fail('A “(” is not closed', 'open'); return e; }
     if (/^\d/.test(t)) return { k: 'num', v: Number(t) };
     if (/^[a-z_]/.test(t)) {
-      if (!(t in MEASURES)) fail(`Unknown measure “${t}”`);
+      if (!(t in MEASURES)) fail(`Unknown measure “${t}”`, 'measure', t);
       uses.add(t as Measure);
       return { k: 'var', name: t as Measure };
     }
-    return fail(`Unexpected “${t}”`);
+    return fail(`Unexpected “${t}”`, 'token', t);
   };
   const term = (): Node => {
     let n = factor();
@@ -62,9 +66,30 @@ export function parse(src: string): Parsed {
   };
   try {
     const tree = expr();
-    if (i < toks.length) fail(toks[i] === ')' ? 'A “)” has no matching “(”' : `Unexpected “${toks[i]}”`);
-    return { ok: true, tree, uses: [...uses] };
-  } catch (e) { return { ok: false, error: (e as Error).message }; }
+    if (i < toks.length) fail(toks[i] === ')' ? 'A “)” has no matching “(”' : `Unexpected “${toks[i]}”`, toks[i] === ')' ? 'close' : 'token', toks[i]);
+    unitOf(tree);
+    const now = [...uses].filter((u) => 'now' in MEASURES[u]);
+    return { ok: true, tree, uses: [...uses], mixesNow: now.length > 0 && now.length < [...uses].filter((u) => u !== 'days').length };
+  } catch (e) { const x = e as Error & { code?: string; arg?: string }; return { ok: false, error: x.message, code: x.code ?? 'syntax', arg: x.arg }; }
+}
+
+/** Units of a formula: amounts (DZD) and counts cannot be added or subtracted; ratios of like units are plain numbers. */
+type Unit = 'n' | 'count' | 'dzd' | 'other';
+function unitOf(t: Node): Unit {
+  switch (t.k) {
+    case 'num': return 'n';
+    case 'var': return MEASURES[t.name].unit === 'dzd' ? 'dzd' : 'count';
+    case 'neg': return unitOf(t.a);
+    case 'op': {
+      const a = unitOf(t.a), b = unitOf(t.b);
+      if (t.op === '+' || t.op === '-') {
+        if (a !== 'n' && b !== 'n' && a !== b) throw Object.assign(new Error('Amounts (DZD) and counts cannot be added or subtracted'), { code: 'units' });
+        return a === 'n' ? b : a;
+      }
+      if (t.op === '*') return a === 'n' ? b : b === 'n' ? a : 'other';
+      return b === 'n' ? a : a === b ? 'n' : a === 'dzd' && b === 'count' ? 'dzd' : 'other';
+    }
+  }
 }
 
 /** null when a measure is unavailable (e.g. no prior period) or a division by zero. */
@@ -99,17 +124,33 @@ export const SUGGESTED_KPIS: Omit<KpiCard, 'id'>[] = [
   { label: 'Critical incidents', formula: 'critical_incidents', format: 'int', chart: 'number', good: 'down' },
   { label: 'Gross affected activity', formula: 'affected_value', format: 'dzd', chart: 'number', good: 'down' },
   { label: 'Average ticket', formula: 'accepted_value / accepted', format: 'dzd', chart: 'line', good: 'none' },
-  { label: 'Transactions per day', formula: 'transactions / days', format: 'num', chart: 'line', good: 'up' },
+  { label: 'Expected transactions', formula: 'expected_transactions', format: 'int', chart: 'line', good: 'none' },
+  { label: 'Activity vs expected', formula: 'transactions / expected_transactions', format: 'pct', chart: 'line', good: 'none' },
+  { label: 'Excess declines', formula: 'declined - expected_declines', format: 'num', chart: 'bars', good: 'down' },
+  { label: 'Collective warnings', formula: 'collective_warnings', format: 'int', chart: 'bars', good: 'down' },
+  { label: 'Hybrid ML candidates', formula: 'ml_candidates', format: 'int', chart: 'bars', good: 'down' },
+  { label: 'Transactions per day', formula: 'transactions / days', format: 'num', chart: 'line', good: 'none' },
 ];
 
 export const DEFAULT_KPIS: KpiCard[] = [
-  { id: 'transactions', label: 'Transactions', formula: 'transactions', format: 'int', chart: 'number', good: 'up' },
-  { id: 'accepted-value', label: 'Accepted value', formula: 'accepted_value', format: 'dzd', chart: 'number', good: 'up' },
-  { id: 'attempted-value', label: 'Attempted value', formula: 'attempted_value', format: 'dzd', chart: 'number', good: 'up' },
+  { id: 'transactions', label: 'Transactions', formula: 'transactions', format: 'int', chart: 'number', good: 'none' },
+  { id: 'accepted-value', label: 'Accepted value', formula: 'accepted_value', format: 'dzd', chart: 'number', good: 'none' },
+  { id: 'attempted-value', label: 'Attempted value', formula: 'attempted_value', format: 'dzd', chart: 'number', good: 'none' },
   { id: 'decline-rate', label: 'Decline rate', formula: 'declined / transactions', format: 'pct', chart: 'number', good: 'down' },
   { id: 'merchants-flagged', label: 'Merchants with alerts', formula: 'merchants_flagged', format: 'int', chart: 'number', good: 'down' },
   { id: 'open-incidents', label: 'Open incidents', formula: 'open_incidents', format: 'int', chart: 'number', good: 'down' },
 ];
+
+/** A card's name in the operator's language: default and suggested cards keep their translated name
+ *  until the operator renames them (an edited name is shown as written). */
+export function kpiLabel(card: Pick<KpiCard, 'id' | 'label' | 'formula'>, t: (key: never) => string): string {
+  const tr = t as unknown as (key: string) => string;
+  const builtIn = DEFAULT_KPIS.find((d) => d.id === card.id && d.label === card.label) ?? SUGGESTED_KPIS.find((d) => d.label === card.label && d.formula === card.formula);
+  if (!builtIn) return card.label;
+  const key = `kpi.name.${builtIn.formula}`;
+  const s = tr(key);
+  return s === key ? card.label : s;
+}
 
 /** Validate cards sent by a client: the trust boundary for saved dashboards. */
 export function checkKpis(raw: unknown): { ok: true; kpis: KpiCard[] } | { ok: false; error: string } {

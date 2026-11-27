@@ -1,11 +1,12 @@
 // Deterministic scenario arithmetic on the exported forecast and historical channel mix.
+import { intlLocale, type Locale } from './format';
 type Merchant = { id: string; category: string; expected: number[]; share: Record<string, number[]>[];
   valuePerEvent: (number | null)[]; rejectionRate: (number | null)[] };
 export type Baseline = { asOf: string; from: string; channels: string[]; categories: string[]; merchants: Merchant[] };
 export type Curve = { threshold: number; tp: number; fp: number; fn: number; flagged: number }[];
 
-export const fmt = (v: number, d = 0) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: d, minimumFractionDigits: d }).format(v);
-export const dzd = (v: number) => (v >= 1e6 ? `${fmt(v / 1e6, 1)} M DZD` : v >= 1e4 ? `${fmt(v / 1e3)} k DZD` : `${fmt(v)} DZD`);
+export const fmt = (v: number, d = 0, l?: Locale) => new Intl.NumberFormat(intlLocale(l), { maximumFractionDigits: d, minimumFractionDigits: d }).format(v);
+export const dzd = (v: number, l?: Locale) => (v >= 1e6 ? `${fmt(v / 1e6, 1, l)}\u00a0M\u00a0DZD` : v >= 1e4 ? `${fmt(v / 1e3, 0, l)}\u00a0k\u00a0DZD` : `${fmt(v, 0, l)}\u00a0DZD`);
 
 
 export interface Scenario {

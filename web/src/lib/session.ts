@@ -65,7 +65,7 @@ export function pageOf(pathname: string): PageKey | 'admin' | null {
   if (pathname.startsWith('/admin') || p.startsWith('/accounts')) return 'admin';
   if (pathname.startsWith('/api/v1/')) {
     // API resources map onto the page that shows them
-    const api: Record<string, PageKey> = { overview: 'overview', kpis: 'overview', forecasts: 'overview', incidents: 'incidents', anomalies: 'alerts', advisories: 'intelligence', assistant: 'assistant', reports: 'reports', runs: 'data' };
+    const api: Record<string, PageKey> = { imports: 'data', overview: 'overview', kpis: 'overview', forecasts: 'overview', incidents: 'incidents', anomalies: 'alerts', advisories: 'intelligence', assistant: 'assistant', reports: 'reports', runs: 'data' };
     const [res, kind] = p.split('/').filter(Boolean);
     if (res === 'export') return kind === 'transactions' ? 'transactions' : kind === 'anomalies' ? 'alerts' : kind === 'incidents' ? 'incidents' : null;
     return api[res] ?? null;

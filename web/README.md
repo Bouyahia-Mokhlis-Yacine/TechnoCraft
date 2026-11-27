@@ -31,6 +31,15 @@ The administrator creates every other account on **Accounts** (`/admin`) and cho
 
 Only the administrator sees the audit ledger and manages accounts. Passwords are scrypt hashes in `runs/accounts.json`. Five wrong passwords lock the username for a minute. Editing an account or resetting its password signs out its open sessions. Every account change is written to the audit ledger.
 
+## Import transactions
+
+**Data & runs → Import transactions** (administrator only) analyses an operator-supplied CSV with the frozen engine (`python -m engine.import_batch`). The file is validated on the server (columns, timestamps, amounts, exact duplicates, date range, coverage) with blocking errors separated from warnings the cleaning pipeline handles, and a card-free preview. The CSV template is at `/api/v1/imports/template`.
+
+- **Coverage.** *Partial* scores only merchant-days that have transactions, so an absent merchant never becomes an interruption alert. *Complete* (the operator confirms the file holds every transaction of its merchants and dates) also scores zero-activity days.
+- **Live status.** `POST /api/v1/imports` returns the run ID at once and starts a detached worker; the worker rewrites `runs/imports/<run>/status.json` at each real stage (validating rows, cleaning, merchant-day summaries, reference, scoring, incidents, saving) with real counts where they exist. The page polls `GET /api/v1/imports/<run>`, so closing the dialog, navigating away or refreshing keeps the same run. A worker that dies is reported as failed with its stage; **Retry** reuses the upload.
+- **Separation.** Imported runs never change `runs/latest.json`, the official snapshot or `y_pred_anomalies.csv`. They open with `?run=<id>` on Alerts, the alert explanation and Transactions, under an "Imported batch" banner. The same file with the same coverage is never scored twice: the existing run is returned. Batches must start after the frozen reference history (16 Oct 2026).
+- **Interpreter.** The worker uses `SATIM_PYTHON`, else an active conda env, else the repository `.venv` (same rule as `scripts/engine.mjs`).
+
 ## Your KPIs
 
 Each account picks its own Overview cards with **Customize KPIs**. It starts with the default six. A card is a formula over named measures (`transactions`, `declined`, `accepted_value`, `alerts`, `merchants_flagged`, `open_incidents`, `days`…) with + − × ÷ and parentheses, e.g. `declined / transactions` or `accepted_value / accepted`. Each card is shown as a whole number, a decimal, DZD or a percent, with a line, area or bar chart of its daily values, or no chart. The formula is parsed into a tree and evaluated, never run as code, and checked again on the server (`src/lib/formula.ts`, self-test: `node src/lib/formula.test.ts`). The Overview filters apply to every card.

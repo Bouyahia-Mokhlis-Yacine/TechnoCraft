@@ -7,7 +7,7 @@ import { snapshot } from '@/lib/snapshot';
 export async function GET(req: NextRequest) {
   if (!userOf(req)) return fail(401, 'unauthenticated', 'Sign in first.');
   const p = params(req);
-  const run = snapshot();
+  const run = snapshot(p.run);
   if (p.scope === 'official') {
     const predictions = run.official_predictions.filter((row) => (!p.merchant || row.merchant_id === p.merchant)
       && (!p.from || row.date >= p.from) && (!p.to || row.date <= p.to));

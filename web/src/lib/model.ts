@@ -2,30 +2,28 @@
 // incidents (episodes of consecutive flagged days), advisories, watchlist and aggregates.
 // Nothing here changes a flag or a score; it only reads and explains them (SRS FR-13–16, FR-26–39).
 import { snapshot, type AdvisoryRaw, type Explanation, type IncidentEvidence, type MerchantDay, type Snapshot } from './snapshot';
-import { fmtDzd, fmtInt, fmtPct } from './format';
+import { currentLocale, fmtDzd, fmtInt, fmtPct, na } from './format';
+import { translate, type Key } from './i18n';
+import { engineText, explanationText } from './i18n/engine';
 
 export type AnomalyType = 'INTERRUPTION' | 'DROP_VOLUME' | 'ATYPICAL_SURGE' | 'SPIKE_AMOUNT' | 'SPIKE_DECLINED' | 'NETWORK_DECLINES' | 'CANCEL_SPIKE';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
 export type Lifecycle = 'active' | 'recovering' | 'resolved';
 export type Unit = 'tx' | 'ratio' | 'DZD';
 
-export const SIGNAL_LABEL: Record<string, string> = {
-  s_drop: 'Low activity that day', s_surge: 'High activity that day',
-  s_drop_sustained: 'Low activity over 3 days', s_surge_sustained: 'High activity over 3 days',
-  s_decline: 'Excess declines', s_decline_channel: 'Excess declines on one channel',
-  s_cancel: 'Excess cancellations', s_amount: 'Larger payments than usual', s_incident: 'Network-wide channel incident',
-};
+const tr = (key: Key) => translate(currentLocale(), key);
+const SIGNALS = ['s_drop', 's_surge', 's_drop_sustained', 's_surge_sustained', 's_decline', 's_decline_channel', 's_cancel', 's_amount', 's_incident'];
+/** Signal names in the operator's language (read when used). */
+export const SIGNAL_LABEL = Object.defineProperties({} as Record<string, string>,
+  Object.fromEntries(SIGNALS.map((k) => [k, { enumerable: true, get: () => tr(`signal.${k}` as Key) }])));
 
-/** Investigation playbook (SRS §8): suggested check and accountable owner per symptom. */
-export const PLAYBOOK: Record<AnomalyType, { check: string; owner: string; steps: string[] }> = {
-  INTERRUPTION: { check: 'Check the ingestion watermark, the merchant’s opening schedule and terminal / gateway connectivity.', owner: 'Operations analyst + technical investigator', steps: ['Ingestion watermark', 'Opening schedule', 'Terminal / gateway link'] },
-  DROP_VOLUME: { check: 'Check feed completeness and the merchant’s operating status, then the main channel’s acceptance.', owner: 'Operations analyst', steps: ['Feed completeness', 'Operating status', 'Main channel acceptance'] },
-  ATYPICAL_SURGE: { check: 'Confirm with the acquiring bank whether an event or promotion explains the volume; watch capacity.', owner: 'Operations analyst', steps: ['Event or promotion (acquiring bank)', 'Capacity'] },
-  SPIKE_AMOUNT: { check: 'Inspect the distribution of valid ticket sizes, the category’s activity and data integrity.', owner: 'Operations analyst', steps: ['Ticket-size distribution', 'Category activity', 'Data integrity'] },
-  SPIKE_DECLINED: { check: 'Compare statuses by channel; request gateway reason codes and service logs.', owner: 'Technical investigator', steps: ['Statuses by channel', 'Gateway reason codes', 'Service logs'] },
-  NETWORK_DECLINES: { check: 'Treat as part of the network advisory: request gateway reason codes and service logs for the channel.', owner: 'Technical investigator', steps: ['Network advisory', 'Gateway reason codes', 'Channel service logs'] },
-  CANCEL_SPIKE: { check: 'Review the cancellation mix and retry / reversal behaviour.', owner: 'Operations analyst', steps: ['Cancellation mix', 'Retry / reversal behaviour'] },
-};
+/** Investigation playbook (SRS §8): suggested check and accountable owner per symptom, in the operator's language. */
+const TYPES_ALL: AnomalyType[] = ['INTERRUPTION', 'DROP_VOLUME', 'ATYPICAL_SURGE', 'SPIKE_AMOUNT', 'SPIKE_DECLINED', 'NETWORK_DECLINES', 'CANCEL_SPIKE'];
+export const PLAYBOOK = Object.fromEntries(TYPES_ALL.map((t) => [t, {
+  get check() { return tr(`pb.${t}.check` as Key); },
+  get owner() { return tr(`pb.${t}.owner` as Key); },
+  get steps() { return tr(`pb.${t}.steps` as Key).split(' | '); },
+}])) as Record<AnomalyType, { check: string; owner: string; steps: string[] }>;
 
 export interface Signal { key: string; label: string; score: number }
 export interface Anomaly {
@@ -55,15 +53,14 @@ function typeOf(d: MerchantDay): AnomalyType {
   if (s === 'amount') return 'SPIKE_AMOUNT';
   return d.n < (d.expected_n_adj ?? 0) ? 'DROP_VOLUME' : 'ATYPICAL_SURGE';
 }
-export const fmtUnit = (v: number | null, u: Unit) => (v === null ? 'n/a' : u === 'DZD' ? fmtDzd(v) : u === 'ratio' ? fmtPct(v, 1) : fmtInt(v));
+export const fmtUnit = (v: number | null, u: Unit) => (v === null ? na() : u === 'DZD' ? fmtDzd(v) : u === 'ratio' ? fmtPct(v, 1) : fmtInt(v));
 
 function displayIndicator(e: Explanation) {
   const { observed, expected, interval } = e.observed_expected;
-  const labels: Record<string, string> = { transaction_count: 'transactions', declines: 'declined transactions',
-    cancellations: 'cancelled transactions', median_ticket: 'median recorded ticket' };
-  return { indicator: labels[e.indicator] ?? e.indicator, observed, expected,
-    lo: interval?.[0] ?? null, hi: interval?.[1] ?? null, unit: (e.indicator === 'median_ticket' ? 'DZD' : 'tx') as Unit };
+  return { observed, expected, lo: interval?.[0] ?? null, hi: interval?.[1] ?? null, unit: (e.indicator === 'median_ticket' ? 'DZD' : 'tx') as Unit };
 }
+/** The indicator's name in the operator's language ("transactions", "paiements refusés"). */
+export const indicatorLabel = (indicator: string) => { const k = `ind.${indicator}` as Key; const s = tr(k); return s === k ? indicator : s; };
 
 function businessSeverity(e: IncidentEvidence | undefined, t: AnomalyType): Severity {
   if (t === 'INTERRUPTION') return 'critical';
@@ -79,10 +76,13 @@ interface Model {
 }
 
 let memo: { id: string; m: Model } | null = null;
+const importedMemo = new Map<string, Model>();
 
-export function model(): Model {
-  const snap = snapshot();
-  if (memo?.id === snap.run.run_id) return memo.m;
+/** The official run's model, or an imported run's when `run` is given (Data & runs → Import). */
+export function model(run?: string | null): Model {
+  const snap = snapshot(run);
+  if (!run && memo?.id === snap.run.run_id) return memo.m;
+  if (run && importedMemo.has(run)) return importedMemo.get(run)!;
   const byMerchant = new Map<string, MerchantDay[]>();
   for (const d of snap.merchant_days) byMerchant.set(d.merchant_id, [...(byMerchant.get(d.merchant_id) ?? []), d]);
   for (const days of byMerchant.values()) days.sort((a, b) => a.date.localeCompare(b.date));
@@ -95,17 +95,26 @@ export function model(): Model {
     const type = typeOf(d);
     const advisoryId = snap.advisories.find((a) => a.date === d.date && a.symptom === e.symptom &&
       a.members.some((x) => x.merchant_id === d.merchant_id && x.affected))?.id ?? null;
-    const signals = Object.entries(SIGNAL_LABEL).flatMap(([key, label]) => {
+    const signals = SIGNALS.flatMap((key) => {
       const score = (d as unknown as Record<string, number | undefined>)[key];
-      return score === undefined ? [] : [{ key, label, score }];
+      return score === undefined ? [] : [{ key, get label() { return SIGNAL_LABEL[key]; }, score }];
     }).sort((a, b) => b.score - a.score);
-    const reasons = [...e.limitations, 'Reference support: ' + e.reference_support.eligible_days + ' eligible merchant-days through ' + e.reference_last_date + '.'];
-    if (e.signal_source === 'persistent_count') reasons.push('Persistent count evidence required ' + e.count_cusum.minimum_streak + ' supporting days.');
+    const evidence = e;
+    // text fields are getters: the cached model stays language-neutral and each read is in the operator's language
     anomalies.push({
       id: d.merchant_id + '_' + d.date, merchant: d.merchant_id, category: d.category, date: d.date,
       type, severity: businessSeverity(evidenceById.get(e.incident_id), type), score: d.anomaly_score, signals,
-      ...displayIndicator(e), explanation: e.explanation, reasons,
-      check: e.first_action, owner: e.responsible_role, steps: PLAYBOOK[type].steps,
+      ...displayIndicator(e),
+      get indicator() { return indicatorLabel(evidence.indicator); },
+      get explanation() { return explanationText(evidence); },
+      get reasons() {
+        const out = [...evidence.limitations.map((x) => engineText(x)), tr('reason.support' as Key).replace('{days}', fmtInt(evidence.reference_support.eligible_days)).replace('{date}', evidence.reference_last_date)];
+        if (evidence.signal_source === 'persistent_count') out.push(tr('reason.persistent' as Key).replace('{n}', fmtInt(evidence.count_cusum.minimum_streak)));
+        return out;
+      },
+      get check() { return engineText(evidence.first_action); },
+      get owner() { return engineText(evidence.responsible_role); },
+      get steps() { return PLAYBOOK[type].steps; },
       incidentId: e.incident_id, advisoryId, holiday: d.holiday, holidayFactor: d.holiday_factor,
       historyDays: d.history_days, evidence: e,
     });
@@ -139,13 +148,14 @@ export function model(): Model {
 
   const watchlist = [...byMerchant.values()].map((days) => days[days.length - 1])
     .filter((d) => d.lifecycle?.phase === 'under_observation' && d.date === asOf)
-    .map((d) => ({ merchant: d.merchant_id, date: d.date, score: d.anomaly_score ?? 0, signal: SIGNAL_LABEL[`s_${d.main_signal}`] ?? d.main_signal }));
+    .map((d) => ({ merchant: d.merchant_id, date: d.date, score: d.anomaly_score ?? 0, get signal() { return SIGNAL_LABEL[`s_${d.main_signal}`] ?? d.main_signal; } }));
 
   const m: Model = {
     snap, byMerchant, anomalies, anomalyById: new Map(anomalies.map((a) => [a.id, a])), incidents, incidentById: new Map(incidents.map((i) => [i.id, i])),
     advisories, watchlist, categories: [...new Set(snap.merchant_days.map((d) => d.category))].sort(), channels: [...new Set(snap.transactions.channel)].sort(),
   };
-  memo = { id: snap.run.run_id, m };
+  if (run) { if (importedMemo.size >= 4) importedMemo.delete(importedMemo.keys().next().value!); importedMemo.set(run, m); }
+  else memo = { id: snap.run.run_id, m };
   return m;
 }
 
@@ -155,8 +165,8 @@ export interface Scope { from: string; to: string; merchant?: string; category?:
 export const channelSet = (c?: string) => (c ? new Set(c.split(',').map((x) => x.trim()).filter(Boolean)) : null);
 export interface DayAgg { date: string; events: number; accepted: number; acceptedValue: number; attemptedValue: number; missingAccepted: number; missingAttempted: number; declined: number; cancelled: number; refunded: number }
 
-export function aggregate(s: Scope) {
-  const t = model().snap.transactions;
+export function aggregate(s: Scope, run?: string | null) {
+  const t = model(run).snap.transactions;
   const mIdx = s.merchant ? t.merchants.indexOf(s.merchant) : -1, chs = channelSet(s.channel);
   const days = new Map<string, DayAgg>();
   for (let d = s.from; d <= s.to; d = addDays(d, 1)) days.set(d, { date: d, events: 0, accepted: 0, acceptedValue: 0, attemptedValue: 0, missingAccepted: 0, missingAttempted: 0, declined: 0, cancelled: 0, refunded: 0 });

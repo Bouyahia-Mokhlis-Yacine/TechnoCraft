@@ -2,7 +2,8 @@
 // a separated pie, bubbles and progress rows. Motion comes from motion.css (grow, draw, pop).
 import Link from 'next/link';
 import type { Compare, SeriesPoint } from '@/lib/api';
-import { fmtDay, fmtDelta, fmtInt, fmtNum } from '@/lib/format';
+import { fmtDay, fmtDelta, fmtInt, fmtNum, intlLocale, fmtPct } from '@/lib/format';
+import { makeT, type Key, type Vars } from '@/lib/i18n';
 import { fmtKind, type Kind } from '@/lib/labels';
 import { ChartTip } from './charts-client';
 
@@ -21,7 +22,9 @@ function niceMax(v: number, kind: Kind) {
   const p = 10 ** Math.floor(Math.log10(Math.max(v, 1)));
   return Math.ceil(v / p) * p;
 }
-const weekday = (iso: string) => new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+const weekday = (iso: string) => new Intl.DateTimeFormat(intlLocale(), { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${iso}T00:00:00Z`));
+// server components: the request locale was set by the page (getT)
+const tr = (key: string, vars?: Vars) => makeT()(key as Key, vars);
 
 function Grid({ W, L, R, y, max, kind }: { W: number; L: number; R: number; y: (v: number) => number; max: number; kind: Kind }) {
   // pick a tick count that divides the scale into round numbers
@@ -43,7 +46,7 @@ export function PairBars({ points, height = 300, label, drill = false }: { point
       <Grid W={W} L={L} R={R} y={y} max={max} kind="int" />
       {points.map((p, i) => {
         const cx = L + gw * i + gw / 2;
-        const tip = [`${weekday(p.date)} ${fmtDay(p.date)}`, `${fmtInt(p.value)} transactions`, ...(p.usual !== undefined ? [`Expected ${fmtInt(p.usual)} · ${fmtDelta(p.value, p.usual)}`] : []), ...(p.anomalies ? [`${p.anomalies} flagged merchant-day${p.anomalies > 1 ? 's' : ''}`] : []), ...(drill ? [p.anomalies ? 'Click to see the alerts' : 'Click to see the transactions'] : [])].join('\n');
+        const tip = [`${weekday(p.date)} ${fmtDay(p.date)}`, tr('common.tx', { n: p.value }), ...(p.usual !== undefined ? [tr('chart.expected', { v: fmtInt(p.usual), d: fmtDelta(p.value, p.usual) })] : []), ...(p.anomalies ? [tr('chart.flaggedDays', { n: p.anomalies })] : []), ...(drill ? [p.anomalies ? tr('chart.clickAlerts') : tr('chart.clickTx')] : [])].join('\n');
         const bar = (v: number, x: number, cls: string, k: number) => (
           <rect className={`${cls} m-grow-up`} style={css({ '--i': i * 2 + k })} x={x} y={y(v)} width={bw} height={Math.max(0, y(0) - y(v))} />
         );
@@ -53,7 +56,7 @@ export function PairBars({ points, height = 300, label, drill = false }: { point
             {p.usual !== undefined && bar(p.usual, cx - bw - 3, 'bar-usual', 0)}
             {bar(p.value, cx + 3, 'bar-main', 1)}
             {!!p.anomalies && <g className="m-pop" style={css({ '--delay': `${600 + i * 30}ms` })}><circle className="count-dot" cx={cx + 3 + bw / 2} cy={y(p.value) - 14} r={9} /><text className="count-text" x={cx + 3 + bw / 2} y={y(p.value) - 10} textAnchor="middle">{p.anomalies}</text></g>}
-            {p.holiday && <text className="holiday-label" x={cx} y={T - 8} textAnchor="middle">Holiday</text>}
+            {p.holiday && <text className="holiday-label" x={cx} y={T - 8} textAnchor="middle">{tr('chart.holiday')}</text>}
             <text className="xlabel" x={cx} y={H - 20} textAnchor="middle">{weekday(p.date)}</text>
             <text className="xlabel sub" x={cx} y={H - 6} textAnchor="middle">{fmtDay(p.date)}</text>
           </g>
@@ -79,7 +82,7 @@ export function DayBars({ points, height = 280, width = 1100, label }: { points:
       <Grid W={W} L={L} R={R} y={y} max={max} kind="int" />
       {points.map((p, i) => {
         const x = L + gw * i + (gw - bw) / 2;
-        const tip = [`${weekday(p.date)} ${fmtDay(p.date)}${p.holiday ? ` · ${p.holiday}` : ''}`, `${fmtInt(p.value)} transactions`, ...(p.usual !== undefined ? [`Expected ${fmtInt(p.usual)} · ${fmtDelta(p.value, p.usual)}`] : []), ...(p.severity ? [`Flagged · ${p.severity}`, 'Click to open the alert'] : [])].join('\n');
+        const tip = [`${weekday(p.date)} ${fmtDay(p.date)}${p.holiday ? ` · ${p.holiday}` : ''}`, tr('common.tx', { n: p.value }), ...(p.usual !== undefined ? [tr('chart.expected', { v: fmtInt(p.usual), d: fmtDelta(p.value, p.usual) })] : []), ...(p.severity ? [tr('chart.flaggedSev', { sev: tr(`sev.${p.severity}`) }), tr('chart.clickAlert')] : [])].join('\n');
         const col = (
           <g className="col" data-tip={tip} data-date={p.date}>
             <rect className="hit" x={L + gw * i} y={T} width={gw} height={H - T - B} />
@@ -161,7 +164,7 @@ export function Pie({ rows, size = 230 }: { rows: { label: string; value: number
   // start angle of each slice, computed up front (no mutation during render)
   const starts = rows.map((_, i) => -Math.PI / 2 + (rows.slice(0, i).reduce((s, x) => s + x.value, 0) / total) * Math.PI * 2);
   return (
-    <svg className="pie m-pop" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={rows.map((x) => `${x.label} ${Math.round((x.value / total) * 100)} %`).join(', ')}>
+    <svg className="pie m-pop" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={rows.map((x) => `${x.label} ${fmtPct(x.value / total, 0)}`).join(', ')}>
       {rows.map((s, i) => {
         const a0 = starts[i], a1 = a0 + (s.value / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0;
         const d = rows.length === 1 ? `M${c},${c - r} A${r},${r} 0 1 1 ${c - 0.01},${c - r} Z`
@@ -183,7 +186,7 @@ export function Bubbles({ items }: { items: { label: string; value: number; cls:
       {shown.map((b, i) => {
         const r = 30 + 44 * Math.sqrt(b.value / max) * (i === 0 ? 1 : 0.82);
         const g = (
-          <g key={b.label} className={`bubble ${b.cls} m-pop`} style={css({ '--delay': `${i * 90}ms` })} data-tip={`${b.value} ${b.label.toLowerCase()} incident${b.value > 1 ? 's' : ''}${b.href ? '\nClick to see them' : ''}`}>
+          <g key={b.label} className={`bubble ${b.cls} m-pop`} style={css({ '--delay': `${i * 90}ms` })} data-tip={`${tr('chart.bubble', { n: b.value, sev: b.label.toLowerCase() })}${b.href ? `\n${tr('chart.clickThem')}` : ''}`}>
             <circle cx={spots[i][0]} cy={spots[i][1]} r={r} />
             <text x={spots[i][0]} y={spots[i][1] + 2} textAnchor="middle" className="b-num">{b.value}</text>
             <text x={spots[i][0]} y={spots[i][1] + 18} textAnchor="middle" className="b-lab">{b.label}</text>
@@ -205,7 +208,7 @@ export function ProgressRows({ rows }: { rows: { label: string; value: number; m
           <div className="pr-head"><span className="pr-label"><i className="dot" style={{ background: r.color ?? 'var(--primary)' }} />{r.label}</span><span className="pr-right num">{r.right}</span></div>
           <div className="pr-track">
             <span className="pr-fill m-grow-x" style={css({ width: `${Math.min(100, (r.value / (r.max || 1)) * 100)}%`, background: r.color ?? 'var(--primary)', '--i': i })} />
-            {r.mark !== undefined && <span className="pr-mark" style={{ left: `${Math.min(100, (r.mark / (r.max || 1)) * 100)}%` }} title="usual" />}
+            {r.mark !== undefined && <span className="pr-mark" style={{ left: `${Math.min(100, (r.mark / (r.max || 1)) * 100)}%` }} title={tr('chart.usual')} />}
           </div>
         </div>
       ))}
@@ -246,9 +249,9 @@ export function KpiChart({ values, type, label }: { values: (number | null)[]; t
 export function HourBars({ rows }: { rows: Compare[] }) {
   const max = Math.max(...rows.flatMap((r) => [r.observed, r.usual]), 1);
   return (
-    <div className="hours" role="img" aria-label="Payments per hour compared with the usual hourly profile">
+    <div className="hours" role="img" aria-label={tr('chart.hoursLabel')}>
       {rows.map((r, i) => (
-        <div key={r.label} className="hour" title={`${r.label}:00 · ${Math.round(r.observed)} payments (usual about ${fmtNum(r.usual, 1)})`}>
+        <div key={r.label} className="hour" title={tr('chart.hourTip', { h: r.label, n: Math.round(r.observed), usual: fmtNum(r.usual, 1) })}>
           <span className="hour-usual" style={{ height: `${(r.usual / max) * 100}%` }} />
           <span className="hour-bar m-grow-up" style={css({ height: `${(r.observed / max) * 100}%`, '--i': i })} />
           {i % 3 === 0 && <span className="hour-label">{r.label}</span>}
@@ -266,12 +269,12 @@ export function ForecastBars({ points, height = 200 }: { points: { date: string;
   const gw = (W - L - R) / points.length, bw = Math.min(22, gw * 0.45);
   return (
     <ChartTip>
-    <svg className="chart interactive" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Forecast for the next ${points.length} days with an 80 percent interval`}>
+    <svg className="chart interactive" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={tr('chart.forecastLabel', { n: points.length })}>
       <Grid W={W} L={L} R={R} y={y} max={max} kind="int" />
       {points.map((p, i) => {
         const cx = L + gw * i + gw / 2;
         return (
-          <g key={p.date} className="col" data-date={p.date} data-tip={`${weekday(p.date)} ${fmtDay(p.date)}\nAbout ${fmtInt(p.expected)} transactions\n80 % range ${fmtInt(p.lo)} – ${fmtInt(p.hi)}`}>
+          <g key={p.date} className="col" data-date={p.date} data-tip={`${weekday(p.date)} ${fmtDay(p.date)}\n${tr('chart.about', { n: fmtInt(p.expected) })}\n${tr('chart.range80', { lo: fmtInt(p.lo), hi: fmtInt(p.hi) })}`}>
             <rect className="hit" x={L + gw * i} y={T} width={gw} height={H - T - B} />
             <rect className="bar-forecast m-grow-up" style={css({ '--i': i })} x={cx - bw / 2} y={y(p.expected)} width={bw} height={Math.max(0, y(0) - y(p.expected))} />
             <line className="whisker" x1={cx} x2={cx} y1={y(p.hi)} y2={y(p.lo)} />

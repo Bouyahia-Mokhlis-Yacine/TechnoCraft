@@ -4,6 +4,9 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, X } from 'lucide-react';
+import { fmtPct } from '@/lib/format';
+import type { T } from '@/lib/i18n';
+import { useT } from './i18n';
 
 /** Wrap a chart: elements with data-tip="line1\nline2" get a tooltip that follows the cursor. */
 export function ChartTip({ children }: { children: React.ReactNode }) {
@@ -35,8 +38,9 @@ type Slice = { label: string; value: number; color: string; ink?: string; href?:
 
 /** Pie + legend that highlight each other; a slice or row with href drills down on click, and with
  *  `clearHref` a button clears the selection. */
-export function InteractivePie({ rows, size = 230, clearHref, clearLabel = 'Show all' }: { rows: Slice[]; size?: number; clearHref?: string; clearLabel?: string }) {
-  const router = useRouter();
+export function InteractivePie({ rows, size = 230, clearHref, clearLabel }: { rows: Slice[]; size?: number; clearHref?: string; clearLabel?: string }) {
+  const router = useRouter(), t = useT();
+  clearLabel ??= t('pie.showAll');
   const [on, setOn] = useState<number | null>(null);
   const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   const push = (h: string) => router.push(h, { scroll: false });
@@ -49,7 +53,7 @@ export function InteractivePie({ rows, size = 230, clearHref, clearLabel = 'Show
     <>
       <div className="pie-wrap xpie-wrap">
         {clearHref && <button type="button" className="pie-clear" onClick={() => push(clearHref)}>{clearLabel}<X aria-hidden /></button>}
-        <ExplodedPie rows={rows} size={size} total={total} on={on} setOn={setOn} go={go} />
+        <ExplodedPie rows={rows} size={size} total={total} on={on} setOn={setOn} go={go} t={t} />
       </div>
       <div className="mix-rows" onMouseLeave={() => setOn(null)}>
         {rows.map((s, i) => (
@@ -57,7 +61,7 @@ export function InteractivePie({ rows, size = 230, clearHref, clearLabel = 'Show
             role={s.href ? 'link' : undefined} tabIndex={s.href ? 0 : undefined} onKeyDown={(e) => { if (e.key === 'Enter') go(i, e); }}>
             <span>
               {s.toggleHref && (
-                <button type="button" role="checkbox" aria-checked={filtered && s.selected !== false} className="mix-check" title={filtered && s.selected !== false ? `Remove ${s.label} from the selection` : `Add ${s.label} to the selection`}
+                <button type="button" role="checkbox" aria-checked={filtered && s.selected !== false} className="mix-check" title={filtered && s.selected !== false ? t('pie.remove', { label: s.label }) : t('pie.add', { label: s.label })}
                   onClick={(e) => { e.stopPropagation(); push(s.toggleHref!); }} onKeyDown={(e) => e.stopPropagation()}><Check aria-hidden /></button>
               )}
               <i className="dot" style={{ background: s.color }} />{s.label}
@@ -100,7 +104,8 @@ function wedge(cx: number, cy: number, R: number, a0: number, a1: number, gap: n
   ].join(' ');
 }
 
-function ExplodedPie({ rows, size, total, on, setOn, go }: {
+function ExplodedPie({ rows, size, total, on, setOn, go, t }: {
+  t: T;
   rows: Slice[]; size: number; total: number; on: number | null; setOn: (i: number | null) => void; go: (i: number, e?: React.MouseEvent) => void;
 }) {
   const R = size / 2 - 10, c = size / 2, gap = Math.max(4, size * 0.026), corner = size * 0.04;
@@ -112,7 +117,7 @@ function ExplodedPie({ rows, size, total, on, setOn, go }: {
   const single = slices.length === 1;
   return (
     <svg className="pie xpie m-pop" viewBox={`0 0 ${size} ${size}`} role="img" onMouseLeave={() => setOn(null)}
-      aria-label={rows.map((x) => `${x.label} ${Math.round((x.value / total) * 100)} %`).join(', ')}>
+      aria-label={rows.map((x) => `${x.label} ${fmtPct(x.value / total, 0, t.locale)}`).join(', ')}>
       {slices.map(({ r, i, a0, a1, mid, share }) => {
         const out = on === i ? size * 0.025 : 0, dx = Math.cos(mid) * out, dy = Math.sin(mid) * out;
         // a label only where it fits: big enough share and arc
@@ -121,11 +126,11 @@ function ExplodedPie({ rows, size, total, on, setOn, go }: {
         return (
           <g key={r.label} className={`xslice${on !== null && on !== i ? ' dim' : ''}${r.selected === false ? ' off' : ''}${r.href ? ' link' : ''}`}
             style={{ transform: `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px)` }} onMouseEnter={() => setOn(i)} onClick={(e) => go(i, e)}>
-            <title>{`${r.label}: ${r.detail ?? r.value}${r.toggleHref ? '\nClick: only this · Ctrl / ⌘ / Shift-click: add or remove' : ''}`}</title>
+            <title>{`${r.label} : ${r.detail ?? r.value}${r.toggleHref ? `\n${t('pie.howTo')}` : ''}`}</title>
             <path d={wedge(c, c, R, a0, a1, single ? 0 : gap, corner)} style={{ fill: r.color }} />
             {fits && (
               <text x={(c + lr * Math.cos(mid)).toFixed(2)} y={(c + lr * Math.sin(mid)).toFixed(2)} textAnchor="middle" dominantBaseline="central"
-                style={{ fill: r.ink ?? '#fff', fontSize: size * (share > 0.25 ? 0.085 : 0.068) }} className="xpct">{Math.round(share * 100)} %</text>
+                style={{ fill: r.ink ?? '#fff', fontSize: size * (share > 0.25 ? 0.085 : 0.068) }} className="xpct">{fmtPct(share, 0, t.locale)}</text>
             )}
           </g>
         );

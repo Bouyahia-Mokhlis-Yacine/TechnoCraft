@@ -11,6 +11,8 @@ import { fail, userOf } from '@/lib/http';
 import { describePage } from '@/lib/page-context';
 import { sanitizeSelections } from '@/lib/selection';
 import { hasSensitiveIdentifier } from '@/lib/privacy';
+import { localeOf } from '@/lib/i18n/server';
+import { withLocale } from '@/lib/i18n/scope';
 
 export async function POST(req: NextRequest) {
   const user = userOf(req);
@@ -29,10 +31,11 @@ export async function POST(req: NextRequest) {
   // asked from another page through the dock: the server rebuilds that page's figures itself
   const path = typeof body.page?.path === 'string' && /^\/[\w\-/%.]*$/.test(body.page.path) && body.page.path.length < 120 && !body.page.path.startsWith('/api') ? body.page.path : null;
   const search = typeof body.page?.search === 'string' && body.page.search.length < 400 ? body.page.search.replace(/^\?/, '') : '';
-  const page = path && path !== '/assistant' ? describePage(path, search, user.id) : null;
+  const page = path && path !== '/assistant' ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
   const selection = page ? sanitizeSelections(body.selection) : [];
   // the language model answers; the built-in assistant stands in (marked `fallback`) when it cannot
-  const reply = await ask(question, conv?.turns ?? [], page, selection, user.id);
+  const locale = localeOf(req);
+  const reply = await withLocale(locale, () => ask(question, conv?.turns ?? [], page, selection, user.id, locale));
   const saved = appendTurn(user.id, conv?.id, question, reply, page ? { title: page.title, href: page.link.href } : undefined, selection);
   return Response.json({ ...reply, conversation: { id: saved.id, title: saved.title, updated: saved.updated }, page: page ? { title: page.title, href: page.link.href } : null });
 }

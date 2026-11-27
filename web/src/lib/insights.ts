@@ -4,15 +4,18 @@
 import { addDays, model, type AnomalyType } from './model';
 import { getOverview, merchantHealth, rankedIncidents, type HealthLevel, type Ranked } from './api';
 import type { MerchantDay } from './snapshot';
+import { currentLocale, fmtPct } from './format';
+import { translate, type Key, type Vars } from './i18n';
+import { channelLabel } from './labels';
 
 /* ── merchant health score (FR-44) ──────────────────────────────────── */
 // Transparent weighted mean of the six health components. Unknown components are left out (never
 // counted as healthy) and the coverage is reported next to the score.
-const WEIGHTS: Record<string, number> = { 'Recent activity': 0.3, Rejections: 0.2, Cancellations: 0.1, 'Open incidents': 0.25, Recovery: 0.05, 'Data completeness': 0.1 };
+const WEIGHTS: Record<string, number> = { activity: 0.3, rejections: 0.2, cancellations: 0.1, incidents: 0.25, recovery: 0.05, completeness: 0.1 };
 const POINTS: Record<HealthLevel, number | null> = { ok: 1, watch: 0.5, issue: 0, unknown: null };
 
-export function healthScore(id: string) {
-  const parts = merchantHealth(id).map((h) => ({ ...h, weight: WEIGHTS[h.label] ?? 0, points: POINTS[h.level] }));
+export function healthScore(id: string, run?: string | null) {
+  const parts = merchantHealth(id, run).map((h) => ({ ...h, weight: WEIGHTS[h.key] ?? 0, points: POINTS[h.level] }));
   const known = parts.filter((p) => p.points !== null);
   const wsum = known.reduce((s, p) => s + p.weight, 0);
   const score = wsum ? Math.round((100 * known.reduce((s, p) => s + p.weight * (p.points as number), 0)) / wsum) : null;
@@ -23,16 +26,19 @@ export const healthBand = (s: number | null) => (s === null ? 'unknown' : s >= 8
 /* ── incident hypotheses (FR-34 for single-merchant incidents) ──────── */
 // Rule-based: each hypothesis lists the evidence for and against it from the snapshot, plus the
 // data that would confirm it. They are ranked by (for − against); none is ever a confirmed cause.
+// Sentences are built in the operator's language from the same computed values.
 export interface Hypothesis { title: string; for: string[]; against: string[]; missing: string[]; support: number }
 
-const pct = (x: number) => `${Math.round(x * 100)} %`;
+const tr = (key: string, vars?: Vars) => translate(currentLocale(), key as Key, vars);
+const pct = (x: number) => fmtPct(x, 0);
+const hour = (h: number) => `${String(h).padStart(2, '0')}:00`;
 const ratio = (ds: MerchantDay[]) => {
   const e = ds.reduce((s, d) => s + (d.expected_n_adj ?? 0), 0);
   return e ? ds.reduce((s, d) => s + d.n, 0) / e : null;
 };
 
-export function incidentHypotheses(inc: Ranked): Hypothesis[] {
-  const m = model(), a = inc.latest, ds = m.byMerchant.get(inc.merchant)!;
+export function incidentHypotheses(inc: Ranked, run?: string | null): Hypothesis[] {
+  const m = model(run), a = inc.latest, ds = m.byMerchant.get(inc.merchant)!;
   const i = ds.findIndex((d) => d.date === a.date), d = ds[i];
   const prior = ds.slice(Math.max(0, i - 28), i).filter((p) => !p.is_anomaly);
   const sameDay = [...m.byMerchant.entries()].filter(([id]) => id !== inc.merchant).map(([, x]) => x.find((y) => y.date === a.date)).filter((y): y is MerchantDay => !!y && !y.warming_up);
@@ -45,6 +51,7 @@ export function incidentHypotheses(inc: Ranked): Hypothesis[] {
   const lastHour = d.hours.reduce((acc, v, h) => (v ? h : acc), -1);
   const usualLast = median(prior.map((p) => p.hours.reduce((acc, v, h) => (v ? h : acc), -1)).filter((h) => h >= 0));
   const decTotal = chans.reduce((s, x) => s + x.dec, 0), worst = [...chans].sort((p, q) => q.dec - p.dec)[0];
+  const ch = (c: string) => channelLabel(c);
   const H: Hypothesis[] = [];
   const add = (title: string, f: (string | false | null | undefined | 0)[], ag: (string | false | null | undefined | 0)[], missing: string[]) => {
     const fr = f.filter((x): x is string => !!x), ar = ag.filter((x): x is string => !!x);
@@ -55,45 +62,44 @@ export function incidentHypotheses(inc: Ranked): Hypothesis[] {
   const t: AnomalyType = a.type;
 
   if (t === 'INTERRUPTION' || t === 'DROP_VOLUME') {
-    add('Terminal, integration or gateway problem at the merchant',
-      [peersOk && `Same-category merchants were at ${pct(peers!)} of their expected level that day`, down.length >= 2 && `${down.length} channels fell together (${down.map((x) => x.c.split(' (')[0]).join(', ')})`],
-      [peersDown && `Same-category merchants also fell (${pct(peers!)} of expected)`], ['Terminal and gateway logs for the merchant', 'Acquirer connectivity status']);
-    add('Data feed or ingestion gap',
-      [netDown && `The whole network was at ${pct(network!)} of its expected level`, peersDown && `Same-category merchants also fell (${pct(peers!)} of expected)`],
-      [network !== null && network >= 0.9 && `The rest of the network was normal (${pct(network)} of expected)`], ['Ingestion watermark and batch completeness for the day']);
-    add('Merchant closed or reduced opening hours',
-      [d.holiday && 'Public holiday', d.n > 0 && lastHour >= 0 && usualLast > 0 && lastHour < usualLast - 2 && `Last transaction at ${String(lastHour).padStart(2, '0')}:00, usually around ${String(usualLast).padStart(2, '0')}:00`],
-      [down.length === 1 && chans.length > 1 && 'Only one channel fell, the others kept trading'], ['Merchant’s operating status that day']);
+    add(tr('hyp.terminal'),
+      [peersOk && tr('hyp.peersOk', { pct: pct(peers!) }), down.length >= 2 && tr('hyp.channelsFell', { n: down.length, list: down.map((x) => ch(x.c).split(' (')[0]).join(', ') })],
+      [peersDown && tr('hyp.peersDown', { pct: pct(peers!) })], [tr('hyp.needTerminalLogs'), tr('hyp.needAcquirer')]);
+    add(tr('hyp.feed'),
+      [netDown && tr('hyp.networkDown', { pct: pct(network!) }), peersDown && tr('hyp.peersDown', { pct: pct(peers!) })],
+      [network !== null && network >= 0.9 && tr('hyp.networkOk', { pct: pct(network) })], [tr('hyp.needWatermark')]);
+    add(tr('hyp.closed'),
+      [d.holiday && tr('hyp.holiday'), d.n > 0 && lastHour >= 0 && usualLast > 0 && lastHour < usualLast - 2 && tr('hyp.lastTx', { last: hour(lastHour), usual: hour(usualLast) })],
+      [down.length === 1 && chans.length > 1 && tr('hyp.oneChannelOnly')], [tr('hyp.needOperating')]);
     if (down.length === 1 && chans.length > 1) {
-      add(`Failure of one payment channel (${down[0].c})`,
-        [`${down[0].c}: ${down[0].obs} transactions vs a usual ${Math.round(down[0].usual)}`, `Other channels traded normally`],
-        [], [`Gateway reason codes and service logs for ${down[0].c}`]);
+      add(tr('hyp.channelFailure', { channel: ch(down[0].c) }),
+        [tr('hyp.channelVs', { channel: ch(down[0].c), obs: down[0].obs, usual: Math.round(down[0].usual) }), tr('hyp.othersNormal')],
+        [], [tr('hyp.needGatewayFor', { channel: ch(down[0].c) })]);
     }
   } else if (t === 'SPIKE_DECLINED' || t === 'NETWORK_DECLINES') {
     const concentrated = worst && decTotal > 0 && worst.dec / decTotal >= 0.7;
-    add(`Gateway or acquirer issue${worst ? ` on ${worst.c}` : ''}`,
-      [concentrated && `${worst.dec} of ${decTotal} declines on ${worst.c}`, a.advisoryId && `Same-day network advisory ${a.advisoryId}`],
-      [!concentrated && decTotal > 0 && 'Declines were spread across channels'], ['Gateway reason codes', 'Switch and service logs for the day']);
-    add('Merchant-side configuration or integration change',
-      [!a.advisoryId && 'No network-wide decline on the channel that day', peersOk && `Same-category merchants traded normally (${pct(peers!)} of expected)`],
-      [a.advisoryId && 'Many merchants on the same channel were affected the same day'], ['Merchant terminal and integration change records']);
+    add(worst ? tr('hyp.gatewayOn', { channel: ch(worst.c) }) : tr('hyp.gateway'),
+      [concentrated && tr('hyp.declinesOn', { k: worst.dec, n: decTotal, channel: ch(worst.c) }), a.advisoryId && tr('hyp.advisorySameDay', { id: a.advisoryId })],
+      [!concentrated && decTotal > 0 && tr('hyp.declinesSpread')], [tr('hyp.needReasonCodes'), tr('hyp.needSwitchLogs')]);
+    add(tr('hyp.config'),
+      [!a.advisoryId && tr('hyp.noNetworkDecline'), peersOk && tr('hyp.peersTraded', { pct: pct(peers!) })],
+      [a.advisoryId && tr('hyp.manyAffected')], [tr('hyp.needChangeRecords')]);
   } else if (t === 'ATYPICAL_SURGE') {
     const peak = Math.max(...d.hours), share = d.n ? peak / d.n : 0;
-    add('Event, promotion or seasonal demand',
-      [peersOk && peers! < 1.3 && 'The surge is specific to this merchant', (d.holiday || [4, 5].includes(new Date(`${a.date}T00:00:00Z`).getUTCDay())) && 'Weekend or public holiday'],
-      [], ['Confirmation from the acquiring bank or the merchant']);
-    add('Retries or duplicated traffic',
-      [share >= 0.3 && `${pct(share)} of the day’s transactions fell in one hour`, d.n_dec + d.n_can > 0.2 * d.n && `${d.n_dec + d.n_can} declined or cancelled of ${d.n}`],
-      [share < 0.2 && 'Activity was spread across the day'], ['Transaction identifiers to check for duplicates']);
+    add(tr('hyp.event'),
+      [peersOk && peers! < 1.3 && tr('hyp.surgeSpecific'), (d.holiday || [4, 5].includes(new Date(`${a.date}T00:00:00Z`).getUTCDay())) && tr('hyp.weekend')],
+      [], [tr('hyp.needBankConfirm')]);
+    add(tr('hyp.retries'),
+      [share >= 0.3 && tr('hyp.oneHour', { pct: pct(share) }), d.n_dec + d.n_can > 0.2 * d.n && tr('hyp.decCanOf', { k: d.n_dec + d.n_can, n: d.n })],
+      [share < 0.2 && tr('hyp.spread')], [tr('hyp.needIds')]);
   } else if (t === 'SPIKE_AMOUNT') {
-    add('Genuinely larger orders',
-      [d.expected_lo !== null && d.expected_hi !== null && d.n >= d.expected_lo && d.n <= d.expected_hi &&
-        'Transaction count was within the archived predictive interval'], [], ['Order details from the merchant']);
-    add('Data entry or integrity problem',
-      [d.ticket !== null && (d.expected_ticket ?? 0) > 0 && d.ticket > 3 * (d.expected_ticket ?? 0) && 'Typical amount more than three times the reference'], [], ['Raw amounts and currency fields from the source']);
+    add(tr('hyp.largerOrders'),
+      [d.expected_lo !== null && d.expected_hi !== null && d.n >= d.expected_lo && d.n <= d.expected_hi && tr('hyp.countWithin')], [], [tr('hyp.needOrders')]);
+    add(tr('hyp.integrity'),
+      [d.ticket !== null && (d.expected_ticket ?? 0) > 0 && d.ticket > 3 * (d.expected_ticket ?? 0) && tr('hyp.ticket3x')], [], [tr('hyp.needRaw')]);
   } else if (t === 'CANCEL_SPIKE') {
-    add('Retries or reversals after failed payments', [d.n_dec > 0 && `${d.n_dec} declines the same day`], [], ['Reversal and retry logs']);
-    add('Change in the merchant’s cancellation process', [inc.days > 1 && `Lasted ${inc.days} days`], [], ['Merchant process change records']);
+    add(tr('hyp.reversals'), [d.n_dec > 0 && tr('hyp.declinesSameDay', { n: d.n_dec })], [], [tr('hyp.needReversal')]);
+    add(tr('hyp.cancelProcess'), [inc.days > 1 && tr('hyp.lasted', { n: inc.days })], [], [tr('hyp.needProcess')]);
   }
   return H.sort((x, y) => y.support - x.support);
 }

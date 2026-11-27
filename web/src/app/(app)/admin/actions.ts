@@ -20,13 +20,13 @@ const list = (f: FormData, k: string) => f.getAll(k).map(String);
 const back = (q: Record<string, string>) => redirect(`/admin?${new URLSearchParams(q)}`);
 
 /** Runs one change; AccountError messages go back to the page, anything else is a real failure. */
-async function attempt(fn: () => string) {
-  let done: string;
+async function attempt(fn: () => Record<string, string>) {
+  let done: Record<string, string>;
   try { done = fn(); } catch (e) {
     if (e instanceof AccountError) back({ error: e.message });
     throw e;
   }
-  back({ done });
+  back(done);
 }
 
 export async function create(f: FormData) {
@@ -34,7 +34,7 @@ export async function create(f: FormData) {
   await attempt(() => {
     const u = createAccount({ id: String(f.get('id') ?? ''), name: String(f.get('name') ?? ''), password: String(f.get('password') ?? ''), pages: list(f, 'pages'), actions: list(f, 'actions') });
     log(me.id, u.id, `created · pages: ${u.pages.join(', ')} · actions: ${u.actions.join(', ') || 'none'}`);
-    return `Account ${u.id} created.`;
+    return { done: 'created', id: u.id };
   });
 }
 
@@ -43,7 +43,7 @@ export async function update(f: FormData) {
   await attempt(() => {
     const u = updateAccess(String(f.get('id')), { name: String(f.get('name') ?? ''), pages: list(f, 'pages'), actions: list(f, 'actions') });
     log(me.id, u.id, `access changed · pages: ${u.pages.join(', ')} · actions: ${u.actions.join(', ') || 'none'}`);
-    return `Access for ${u.id} saved. Their open sessions were signed out.`;
+    return { done: 'saved', id: u.id };
   });
 }
 
@@ -53,7 +53,7 @@ export async function resetPassword(f: FormData) {
   await attempt(() => {
     setPassword(id, String(f.get('password') ?? ''));
     log(me.id, id, 'password reset');
-    return id === me.id ? 'Your password was changed.' : `Password for ${id} reset. Their open sessions were signed out.`;
+    return id === me.id ? { done: 'ownPassword' } as Record<string, string> : { done: 'reset', id };
   });
 }
 
@@ -67,12 +67,12 @@ export async function resetOwnPassword(f: FormData) {
   log(me.id, me.id, 'password changed');
   const fresh = getAccount(me.id);
   if (fresh) (await cookies()).set(COOKIE, encode(fresh), { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 12 * 3600 });
-  back({ done: 'Your password was changed.' });
+  back({ done: 'ownPassword' });
 }
 
 export async function remove(f: FormData) {
   const me = await admin();
   const id = String(f.get('id'));
   if (f.get('confirm') !== 'yes') back({ error: `Tick “confirm” to delete ${id}.` });
-  await attempt(() => { deleteAccount(id); log(me.id, id, 'deleted'); return `Account ${id} deleted.`; });
+  await attempt(() => { deleteAccount(id); log(me.id, id, 'deleted'); return { done: 'deleted', id }; });
 }

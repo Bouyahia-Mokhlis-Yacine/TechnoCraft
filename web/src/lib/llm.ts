@@ -208,19 +208,24 @@ function historyMessages(history: Turn[]): Msg[] {
 /** The assistant entry point: guards, then the model with the conversation so far and the tools,
  *  then the output check. When the model is missing, unreachable or its answer fails the checks, the
  *  built-in deterministic answer stands in, marked with `fallback` so the user can see it. */
-export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: string | null = null): Promise<Reply> {
+/** Accented French letters: a question visibly written in French needs no extra language note. */
+const FRENCH_IN_Q = /[àâçéèêëîïôûùüÿœ]/i;
+
+export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: string | null = null, ui: Lang = 'en'): Promise<Reply> {
   const q = question.trim().slice(0, 500);
+  // the reply follows the question's language, or the interface language when the question does not show one
+  const qLang = detectLang(q, ui);
   if (!selection.length && page && DEICTIC.test(norm(q))) {
     const lastUser = [...history].reverse().find((t) => t.role === 'user');
     const samePage = lastUser?.role === 'user' && lastUser.page?.href.split('?')[0] === page.path.split('?')[0];
     if (lastUser?.role === 'user' && samePage && lastUser.selection?.length) selection = lastUser.selection;
   }
-  let guarded = answer(q);
+  let guarded = answer(q, qLang);
   // "remove the incidents section" edits a report, it is not a case action: only real case actions stay refused
-  if (guarded.refused === 'write' && owner && !CASE_ACTION.test(norm(q)) && (REPORT_WORD.test(norm(q)) || activeReport(owner, page, history))) guarded = answer('summary');
+  if (guarded.refused === 'write' && owner && !CASE_ACTION.test(norm(q)) && (REPORT_WORD.test(norm(q)) || activeReport(owner, page, history))) guarded = answer('summary', qLang);
   // the built-in answer (existing deterministic assistant): used for refusals and whenever the model fails
   const selIds = [...new Set(selection.flatMap((x) => `${x.text ?? ''} ${x.tip ?? ''} ${Object.values(x.table ?? {}).join(' ')} ${(x.links ?? []).join(' ')}`.match(/\b(?:MER-\d{4}|INC-\d{4}-\d{4})\b/g) ?? []))].slice(0, 2);
-  let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`) : guarded;
+  let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`, qLang) : guarded;
   if (guarded.refused && guarded.refused !== 'unsupported') rules = guarded;
   if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
   // on another page, a question about "this chart" that the rules cannot place gets the page summary
@@ -258,7 +263,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     let sys = past.length ? `${system}\nAnswer the latest message in its own language, even if earlier turns used another one.` : system;
     const active = owner ? activeReport(owner, page, history) : null;
     if (active) sys += `\nThe report being worked on (report_id ${active.id}, version ${active.version ?? 1}): ${JSON.stringify(active.spec)}\nIf the user asks to change, add, remove, reorder, rename, shorten or translate anything in it, call compose_report with report_id "${active.id}" and the complete updated title and sections, keeping everything else exactly as it is. Only create a new report when they ask for a new one.`;
-    const lang = detectLang(q);
+    const lang = qLang;
+    if (lang === 'fr' && !FRENCH_IN_Q.test(q)) sys += '\nThe operator uses the French interface: answer in French.';
     if (owner && WANTS_FILE.test(norm(q))) {
       if (!/[\u0600-\u06FF]/.test(q) && lang === 'en') sys += '\nWrite the report in English unless the user asks for another language.';
       sys += '\nFor a report, respect exactly what the user specifies (topics, order, filters, period, title, length, language): use compose_report with only those sections. Use generate_report only when they ask for one of the standard briefs as it is.';
@@ -331,8 +337,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     // the report was saved but the rounds ran out before the model wrote its answer: still show it
     const made = [...used].reverse().find((d) => d.report);
     if (made?.report) {
-      const fr = detectLang(q) === 'fr';
-      return { lang: detectLang(q), intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: made.report };
+      const fr = qLang === 'fr';
+      return { lang: qLang, intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: made.report };
     }
   } catch (e) {
     console.warn('[assistant] model unavailable, using the built-in answer:', e instanceof Error ? e.message : e);

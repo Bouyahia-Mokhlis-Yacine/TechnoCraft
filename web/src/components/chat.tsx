@@ -10,6 +10,8 @@ import type { Reply } from '@/lib/assistant';
 import type { Conversation, ConversationInfo } from '@/lib/conversations';
 import type { Selection } from '@/lib/selection';
 import { ReportPreview } from './report-preview';
+import { fmtStamp } from '@/lib/format';
+import { useT } from './i18n';
 
 type Msg = { id: number; role: 'user'; text: string; page?: { title: string; href: string }; selection?: string[] } | { id: number; role: 'assistant'; reply: Reply; shown: number; total: number };
 const reduced = () => typeof window !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -43,14 +45,14 @@ const narrow = () => matchMedia('(max-width: 900px)').matches; // the rail is a 
 
 /** `variant="dock"`: the compact assistant on every page (no history rail, no URL sync); `page` is
  *  the page the questions are asked from, so the model can read what is on it. */
-export function Chat({ initial, examples, conversations, conversation, folded: foldedAtLoad = false, variant = 'page', page, onConversation, emptyTitle = 'What do you want to know?', attachments = [], onRemoveAttachment, onSent, onPick, picking = false, onReply }: {
+export function Chat({ initial, examples, conversations, conversation, folded: foldedAtLoad = false, variant = 'page', page, onConversation, emptyTitle, attachments = [], onRemoveAttachment, onSent, onPick, picking = false, onReply }: {
   initial?: string; examples: { en: string[]; fr: string[] }; conversations: ConversationInfo[]; conversation: Conversation | null; folded?: boolean;
   variant?: 'page' | 'dock'; page?: { path: string; search: string }; onConversation?: (id: string) => void; emptyTitle?: string;
   /** parts of the page selected by the user, sent with the next question */
   attachments?: Selection[]; onRemoveAttachment?: (i: number) => void; onSent?: () => void; onPick?: () => void; picking?: boolean;
   onReply?: (r: Reply) => void;
 }) {
-  const dock = variant === 'dock';
+  const dock = variant === 'dock', t = useT();
   const [list, setList] = useState(conversations);
   const [convId, setConvId] = useState<string | null>(conversation?.id ?? null);
   const [msgs, setMsgs] = useState<Msg[]>(() => toMsgs(conversation));
@@ -74,7 +76,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
 
   async function ask(q: string) {
     const sel = attachments;
-    const question = q.trim() || (sel.length ? 'Explain what I selected' : '');
+    const question = q.trim() || (sel.length ? t('chat.explainSelection') : '');
     if (!question || busy) return;
     setError(null); setDraft(''); setBusy(true);
     setMsgs((m) => [...m, { id: seq++, role: 'user', text: question, selection: sel.map((x) => x.label) }]);
@@ -83,7 +85,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
     try {
       const res = await fetch('/api/v1/assistant', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question, conversation_id: convId, ...(page ? { page } : {}), ...(sel.length ? { selection: sel } : {}) }) });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message ?? 'The assistant could not answer.');
+      if (!res.ok) throw new Error(data.error?.message ?? t('chat.failed'));
       await new Promise((r) => setTimeout(r, Math.max(0, 550 - (Date.now() - started)))); // let the typing dots read as "thinking"
       const { conversation: saved, page: askedFrom, ...reply } = data as Reply & { conversation: { id: string; title: string; updated: string }; page: { title: string; href: string } | null };
       if (askedFrom) setMsgs((m) => m.map((x, i) => (i === m.length - 1 && x.role === 'user' ? { ...x, page: askedFrom } : x)));
@@ -105,7 +107,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
         })), 28);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'The assistant could not answer.');
+      setError(e instanceof Error ? e.message : t('chat.failed'));
     } finally {
       setBusy(false);
     }
@@ -129,10 +131,10 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
     try {
       const res = await fetch(`/api/v1/assistant/conversations/${id}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message ?? 'Could not open this conversation.');
+      if (!res.ok) throw new Error(data.error?.message ?? t('chat.openFailed'));
       setConvId(id); setMsgs(toMsgs(data)); setUrl(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not open this conversation.');
+      setError(e instanceof Error ? e.message : t('chat.openFailed'));
       setList((l) => l.filter((x) => x.id !== id));
     } finally {
       setLoading(false);
@@ -143,7 +145,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
     if (confirmDel !== id) { setConfirmDel(id); return; }
     setConfirmDel(null);
     const res = await fetch(`/api/v1/assistant/conversations/${id}`, { method: 'DELETE' });
-    if (!res.ok && res.status !== 404) { setError('Could not delete this conversation.'); return; }
+    if (!res.ok && res.status !== 404) { setError(t('chat.deleteFailed')); return; }
     setList((l) => l.filter((x) => x.id !== id));
     if (id === convId) newChat();
   }
@@ -152,48 +154,48 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
 
   const empty = !msgs.length && !busy && !loading;
   const grow = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 200)}px`; };
-  const when = (iso: string) => new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const when = (iso: string) => fmtStamp(iso, t.locale);
   return (
     <div className={`chat${dock ? ' dock' : ''}${railOpen ? ' rail-open' : ''}${folded ? ' rail-folded' : ''}`}>
       {!dock && <>
-      <aside className="chat-rail" aria-label="Conversations" inert={folded && !railOpen ? true : undefined}>
+      <aside className="chat-rail" aria-label={t('chat.conversations')} inert={folded && !railOpen ? true : undefined}>
         <div className="rail-head">
-          <button type="button" className="rail-new" onClick={newChat}><SquarePen aria-hidden />New conversation</button>
-          <button type="button" className="rail-fold" onClick={() => fold(true)} aria-label="Fold the history" title="Fold the history"><PanelLeftClose aria-hidden /></button>
+          <button type="button" className="rail-new" onClick={newChat}><SquarePen aria-hidden />{t('chat.new')}</button>
+          <button type="button" className="rail-fold" onClick={() => fold(true)} aria-label={t('chat.fold')} title={t('chat.fold')}><PanelLeftClose aria-hidden /></button>
         </div>
-        <span className="rail-title">History</span>
+        <span className="rail-title">{t('incd.history')}</span>
         {list.length ? (
           <ul className="rail-list" onMouseLeave={() => setConfirmDel(null)}>
             {list.map((c) => (
               <li key={c.id} className={`rail-item${c.id === convId ? ' on' : ''}`}>
-                <button type="button" className="rail-open" onClick={() => open(c.id)} title={`${c.title} · ${when(c.updated)} · ${c.questions} question${c.questions === 1 ? '' : 's'}`} aria-current={c.id === convId ? 'true' : undefined} dir="auto">{c.title}</button>
-                <button type="button" className={`rail-del${confirmDel === c.id ? ' confirm' : ''}`} onClick={() => remove(c.id)} aria-label={confirmDel === c.id ? `Confirm deleting “${c.title}”` : `Delete “${c.title}”`}>
-                  {confirmDel === c.id ? 'Delete' : <Trash2 aria-hidden />}
+                <button type="button" className="rail-open" onClick={() => open(c.id)} title={`${c.title} · ${when(c.updated)} · ${t('chat.questions', { n: c.questions })}`} aria-current={c.id === convId ? 'true' : undefined} dir="auto">{c.title}</button>
+                <button type="button" className={`rail-del${confirmDel === c.id ? ' confirm' : ''}`} onClick={() => remove(c.id)} aria-label={confirmDel === c.id ? t('chat.confirmDelete', { title: c.title }) : t('chat.delete', { title: c.title })}>
+                  {confirmDel === c.id ? t('chat.deleteShort') : <Trash2 aria-hidden />}
                 </button>
               </li>
             ))}
           </ul>
-        ) : <p className="rail-empty">Your conversations will appear here.</p>}
+        ) : <p className="rail-empty">{t('chat.emptyRail')}</p>}
       </aside>
-      <button type="button" className="rail-scrim" aria-label="Close the history" onClick={() => setRailOpen(false)} />
+      <button type="button" className="rail-scrim" aria-label={t('chat.closeHistory')} onClick={() => setRailOpen(false)} />
       </>}
 
       <div className={`chat-main${empty ? ' is-empty' : ''}`}>
         {!dock && <div className="rail-toggle">
-          <button type="button" onClick={() => fold(false)} aria-label="Show the history" title="Show the history"><PanelLeftOpen aria-hidden /></button>
-          <button type="button" onClick={newChat} aria-label="New conversation" title="New conversation"><SquarePen aria-hidden /></button>
+          <button type="button" onClick={() => fold(false)} aria-label={t('chat.showHistory')} title={t('chat.showHistory')}><PanelLeftOpen aria-hidden /></button>
+          <button type="button" onClick={newChat} aria-label={t('chat.new')} title={t('chat.new')}><SquarePen aria-hidden /></button>
         </div>}
         <div className="chat-scroll" ref={scrollRef} aria-live="polite" aria-busy={loading}>
           <div className="chat-col">
             {empty && (
               <div className="chat-empty m-fade">
-                <h2>{emptyTitle}</h2>
-                <p className="sr-only">Answers come only from engine run data, with the evidence linked. English, French and Algerian Darija. Conversations are saved in the history.</p>
-                <div className="chat-facts" aria-hidden><span><Database />Engine data only</span><span><Link2 />Evidence linked</span><span><Languages />EN · FR · Darija</span></div>
+                <h2>{emptyTitle ?? t('chat.emptyTitle')}</h2>
+                <p className="sr-only">{t('chat.facts')}</p>
+                <div className="chat-facts" aria-hidden><span><Database />{t('chat.factData')}</span><span><Link2 />{t('chat.factEvidence')}</span><span><Languages />FR · EN · Darija</span></div>
               </div>
             )}
             {msgs.map((m) => m.role === 'user'
-              ? <div key={m.id} className="msg-user m-rise">{m.selection?.length ? <div className="msg-sel">{m.selection.map((l, i) => <span key={i}><Crosshair aria-hidden />{l}</span>)}</div> : null}<p dir="auto">{m.text}</p>{m.page && !dock && <Link href={m.page.href} className="asked-from">asked on {m.page.title}</Link>}</div>
+              ? <div key={m.id} className="msg-user m-rise">{m.selection?.length ? <div className="msg-sel">{m.selection.map((l, i) => <span key={i}><Crosshair aria-hidden />{l}</span>)}</div> : null}<p dir="auto">{m.text}</p>{m.page && !dock && <Link href={m.page.href} className="asked-from">{t('chat.askedOn', { page: m.page.title })}</Link>}</div>
               : (
                 <div key={m.id} className={`msg-ai m-fade${m.reply.refused ? ' refused' : ''}`}>
                   <span className="ai-avatar" aria-hidden><Sparkles /></span>
@@ -216,11 +218,11 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
                     )}
                     {m.shown >= m.total && m.reply.report && <ReportPreview report={m.reply.report} compact={dock} />}
                     {m.shown >= m.total && m.reply.scope && <small className="scope">{m.reply.scope}</small>}
-                    {m.shown >= m.total && m.reply.fallback && <small className="fallback-tag" title="Answered by the built-in deterministic assistant from the same engine data">Built-in answer · {m.reply.fallback === 'model_rejected' ? 'the model’s answer failed the checks' : m.reply.fallback === 'model_off' ? 'no language model configured' : 'language model unavailable'}</small>}
+                    {m.shown >= m.total && m.reply.fallback && <small className="fallback-tag" title={t('chat.fallbackTitle')}>{t('chat.fallback')} · {m.reply.fallback === 'model_rejected' ? t('chat.fbRejected') : m.reply.fallback === 'model_off' ? t('chat.fbOff') : t('chat.fbOffline')}</small>}
                   </div>
                 </div>
               ))}
-            {(busy || loading) && <div className="msg-ai"><span className="ai-avatar" aria-hidden><Sparkles /></span><div className="ai-body typing" aria-label={loading ? 'Loading' : 'Thinking'}><span className="m-typing"><span /><span /><span /></span></div></div>}
+            {(busy || loading) && <div className="msg-ai"><span className="ai-avatar" aria-hidden><Sparkles /></span><div className="ai-body typing" aria-label={loading ? t('common.loading') : t('chat.thinking')}><span className="m-typing"><span /><span /><span /></span></div></div>}
             {error && <p className="err" role="alert">{error}</p>}
           </div>
         </div>
@@ -228,25 +230,25 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
           <div className="chat-col">
             {(modelState === 'offline' || modelState === 'off') && (
               <p className={`model-note ${modelState}`} role="status">
-                <i aria-hidden />{modelState === 'offline' ? 'Fallback mode: language model offline, built-in answers only.' : 'Fallback mode: no language model configured, built-in answers only.'}
-                {modelState === 'offline' && <button type="button" onClick={checkModel}>Retry</button>}
+                <i aria-hidden />{modelState === 'offline' ? t('chat.modeOffline') : t('chat.modeOff')}
+                {modelState === 'offline' && <button type="button" onClick={checkModel}>{t('common.retry')}</button>}
               </p>
             )}
             {attachments.length > 0 && (
-              <div className="chat-attach" aria-label="Selected on the page">
+              <div className="chat-attach" aria-label={t('chat.selected')}>
                 {attachments.map((a, i) => (
                   <span key={i} className="attach-chip m-pop" title={a.tip ?? a.text ?? a.label}><Crosshair aria-hidden /><span dir="auto">{a.label}</span>
-                    <button type="button" onClick={() => onRemoveAttachment?.(i)} aria-label={`Remove ${a.label}`}><X aria-hidden /></button></span>
+                    <button type="button" onClick={() => onRemoveAttachment?.(i)} aria-label={t('imp.removeFile', { name: a.label })}><X aria-hidden /></button></span>
                 ))}
               </div>
             )}
             <form className="chat-input" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
-              {onPick && <button type="button" className={`pick-btn${picking ? ' on' : ''}`} onClick={onPick} aria-pressed={picking} aria-label="Select something on the page" title="Select something on the page"><Crosshair aria-hidden /></button>}
-              <textarea ref={inputRef} dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); grow(e.target); }} rows={1} maxLength={500} placeholder={attachments.length ? 'Ask about the selection' : convId ? 'Ask a follow-up' : 'Ask a question'} aria-label="Your question"
+              {onPick && <button type="button" className={`pick-btn${picking ? ' on' : ''}`} onClick={onPick} aria-pressed={picking} aria-label={t('chat.pick')} title={t('chat.pick')}><Crosshair aria-hidden /></button>}
+              <textarea ref={inputRef} dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); grow(e.target); }} rows={1} maxLength={500} placeholder={attachments.length ? t('chat.askSelection') : convId ? t('chat.followUp') : t('chat.ask')} aria-label={t('chat.yourQuestion')}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(draft); e.currentTarget.style.height = 'auto'; } }} />
-              <button className="send" disabled={busy || (!draft.trim() && !attachments.length)} aria-label="Send"><ArrowUp /></button>
+              <button className="send" disabled={busy || (!draft.trim() && !attachments.length)} aria-label={t('chat.send')}><ArrowUp /></button>
             </form>
-            {empty && <div className="suggest">{[...examples.en.slice(0, 4), ...examples.fr.slice(0, 2)].map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
+            {empty && <div className="suggest">{(t.locale === 'fr' ? examples.fr : examples.en).slice(0, 4).map((s) => <button key={s} onClick={() => ask(s)}>{s}</button>)}</div>}
           </div>
         </div>
       </div>
