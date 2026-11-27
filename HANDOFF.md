@@ -12,11 +12,12 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
 - Branch: `final-platform-integration`, pushed to `origin` up to `2cafe55`.
 - No pull request exists yet. The `gh` CLI is not installed; the compare link is in the report.
 - Do **not** merge into `main`: the AI team must first regenerate the official `y_pred_anomalies.csv` in the sealed Windows environment.
-- **Uncommitted work** (tested end to end, not committed because the user did not ask):
+- **Committed in `cdb9fc5`** (pushed; tested end to end):
   - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; SATIM protected; combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
   - **French UI (default) + EN**: `web/src/lib/i18n/` (flat dictionaries, `en.ts` is the reference, `fr.ts` must define every key; plurals `_one`/`_other`), `web/src/components/i18n.tsx` (provider, `useT`, FR/EN switch, `pai_lang` cookie). Backend messages carry `code` + `values` (`msg.*` keys). Untyped helpers (`tr`, `tk`, template keys) are not checked by tsc: re-run the key scan in section 5 after adding strings.
   - "Transactions for this alert", red filter bar, `date-range.tsx`, and edits across pages, `globals.css` (dated blocks at the bottom), `web/README.md`, `web/.env.example`.
-  - Commit it in logical commits when the user asks, ending each message with the Co-Authored-By line from the session instructions.
+  - Also in `cdb9fc5`: KPI editor (collapsible cards, unit check, current-state warning, new measures), Intelligence tabs, episode metrics, merchant accepted value over known days, `components/balanced.tsx` (two-column dashboards packed by height).
+  - No historical forecast vintages exist in the snapshot, so actual-vs-past-forecast is not shown.
 - `git stash@{0}`: a teammate's uncommitted Overview edit (full-width "ov-lower" grid). It conflicts with the user's two-column layout decision and depends on CSS that no longer exists. It is also saved at `.verification/teammate-overview-grid.patch`. Don't apply it without asking the user.
 
 **Running processes**
