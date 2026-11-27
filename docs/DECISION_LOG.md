@@ -21,3 +21,7 @@ The former simulator implemented an independent statistical scorer. The replacem
 ## 2026-11-27 · Administrator-managed accounts instead of fixed roles
 
 Options: four fixed demo roles (analyst, supervisor, reader, administrator) or one administrator who creates accounts. Decision: one administrator creates each account and ticks the pages it sees and three action groups (review incidents, manage incidents, export). The proxy checks every page and API call; routes re-check each write and export. Passwords are scrypt hashes, five failures lock a username for a minute, and editing an account revokes its sessions. Evidence: SATIM teams differ in what they need to see; fixed roles could not express it. Would change our mind: integration with SATIM's own directory (SSO), which this local scheme does not replace.
+
+## 2026-11-27 · An error instead of a rule-based assistant answer
+
+Options: answer with the deterministic rules when the language model is missing, slow or rejected, or return an explicit error. Decision: the API returns 503 (model_off, model_offline, model_rejected) and the chat says so. Guard refusals (intent, card data, write actions) still answer, since they state no figures. Evidence: rules phrased for this dataset can state wrong figures once the data changes; an operator is better served by no answer than a false one. Would change our mind: rules that are regenerated and verified with every published run.
