@@ -10,7 +10,7 @@ import { addDays, PLAYBOOK } from '@/lib/model';
 import { listReports } from '@/lib/custom-report';
 import { currentUser } from '@/lib/session';
 import { FileText } from 'lucide-react';
-import { FilterForm, PrintButton } from '@/components/client';
+import { AutoPrint, FilterForm, PrintButton } from '@/components/client';
 import { EmptyState, ExportLink, PageHeader, SeverityBadge, flat } from '@/components/ui';
 import { DayBars, ForecastBars, PairBars } from '@/components/charts';
 import { weeklyBrief } from '@/lib/insights';
@@ -35,7 +35,8 @@ async function Reports({ searchParams }: { searchParams: SP }) {
   const pdf = `/api/v1/reports/pdf?${new URLSearchParams(type === 'merchant' ? { type, merchant } : type === 'alerts' ? { type, ...al.query } : { type, date })}`;
   return (
     <>
-      <div className="no-print"><PageHeader title="Reports"><a className="btn btn-secondary" href={pdf} download><Download aria-hidden />Download PDF</a><PrintButton /></PageHeader></div>
+      <AutoPrint />
+      <div className="no-print"><PageHeader title="Reports"><a className="btn btn-secondary" href={pdf}><Download aria-hidden />Download PDF</a><PrintButton /></PageHeader></div>
       <div className="no-print">
         <FilterForm>
           <label className="field">Brief<select name="type" defaultValue={type}><option value="daily">Daily operational brief</option><option value="weekly">Weekly management brief</option><option value="merchant">Merchant health brief</option><option value="alerts">Alerts brief</option></select></label>

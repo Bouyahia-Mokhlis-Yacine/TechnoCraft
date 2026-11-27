@@ -89,7 +89,7 @@ export function Pager({ page, pageSize, total, params, path }: { page: number; p
 /** Sanitized CSV of the current filter scope (logged on the server). */
 export function ExportLink({ kind, params, label = 'Export CSV' }: { kind: 'transactions' | 'anomalies' | 'incidents'; params: Record<string, string>; label?: string }) {
   const rest = Object.fromEntries(Object.entries(params).filter(([k]) => k !== 'page'));
-  return <a className="btn btn-secondary" href={`/api/v1/export/${kind}?${new URLSearchParams(rest)}`} download><Download />{label}</a>;
+  return <a className="btn btn-secondary" href={`/api/v1/export/${kind}?${new URLSearchParams(rest)}`}><Download />{label}</a>;
 }
 
 export function flat(sp: Record<string, string | string[] | undefined>) {

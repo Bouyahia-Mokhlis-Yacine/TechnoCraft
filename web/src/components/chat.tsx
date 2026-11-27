@@ -205,7 +205,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
                         const style = { '--delay': `${i * 70}ms` } as React.CSSProperties;
                         // files (PDF reports, CSV exports) download; pages open in the app
                         return e.href.startsWith('/api/')
-                          ? <a key={e.href + i} href={e.href} download className="dl m-pop" style={style}><Download aria-hidden />{e.label}</a>
+                          ? <a key={e.href + i} href={e.href} className="dl m-pop" style={style}><Download aria-hidden />{e.label}</a>
                           : <Link key={e.href + i} href={e.href} className="m-pop" style={style}>{e.label}</Link>;
                       })}</div>
                     )}

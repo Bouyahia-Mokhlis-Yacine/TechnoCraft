@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { Download } from 'lucide-react';
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/ui';
-import { PrintButton } from '@/components/client';
+import { AutoPrint, PrintButton } from '@/components/client';
 import { ReportDocument } from '@/components/report-document';
 import { UndoReport } from '@/components/report-actions';
 import { ReportsSkeleton } from '@/components/skeletons';
@@ -25,11 +25,12 @@ async function CustomReport({ params }: { params: P }) {
   if (!r) notFound();
   return (
     <>
+      <AutoPrint />
       <div className="no-print">
         <PageHeader title={r.spec.title} crumbs={<><Link href="/reports">Reports</Link><span>/</span><span>Prepared by the assistant</span></>}>
           <span className="chip" title="Ask the assistant (bottom right) to change this report">Version {r.version ?? 1}</span>
           {(r.history?.length ?? 0) > 0 && <UndoReport id={r.id} />}
-          <a className="btn btn-secondary" href={`/api/v1/reports/pdf?id=${r.id}`} download><Download aria-hidden />Download PDF</a><PrintButton />
+          <a className="btn btn-secondary" href={`/api/v1/reports/pdf?id=${r.id}`}><Download aria-hidden />Download PDF</a><PrintButton />
         </PageHeader>
       </div>
       <ReportDocument r={r} />

@@ -23,7 +23,7 @@ export function ReportPreview({ report, compact = false }: { report: { id: strin
       <div className="rp-head">
         <FileText aria-hidden /><span><b dir="auto">{report.title}</b><small>Version {report.version} · preview</small></span>
         <Link href={`/reports/${report.id}`} title="Open the report" aria-label="Open the report"><Maximize2 aria-hidden /></Link>
-        <a href={`/api/v1/reports/pdf?id=${report.id}`} download title="Download PDF" aria-label="Download PDF"><Download aria-hidden /></a>
+        <a href={`/api/v1/reports/pdf?id=${report.id}`} title="Download PDF" aria-label="Download PDF"><Download aria-hidden /></a>
       </div>
       <div ref={box} className="rp-frame" style={{ height }}>
         <iframe src={`/embed/reports/${report.id}?v=${report.version}`} title={`Preview of ${report.title}`} loading="lazy"

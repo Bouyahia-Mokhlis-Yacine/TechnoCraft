@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     let doc: Buffer;
     try { doc = await renderReportPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, `/reports/${r.id}`); } catch (e) {
       console.warn('[reports] PDF engine unavailable:', e instanceof Error ? e.message.split('\n')[0] : e);
-      return fail(503, 'pdf_unavailable', 'PDF generation is unavailable on this machine. Open the report and use Print / save as PDF.');
+      return Response.redirect(new URL(`/reports/${r.id}?print=1`, req.nextUrl.origin), 303); // no browser here: the print dialog instead
     }
     appendEvent({ actor: user.role, action: 'export', target: 'export:report-pdf', run_id: meta.run.run_id, reason: `id=${r.id}`, prior: 'new', next: 'new', escalated: false, version: 0 });
     const slug = r.spec.title.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'report';
@@ -37,8 +37,9 @@ export async function GET(req: NextRequest) {
   try {
     pdf = await renderBriefPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, brief);
   } catch (e) {
-    console.warn('[reports] PDF engine unavailable:', e instanceof Error ? e.message.split('\n')[0] : e);
-    return fail(503, 'pdf_unavailable', 'PDF generation is unavailable on this machine. Open the report and use Print / save as PDF.');
+    // no browser on this machine: open the brief with the print dialog ("Save as PDF") instead
+    console.warn('[reports] PDF engine unavailable, opening the print dialog instead:', e instanceof Error ? e.message.split('\n')[0] : e);
+    return Response.redirect(new URL(`/reports?${briefQuery(brief)}&print=1`, req.nextUrl.origin), 303);
   }
   appendEvent({ actor: user.role, action: 'export', target: `export:report-pdf`, run_id: meta.run.run_id, reason: briefQuery(brief), prior: 'new', next: 'new', escalated: false, version: 0 });
   const name = `pai-${type}-brief-${type === 'alerts' ? `${brief.from ?? 'week'}-${brief.to ?? meta.asOf}` : brief.merchant ?? brief.date}-${meta.run.run_id}.pdf`;

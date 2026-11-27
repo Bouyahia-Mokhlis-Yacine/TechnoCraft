@@ -208,3 +208,21 @@ export function BackButton() {
   );
 }
 
+
+/** `?print=1` (a PDF download on a machine without a browser to render it): open the print dialog
+ *  once the page has drawn, so the user can still "Save as PDF". */
+export function AutoPrint() {
+  const asked = useSearchParams().get('print') === '1';
+  useEffect(() => {
+    if (!asked) return;
+    const t = setTimeout(() => document.fonts.ready.then(() => {
+      window.print();
+      // drop ?print=1 afterwards (doing it first would re-render and cancel the timer)
+      const url = new URL(window.location.href);
+      url.searchParams.delete('print');
+      window.history.replaceState(null, '', url);
+    }), 600);
+    return () => clearTimeout(t);
+  }, [asked]);
+  return null;
+}
