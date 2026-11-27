@@ -15,6 +15,8 @@ The archive provides merchant, channel, category, outcome and amount evidence. S
 
 ## B2 · Users and decisions
 
+The users below are account presets, not fixed roles: the administrator creates each account on **Accounts** (`/admin`, `web/src/lib/accounts.ts`) and ticks its pages and actions (review incidents, manage incidents, export). `src/proxy.ts` enforces the pages; the review, export and PDF routes enforce the actions. Each account also chooses its Overview KPIs (`KpiEditor`, `PUT /api/v1/kpis`, formulas over engine measures in `web/src/lib/formula.ts`).
+
 | User and decision | Product trace |
 | --- | --- |
 | Supervisor reviews open incidents, assigns responsibility, escalates or closes with evidence | Overview → Incidents → `ReviewPanel` · `GET /api/v1/incidents`, `POST /api/v1/incidents/{id}/review` · `OperationsBackend.queue`, `reviews.applyReview` · evaluated MCDA policy, allowed role and expected review version |

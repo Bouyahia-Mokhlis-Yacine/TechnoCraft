@@ -20,7 +20,7 @@ Transaction, cancellation and rejection totals use retained recorded events. Ref
 
 ## HTTP routes
 
-All operational endpoints check the signed demo session. `GET /api/v1/health` is public and publishes availability metadata only. Error responses include a safe error code and can include a request ID.
+All operational endpoints check the signed session of a local account, and the proxy refuses any page or route outside the account's pages (HTTP 403). `GET /api/v1/health` is public and publishes availability metadata only. Error responses include a safe error code and can include a request ID.
 
 | Route under `/api/v1` | Contract |
 | --- | --- |
@@ -31,7 +31,9 @@ All operational endpoints check the signed demo session. `GET /api/v1/health` is
 | `POST /incidents/{id}/review` | `{action, reason, owner?, version}`. Mismatched versions return HTTP 409. Review state and historical detection remain separate |
 | `GET /advisories` | Frozen V3 warnings with hypotheses, plus V4-only investigation candidates |
 | `GET /forecasts?merchant=` | Seven days from the origin, with interval bounds, optional merchant scope and backtest |
-| `POST /assistant` | Allowlisted questions with scoped evidence links and deterministic fallback. Optional conversations and local/HPC language-model augmentation |
+| `POST /assistant` | Questions answered by the local/HPC language model through allowlisted read-only tools, with scoped evidence links and conversations. Guard refusals (intent, card data, writes) answer without the model. No rule-based substitute: a missing, unreachable or unverified model returns HTTP 503 (`model_off`, `model_offline`, `model_rejected`) |
+| `GET /assistant/status` | Whether the language model is `online`, `offline` or `off` |
+| `PUT /kpis` | The signed-in account's own Overview cards (formulas over engine measures, validated server-side) |
 | `GET /export/{transactions,anomalies,incidents,predictions}` | Sanitized CSV. Submission export requires sealed parity |
 | `GET /reports/pdf` | Browser-printed daily, weekly, merchant, alert or incident brief. The custom report route uses a report ID and owner scope |
 
