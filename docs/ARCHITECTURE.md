@@ -59,3 +59,9 @@ All operational endpoints check the signed session of a local account, and the p
 | `GET /reports/pdf` | Browser-printed daily, weekly, merchant, alert or incident brief. The custom report route uses a report ID and owner scope |
 
 The archived website scorer in `engine/detect.py` and `engine/legacy_export.py` remains available for historical code inspection. The active export, official CSV and web readers all use the packaged `src/` engine.
+
+## Post-deployment learning
+
+A trusted adapter reads successful complete import runs and registers immutable observation revisions in the dedicated learning SQLite store. Expert labels and independent supervisor decisions are append-only. A closed incident action never changes training eligibility. Operational scoring checkpoints preserve Directional CUSUM incident state and immutable pinned references. Each acknowledged activation takes effect at a future closed-batch boundary so historical learning predictions and imported snapshots remain separately reproducible.
+
+An on-demand worker fits the reviewed Hierarchical Probabilistic Detection and channel references, forecasts, and optional 62-feature Isolation Forest refit. It computes rank calibrations on a separate approved period. A predeclared window is reserved before fitting and scores the operational champion and challenger on the same closed merchant-days before expert labels are submitted. Distribution monitoring is advisory. Model activation and rollback are explicit, audited supervisor actions. [Backend contract](CONTINUOUS_LEARNING_API.md)

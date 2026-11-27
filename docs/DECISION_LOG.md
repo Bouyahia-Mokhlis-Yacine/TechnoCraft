@@ -58,3 +58,6 @@ Activation writes `runs/active.json`; it is the default for accounts that have n
 
 The brief allows the mentor-confirmed absolute-value policy only where supported. Neither `config/` nor the preprocessing code implements it, so imports keep the archived rule (negative amounts excluded from monetary sums, counted as events) and report the count.
 
+## 2026-11-27 · Require reviewed admission and prospective shadow evaluation
+
+The saved adaptive experiment found fewer false alerts with controlled reference updates, while partial episode quarantine let the Isolation Forest absorb sustained anomalies. Unguarded adaptation reduced Hybrid incident-day recall from 66.67% in the controlled-reference arm to zero. Use explicit supervisor-approved normal labels, whole-episode quarantine and a lead/recovery buffer. Keep reference fitting, model fitting, calibration and reserved shadow observations temporally separate. Keep Directional CUSUM thresholds frozen and pin open incidents across model switches. Promote only after paired prospective evidence and a supervisor decision, with rollback to the prior approved version. Revisit admission and promotion policy only with independent labelled operational evidence. [Verification report](../reports/continuous_learning_results.md)
