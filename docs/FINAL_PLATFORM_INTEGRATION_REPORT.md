@@ -2,6 +2,29 @@
 
 Branch `final-platform-integration`, built on 27 November 2026 from `main` (`e98cf7d`) plus the latest frontend work, with `origin/backend-integration` (`c7f7586`) merged in. Linux preview checks ran on Fedora (Node.js 22.23, Python 3.12.7), and sealed release verification ran on Windows (Node.js 20.19.5, `.verification/sealed-env` Python 3.12.7), where the live local demo server on port `3000` serves sealed run `4d13a45b617d44b4`.
 
+## Live Monitoring and future data processing (2026-11-28)
+
+Branch `final-platform-integration`: Live Monitoring merged from `live-monitoring-integration` (`88beefc`, `6dafe17`) in `a314f80`; localisation and transparency in `00a7306`; future batch processing in `53369f9`.
+
+| Check (Linux, isolated `RUNS_DIR`) | Result |
+| --- | --- |
+| Python `unittest` (`test_import_batch`, `test_live_monitoring`, `test_snapshot`) | 21 passed |
+| `web/scripts/verify-live.mjs` (start, pause, step, speed, scope, reload restore, finish and closure, collective and resolved warnings, assistant `live_replay`, 15 Oct backlog demo, stop, phone width, reset, read-only account) | passed |
+| Replay isolation | a read-only account sees its own idle replay while the administrator's runs; its control request gets 403 |
+| Two CSVs in one import, append, repeat upload | one collection; totals add up; the repeated file is skipped |
+| Overlapping dates (inside 25 Oct–13 Nov) | refused at validation and again at analysis |
+| Partial export with a 5-day gap | no merchant-day scored or flagged in the gap |
+| Sequential state | replay reproduces the 52 official flags; 15/200 early scores differ from a fresh start; two successive batches = one continuous replay (400/400 identical); batch-1 scores unchanged by batch 2 |
+| Worker killed during scoring | run marked failed at its stage; collection unchanged; retry succeeds |
+| Concurrent import | 409 `busy` |
+| Activation | accounts without their own choice see the activated run on Overview, Alerts, Incidents, Merchants, Transactions and Intelligence; an explicit SATIM choice still sees the official run |
+| Permissions | read-only account: upload 403, activation 403, predictions download 403, replay control 403 |
+| Operational CSV | `operational_predictions_<run_id>.csv`, every scored merchant-day, unique, binary, finite; no card fields in any run file |
+| Official artifacts | `y_pred_anomalies.csv` SHA-256 `4613fbe3…` unchanged after imports, activation and replays |
+| Browser journey (headless Chrome, French) | upload, per-file errors, preview, live stages, refresh, activation, download; no page errors; no horizontal scroll at 1440/1024/390 px |
+
+Limitations: Reports, Simulator and the Assistant keep reading the official run (labelled). Live Monitoring service texts (explanations, actions) stay in English inside the French interface. The study's held-out results (19/132 synthetic incidents, 14.4 % recall, 90 min median delay, 7 ordinary notifications in 14 days) and the selected 15 October demonstration are shown as such; sustained monetary alerts, sequential outcome monitoring and collective or hybrid enrichment at simulated closure are not implemented. No absolute-value negative-amount policy exists, so none is offered. Windows sealed verification of this branch has not been rerun.
+
 ## Live Monitoring research extension
 
 `live-monitoring-integration` extends the verified `4ce5a1c2bf2ee0ca00386b0af8f853f6bf7d41a9` base with a separately versioned historical replay. The frozen daily engine reran in the sealed Windows environment with exact parity on 280 development and 711 official score–flag pairs. The isolated sealed CSV had 52 flagged rows and matched the committed CSV digest. Browser verification used the isolated publication. The research report and notebooks describe the measured capability and remaining work. [Live Monitoring research report](../reports/live_monitoring_results.md)

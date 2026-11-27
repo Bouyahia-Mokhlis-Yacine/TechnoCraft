@@ -2,14 +2,44 @@
 
 The TechnoCraft competition platform replays the supplied historical archive. The Python engine computes one versioned snapshot for the Next.js dashboard, reports and assistant. The same frozen V2 run generates the official 711-row prediction CSV.
 
+## Start the complete platform
+
+From the repository root, with the pinned conda environment (Linux: `satim-sealed-linux`, Windows: the sealed environment):
+
+1. **Engine snapshot.** `python -m engine.export` writes `runs/<run_id>/snapshot.json` and `runs/latest.json` (on Linux add `--allow-unsealed-preview`; see below).
+2. **Replay service (optional, for Live Monitoring).** Set `LIVE_MONITORING_TOKEN` and run `python -m src.live_monitoring.service` (details below).
+3. **Web app.** In `web/`: `npm ci`, `npm run build`, then `SATIM_PYTHON=<env python> LIVE_MONITORING_TOKEN=<same token> npm start`. `SATIM_PYTHON` is the interpreter used for imports; the first start creates the administrator (password in `runs/admin-password.txt`, owner-only, or `ADMIN_PASSWORD`).
+4. Open `http://localhost:3000`. The interface is in French by default; FR / EN is in the header and on the sign-in page.
+
+## Three execution modes, never mixed
+
+| Mode | Data | Where | Can change the official submission? |
+| --- | --- | --- | --- |
+| Official competition run | Supplied archive, frozen V1–V4 | `runs/<run_id>/`, `runs/latest.json`; sealed on Windows, labelled preview on Linux | It **is** the submission (`y_pred_anomalies.csv`, SHA-256 `4613fbe3…`), produced only by `engine.export` |
+| Imported operational data | Future transaction CSVs uploaded in **Data & runs** | `runs/collections/`, `runs/imports/<run_id>/` | Never: separate directory, separate `operational_predictions_<run_id>.csv` |
+| Simulated live replay | Training archive replayed on a simulated clock, per account | `runs/live-monitoring/replay.sqlite3` | Never: results are not published as runs |
+
+## Import future transaction data
+
+**Data & runs → Importer des transactions** (administrator):
+
+1. Upload one or more CSV files (template: *Télécharger le modèle* or `GET /api/v1/imports/template`). Required columns: `merchant_id, transaction_date (YYYY-MM-DD HH:MM:SS, Algiers local time), amount, payment_channel, transaction_status, merchant_category`; `masked_pan` is optional and used only to tell exact duplicates apart. It is never stored in results, shown, logged or exported. Allowed channels and statuses are those of `src/data/preprocessing.py`.
+2. Each file is validated by the Python engine: blocking errors (missing columns, empty file, unreadable dates, dates inside the history the official run already processed, too many rows or days) are listed beside the file; quality warnings (exact duplicates, missing or negative amounts, unknown or missing channels, unknown statuses, missing categories, contactless payments above 2,500 DZD, new merchants) are handled by the archived preprocessing, never silently.
+3. The combined preview shows the period, merchants, rows received, duplicates (within the files and with the destination) and rows ready. Choose **new collection** or **existing collection**, and declare whether the batch is **complete** (absent merchant-days are zero activity) or **partial** (absent days stay unknown; nothing is scored for them).
+4. Start. The live status shows the real stages: reading files, validating, cleaning, merchant-day aggregation, frozen reference, Sequential Detection, incidents, collective warnings and forecast, Hybrid ML, saving. It survives a page refresh; a failure keeps the last good version of the collection and offers **Retry**.
+5. In **Historique des analyses**, inspect each run and download `operational_predictions_<run_id>.csv` (`merchant_id,date,is_anomaly,anomaly_score`, every scored merchant-day; export permission).
+6. To show a run to everyone, open the collection's ⋯ menu → **Activer pour tous** (administrator). Accounts that have not chosen a dataset themselves then see it on Overview, Incidents, Alerts, Merchants, Transactions and Intelligence, without rebuilding. Reports, Simulator and the Assistant keep reading the official run and say so.
+
+**How sequential state is kept.** Every analysis replays the frozen detector from the official epoch (25 Oct 2026) through the official test period and on through the collection's batches in date order, against the frozen pre-period reference (fitted on ordinary history before 17 Oct 2026, never refitted or updated from new days). CUSUM and incident lifecycles therefore continue from the official run, references cannot be contaminated by ongoing incidents, new merchants start from the hierarchical (category) Gamma–Poisson reference, and processing batches one at a time gives exactly the same scores as one continuous replay. A file already in the destination is skipped; dates on or before 13 Nov 2026 are refused rather than rewriting processed history.
+
 ## Run the Live Monitoring workspace
 
 Use the project's Python and Node environments and an existing published platform snapshot. The replay service reads the training archive and serves isolated simulations. The frozen daily detector remains authoritative for the official competition submission.
 
 1. Generate a local shared token in PowerShell with `[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. Set the same value as `LIVE_MONITORING_TOKEN` in both service terminals. Keep the token server-side.
 2. From the repository root, run `python -m src.live_monitoring.service`. It listens on `127.0.0.1:8765` and checkpoints to `runs/live-monitoring/replay.sqlite3`. Use `--state` to isolate verification or demonstration state.
-3. In the second terminal, change into `web` and run `npm run dev`. If the Python port is different, set `LIVE_MONITORING_URL` to its loopback address before starting Next.js.
-4. Sign in and open **Live Monitoring**. Choose a start and end date from 22 September through 24 October 2026, up to seven consecutive dates. The administrator can grant the **Live Monitoring** page and **Control live replay** action independently. Each account has its own replay.
+3. In the second terminal, change into `web` and run `npm run dev` (or `npm start` after a build), with the same `LIVE_MONITORING_TOKEN`. If the Python port is different, set `LIVE_MONITORING_URL` to its loopback address before starting Next.js.
+4. Sign in and open **Live Monitoring** (*Surveillance en direct* in French). The page states its held-out results (read from `reports/live_monitoring/`) and what is not implemented yet. Choose a start and end date from 22 September through 24 October 2026, up to seven consecutive dates. The administrator can grant the **Live Monitoring** page and **Control live replay** action independently. Each account has its own replay.
 
 **Simulated Live Monitoring — Historical Replay** advances on the archive clock. It uses no production feed. Set both dates to **15 October 2026** and choose *POS interruption with same-day backlog* to inspect a warning that opened before daily closure. The synthetic truth panel records the injected change separately from detector output. Sparse scopes may show little or no early-warning evidence.
 

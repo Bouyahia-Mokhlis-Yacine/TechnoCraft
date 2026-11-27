@@ -14,6 +14,14 @@ Python writes and flushes temporary files in each destination directory, atomica
 
 **GET `/api/v1/live`** returns the current account's watermark, data status, bounded history and warning state. Optional `kind`, `name` and `limit` select a chart scope and interval count. One-second polling returns a full recovery snapshot after disconnect or reload. **POST `/api/v1/live`** accepts `start`, `pause`, `resume`, `stop`, `reset`, `step` and `speed` actions. Start requires ISO dates, an allowed speed and a preset. Next.js resolves identity from the existing signed cookie. Requests need the Live Monitoring page permission, and writes also need replay control and a same-origin JSON request. The Python service binds only to loopback and requires the server-held bearer token. The browser receives neither raw events nor the token. The assistant uses the authenticated replay snapshot through its read-only page context tool.
 
+## Imported operational runs
+
+`engine/import_batch.py` (`validate`, `preview`, `analyze`) reuses the archived cleaning (`clean_transactions`), merchant-day aggregation and `OperationsBackend` without changing `src/` or `config/`. A collection is a list of batches (one or more CSV files each, with declared completeness); a run is one analysis of a collection version or of several collections analysed together, in `runs/imports/<run_id>/` (`status.json` polled by the browser, `snapshot.json` validated before an atomic write, `operational_predictions.csv`). The run id derives from the selected collection ids and versions, so unchanged data reuses its result.
+
+Sequential state: the backend starts at the official epoch and replays `test days + batch days` with the frozen ordinary reference; predictions, merchant days, advisories and incidents are kept from the batch's first date (incidents only for the batch's merchants). The replayed test period reproduces the 52 official flags, which the run records under `run.continuation`. V3 advisories and the archived V4 Hybrid ML run on the batch; neither changes V2 flags or scores.
+
+Activation: `runs/active.json` holds the administrator's platform-wide dataset; `lib/dataset.ts` resolves each request from the `pai_view` cookie (an account's own choice, `satim` for an explicit official choice) or else from `active.json`. Pages read `model(view.runId)`; reviews stay on the official run.
+
 ## Snapshot schema v2
 
 | Field | Meaning |
@@ -29,6 +37,9 @@ Python writes and flushes temporary files in each destination directory, atomica
 Transaction, cancellation and rejection totals use retained recorded events. Refunds are separate events. Attempted value excludes refunds. Accepted value uses accepted events. If any qualifying amount is missing, the period aggregate is unavailable. Gross activity estimates use conditional counterfactuals and suppress incomplete monetary gaps. Dated review records change operator workflow. The release retains the pinned competition reference.
 
 ## HTTP routes
+
+Import and activation routes (administrator unless stated): `POST /api/v1/imports/validate` (multipart, 25 MB), `POST /api/v1/imports/preview`, `POST /api/v1/imports` (409 while another import runs), `GET|POST /api/v1/imports/{id}` (status, retry), `GET /api/v1/imports/{id}/predictions` (export permission), `GET /api/v1/imports/template`, `GET /api/v1/collections`, `POST /api/v1/collections/selection` (any account, its own view), `PATCH /api/v1/collections/{id}` (trash, restore, rename), `POST /api/v1/collections/active` (platform default).
+
 
 All operational endpoints check the signed session of a local account, and the proxy refuses any page or route outside the account's pages (HTTP 403). `GET /api/v1/health` is public and publishes availability metadata only. Error responses include a safe error code and can include a request ID.
 

@@ -45,3 +45,16 @@ On Linux (Python 3.12.7 and the pinned NumPy, SciPy, pandas and scikit-learn fro
 ## 2026-11-27 · Restore the built-in assistant as a labelled fallback
 
 Supersedes "An error instead of a rule-based assistant answer". The team chose demo reliability: the HPC language model stays primary, and when it is not configured, unreachable, times out or its answer fails the checks, the existing deterministic assistant answers from the same published run. Each such reply is marked `fallback` with the reason and labelled "Built-in answer" in the chat, with a "Fallback mode" bar while the model is down, so a built-in answer is never mistaken for the model's. Tested with the model online (answers from the model, 0.7–1.6 s) and with an unreachable endpoint (labelled built-in answers with evidence).
+
+## 2026-11-28 · Future batches continue the official run's sequential state
+
+Imported transaction batches are scored by replaying the frozen detector from the official epoch through the official test period and on through the batch, with the frozen pre-period reference. Earlier imports restarted CUSUM at the batch's first day (verified: 0 of 460 scores changed when history was prepended, because the monitor starts empty at its epoch). Starting at the official epoch changed 15 of 200 early scores and reproduces the 52 official flags in the replayed period. Batches processed one at a time give the same 400 scores as one continuous replay. Dates on or before 13 Nov 2026 are refused; corrections need an explicit replay. The reference is not updated from new days: no reviewed-reference update policy exists in the frozen configuration, and unflagged days are not assumed safe.
+
+## 2026-11-28 · One platform-wide active dataset, chosen by the administrator
+
+Activation writes `runs/active.json`; it is the default for accounts that have not chosen a dataset. An explicit choice, including returning to the SATIM dataset, still wins. Reports, Simulator and the Assistant keep reading the official run, labelled, because their evidence chains (PDF briefs, simulator baselines, assistant tools) are built on it. The sealed submission is never written; imported runs export `operational_predictions_<run_id>.csv`.
+
+## 2026-11-28 · No absolute-value negative-amount policy offered
+
+The brief allows the mentor-confirmed absolute-value policy only where supported. Neither `config/` nor the preprocessing code implements it, so imports keep the archived rule (negative amounts excluded from monetary sums, counted as events) and report the count.
+

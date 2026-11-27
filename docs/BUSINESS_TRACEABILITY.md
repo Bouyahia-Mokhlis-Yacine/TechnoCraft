@@ -44,3 +44,11 @@ Forecasting supports capacity planning by making the origin, horizon and backtes
 - **B2 · Users and access.** Analysts inspect observed activity, expected exposure, recovery timing and affected scopes at `/live`. Administrators control the page and action permissions at `/admin`. Read-only accounts can open the workspace. Replay controllers can operate an isolated, account-owned simulation through `POST /api/v1/live`.
 - **B3 · Value case.** The new workspace measures how early a reviewer could see a symptom and the work required to review it. The ordinary replay produced seven notifications in 14 days. The case study reports time in warning and simulated detection delay. Actual business losses, response time savings and incident costs require authorized telemetry and operator observation.
 - **B4 · Explanation.** Warning details include observed and expected values, evidence window, method, reference support, warning state, affected merchants where applicable, and a recommended investigation. They are supplied by the Python replay. The assistant reads the same facts through the live page context and identifies all evidence as replay evidence.
+
+## Future data import trace
+
+- **B1 · Taxonomy.** Imported batches use the same symptoms, severities and incident lifecycle as the official run; contactless amounts above 2,500 DZD stay domain-rule evidence and never make a merchant-day anomalous.
+- **B2 · Users and access.** The administrator uploads, starts analyses and activates runs; accounts with the export action download operational predictions; every account can choose its own view. All checks are server-side.
+- **B3 · Value case.** Operators can monitor new periods with the validated detector and see collective and Hybrid ML context without retraining; the run history shows quality, flagged days and advisory counts per run.
+- **B4 · Explanation.** Imported runs carry the same observed-versus-expected explanations, reference version, continuation record and data-quality counts as the official snapshot.
+
