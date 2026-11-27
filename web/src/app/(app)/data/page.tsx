@@ -26,7 +26,7 @@ export default function DataPage() {
 async function Data() {
   const user = await currentUser();
   const t = await getT();
-  const { run: r } = getMeta();
+  const meta = getMeta(), { run: r } = meta;
   const v = r.validation, c = r.cleaning;
   const audit = can(user, 'audit') ? readAll().slice(-40).reverse() : null;
   const collections = collectionsPayload(await selectedIds());
@@ -38,7 +38,8 @@ async function Data() {
           ? <a className="btn btn-secondary" href="/api/v1/export/predictions" download><Download aria-hidden />{t('data.officialCsv')}</a>
           : <span className="muted" title={t('data.sealedOnlyTitle')}>{t('data.sealedOnly')}</span>)}
       </PageHeader>
-      <DataCollections initial={collections} canManage={can(user, 'import')} />
+      <DataCollections initial={collections} canManage={can(user, 'import')} canExport={can(user, 'export')}
+        official={{ runId: meta.run.run_id, sealed: meta.run.parity.sealed, first: meta.firstDate, last: meta.asOf, flagged: meta.run.flagged_days }} />
       <h2 className="section-h">{t('data.officialHeading')}</h2>
       <section className="panel m-rise">
         <div className="panel-head"><div><h2>{t('data.cleaning')}</h2><p>{t('data.beforeScoring')}</p></div></div>

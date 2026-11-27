@@ -214,7 +214,7 @@ export function LiveDashboard({ control }: { control: boolean }) {
         <progress aria-label={t('live.progress')} value={state?.progress ?? 0} max={1} />
         <span>{fmtPct(state?.progress ?? 0, 1, t.locale)}</span>
       </div>
-      <p className={styles.feed}><Activity size={15} /><span lang={state?.feed ? 'en' : undefined}>{state?.feed ?? t('live.waiting')}</span>
+      <p className={styles.feed}><Activity size={15} /><span>{state?.feed ? tv(t, 'live.feed', state.feed) : t('live.waiting')}</span>
         {state?.watermark && ` · ${t('live.watermark', { at: stamp(state.watermark) })}`}</p>
       {error && <p className={styles.error} role="status">{error || t('live.unavailable')} {t('live.reconnecting')}</p>}
       {commandError && <p className={styles.error} role="alert">{commandError || t('live.commandFailed')}</p>}
@@ -269,8 +269,8 @@ export function LiveDashboard({ control }: { control: boolean }) {
       <div className={styles.duo}>
         <section className="panel"><div className="panel-head"><div><h2>{t('live.domain')}</h2>
           <p>{t('live.domainSub')}</p></div></div>
-          <ul className={styles.list}>{(state.domain ?? []).slice(0, 10).map((d, i) =>
-            <li key={i}>{stamp(d.time)} · {d.merchant} · {fmtCompactDzd(d.amount, t.locale)} · {d.rule}</li>)}</ul>
+          <ul className={styles.list}>{(state.domain ?? []).slice(0, 6).map((d, i) =>
+            <li key={i}>{stamp(d.time)} · {d.merchant} · {fmtCompactDzd(d.amount, t.locale)} · {tv(t, 'live.rule', d.rule)}</li>)}</ul>
           {!state.domain?.length && <p className={styles.empty}>{t('live.noDomain')}</p>}
         </section>
         <section className="panel"><div className="panel-head"><div><h2>{t('live.closure')}</h2>

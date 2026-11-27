@@ -218,14 +218,14 @@ export function getAnomaly(id: string, run?: string | null) {
 }
 
 /* ── collective advisories (FR-31–35) ────────────────────────────────── */
-export const listAdvisories = () => model().advisories;
-export function getAdvisory(id: string) {
-  const m = model(), a = m.advisories.find((x) => x.id === id);
+export const listAdvisories = (run?: string | null) => model(run).advisories;
+export function getAdvisory(id: string, run?: string | null) {
+  const m = model(run), a = m.advisories.find((x) => x.id === id);
   if (!a) return null;
   const otherRate = a.otherChannels.reduce((s, c) => s + c.n_dec, 0) / Math.max(1, a.otherChannels.reduce((s, c) => s + c.n, 0));
   const hypotheses = a.hypotheses.map((h) => ({ title: h.hypothesis, for: [h.support],
     against: [h.counterevidence], missing: [], next: h.check }));
-  return { advisory: a, otherRate, hypotheses, incidents: rankedIncidents().filter((i) => a.incidentIds.includes(i.id)) };
+  return { advisory: a, otherRate, hypotheses, incidents: rankedIncidents(run).filter((i) => a.incidentIds.includes(i.id)) };
 }
 
 /* ── merchants (FR-21–22, FR-43) ─────────────────────────────────────── */

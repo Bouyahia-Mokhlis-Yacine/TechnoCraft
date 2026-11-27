@@ -6,7 +6,7 @@ import path from 'node:path';
 import { runsDir } from './snapshot';
 
 export type ReviewStatus = 'new' | 'acknowledged' | 'assigned' | 'closed';
-export type Action = 'comment' | 'acknowledge' | 'assign' | 'escalate' | 'close' | 'reopen' | 'export' | 'account';
+export type Action = 'comment' | 'acknowledge' | 'assign' | 'escalate' | 'close' | 'reopen' | 'export' | 'account' | 'activate';
 export interface ReviewEvent {
   event_id: string; ts: string; actor: string; action: Action; target: string; run_id: string;
   reason: string; owner?: string; prior: ReviewStatus; next: ReviewStatus; escalated: boolean; version: number;
@@ -30,7 +30,7 @@ export function caseState(target: string, events = readAll()): CaseState {
   };
 }
 
-const NEXT: Record<Exclude<Action, 'export' | 'account'>, (s: ReviewStatus) => ReviewStatus | null> = {
+const NEXT: Record<Exclude<Action, 'export' | 'account' | 'activate'>, (s: ReviewStatus) => ReviewStatus | null> = {
   comment: (s) => s,
   acknowledge: (s) => (s === 'new' ? 'acknowledged' : null),
   assign: (s) => (s === 'closed' ? null : 'assigned'),
@@ -45,7 +45,7 @@ export class ReviewError extends Error { constructor(public status: number, mess
 export function applyReview(input: { target: string; run_id: string; actor: string; action: Action; reason: string; owner?: string; version: number }): CaseState {
   const state = caseState(input.target);
   if (input.version !== state.version) throw new ReviewError(409, 'This incident changed since you opened it. Reload to see the latest state.');
-  if (input.action === 'export' || input.action === 'account') throw new ReviewError(400, 'Unsupported action.');
+  if (input.action === 'export' || input.action === 'account' || input.action === 'activate') throw new ReviewError(400, 'Unsupported action.');
   const next = NEXT[input.action](state.status);
   if (next === null) throw new ReviewError(422, `Cannot ${input.action} an incident that is ${state.status}.`);
   if ((input.action === 'close' || input.action === 'escalate' || input.action === 'comment') && !input.reason.trim()) throw new ReviewError(422, 'A reason is required for this action.');

@@ -11,35 +11,38 @@ import { MethodNote } from '@/components/visuals';
 import { EmptyState, PageHeader } from '@/components/ui';
 import { categoryLabel, channelLabel } from '@/lib/labels';
 import { getT } from '@/lib/i18n/server';
-import { OfficialOnly } from '@/components/dataset';
+import { ViewBanner } from '@/components/dataset';
+import { keepRun, resolveView } from '@/lib/dataset';
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT())('nav.intelligence') };
 }
 
-type SP = Promise<{ tab?: string }>;
+type SP = Promise<{ tab?: string; run?: string }>;
 export default function IntelligencePage({ searchParams }: { searchParams: SP }) {
   return <Suspense fallback={null}><Intelligence searchParams={searchParams} /></Suspense>;
 }
 
 async function Intelligence({ searchParams }: { searchParams: SP }) {
   await connection();
-  const ml = (await searchParams).tab === 'ml';
+  const sp = await searchParams, ml = sp.tab === 'ml';
   const t = await getT();
-  const snapshot = model().snap;
-  const advisories = [...listAdvisories()].sort((a, b) => b.date.localeCompare(a.date) || b.score - a.score);
+  // the active dataset: the official run, or an imported run (its own collective and Hybrid ML layers)
+  const view = await resolveView(sp.run), run = view.runId;
+  const snapshot = model(run).snap;
+  const advisories = [...listAdvisories(run)].sort((a, b) => b.date.localeCompare(a.date) || b.score - a.score);
   const candidates = snapshot.hybrid?.rows.filter((r) => r.investigation_candidate)
     .sort((a, b) => b.v4_advisory_score - a.v4_advisory_score) ?? [];
   return <>
     <PageHeader title={t('intel.title')} />
-    <OfficialOnly />
+    <ViewBanner view={view} path="/intelligence" />
     <nav className="seg intel-tabs" aria-label={t('intel.title')}>
-      <Link href="/intelligence" aria-current={ml ? undefined : 'page'} className={ml ? '' : 'on'} scroll={false}>{t('ov.sigCollective')} <span className="num">{advisories.length}</span></Link>
-      <Link href="/intelligence?tab=ml" aria-current={ml ? 'page' : undefined} className={ml ? 'on' : ''} scroll={false}>{t('ov.sigMl')} <span className="num">{candidates.length}</span></Link>
+      <Link href={keepRun('/intelligence', view)} aria-current={ml ? undefined : 'page'} className={ml ? '' : 'on'} scroll={false}>{t('ov.sigCollective')} <span className="num">{advisories.length}</span></Link>
+      <Link href={keepRun('/intelligence?tab=ml', view)} aria-current={ml ? 'page' : undefined} className={ml ? 'on' : ''} scroll={false}>{t('ov.sigMl')} <span className="num">{candidates.length}</span></Link>
     </nav>
     {!ml ? <>
     {advisories.map((a) => (
-      <Link key={a.id} href={'/intelligence/' + encodeURIComponent(a.id)} className="panel advisory-card">
+      <Link key={a.id} href={keepRun('/intelligence/' + encodeURIComponent(a.id), view)} className="panel advisory-card">
         <div className="adv-main">
           <span className="muted">{fmtDate(a.date)} · {a.category ? categoryLabel(a.category) : t('f.allCategories')}</span>
           <h2>{channelLabel(a.channel)} · {symptomLabel(a.symptom)}</h2>

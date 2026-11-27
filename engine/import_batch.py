@@ -36,7 +36,8 @@ from src.detection.incidents import IncidentMonitor
 from src.operations.backend import Scope
 
 from .export import atomic_write
-from .replay import ROOT, backend_for, load_archive
+from .hybrid import build_hybrid
+from .replay import KEYS, PREDICTION_COLUMNS, ROOT, backend_for, load_archive
 from .snapshot import SCHEMA_VERSION, advisory_view, clean, forecast_view, incident_view, merchant_view, network_view, transaction_view
 from .validate import privacy, require
 
@@ -55,6 +56,7 @@ STAGES = {
     'reference': 'Loading the frozen reference history',
     'score': 'Scoring anomalies',
     'evidence': 'Building incidents, collective warnings and forecast',
+    'hybrid': 'Computing Hybrid ML advisory candidates',
     'save': 'Saving results',
 }
 
@@ -110,6 +112,17 @@ def reference_last_date():
     return pd.Timestamp(config['development']['reserved_start']) - pd.Timedelta(days=1)
 
 
+def archive_history():
+    """The official archive's merchants and its last processed date. Future batches continue from that date:
+    anything on or before it would rewrite history the official run already scored."""
+    directory = Path(os.environ.get('SATIM_DATA_DIR', ROOT))
+    frames = [pd.read_csv(directory / f'X_{split}_transactions.csv', usecols=['merchant_id', 'transaction_date'], dtype=str)
+              for split in ('train', 'test')]
+    merchants = set(clean_text(pd.concat([f.merchant_id for f in frames])).dropna())
+    last = pd.to_datetime(frames[1].transaction_date.str.strip(), format=TIMESTAMP, errors='coerce').max().normalize()
+    return merchants, last
+
+
 def usable_mask(raw):
     stamp = pd.to_datetime(raw['transaction_date'].str.strip(), format=TIMESTAMP, errors='coerce')
     merchant = clean_text(raw['merchant_id'])
@@ -157,6 +170,7 @@ def inspect(path, filename):
         'negative_amount': int(amount.lt(0).sum()), 'unknown_channel': int((channel.notna() & ~channel.isin(CHANNELS)).sum()),
         'missing_channel': int(channel.isna().sum()), 'unknown_status': int((status.notna() & ~status.isin(STATUSES)).sum()),
         'missing_category': int(raw['merchant_category'].isna().sum()),
+        'contactless_limit': int((channel.map(CHANNELS).eq('nfc') & amount.gt(2500)).sum()),
     }
     if not usable.any():
         errors.append(msg('no_usable_rows', 'No row has both a merchant and a valid timestamp (format YYYY-MM-DD HH:MM:SS).'))
@@ -165,6 +179,8 @@ def inspect(path, filename):
     dates = stamp[usable].dt.normalize()
     first, last = dates.min(), dates.max()
     merchants = sorted(merchant[usable].unique())
+    known, _ = archive_history()
+    counts['new_merchants'] = len(set(merchants) - known)
     observed = int(pd.DataFrame({'m': merchant[usable], 'd': dates}).drop_duplicates().shape[0])
     expected = len(merchants) * ((last - first).days + 1)
     labels = {'invalid_timestamp': 'rows with an invalid timestamp will be dropped',
@@ -176,7 +192,9 @@ def inspect(path, filename):
               'unknown_channel': 'unrecognised channels are kept as Unknown',
               'missing_channel': 'rows without a channel are kept as Unknown',
               'unknown_status': 'unrecognised statuses are kept as Unknown',
-              'missing_category': 'missing categories stay Unknown unless recoverable'}
+              'missing_category': 'missing categories stay Unknown unless recoverable',
+              'contactless_limit': 'contactless payments above 2,500 DZD are kept unchanged as domain-rule evidence, never as anomalies on their own',
+              'new_merchants': 'merchants are new to the monitored roster and start from the hierarchical (category) reference'}
     for key, label in labels.items():
         if counts[key]:
             warnings.append(msg(f'clean_{key}', f'{counts[key]:,} {label}.', count=counts[key]))
@@ -200,9 +218,23 @@ def span_errors(dates):
     if first <= floor:
         errors.append(msg('before_reference', f'Transactions start on {first.date()}; imported batches must start after {floor.date()}, '
                           'the end of the frozen reference history.', first=first.date().isoformat(), floor=floor.date().isoformat()))
+    _, history_end = archive_history()
+    if floor < first <= history_end:
+        errors.append(msg('overlaps_official', f'Transactions start on {first.date()}, inside the history the official run already processed '
+                          f'(through {history_end.date()}). Future batches must start after it; corrections need an explicit replay.',
+                          first=first.date().isoformat(), last=history_end.date().isoformat()))
     if (last - first).days > MAX_SPAN_DAYS:
         errors.append(msg('span_too_long', f'The batch spans more than {MAX_SPAN_DAYS} days. Import it in shorter periods.', limit=MAX_SPAN_DAYS))
     return errors
+
+
+def operational_csv(frame):
+    """Every scored merchant-day (not only anomalies) as merchant_id,date,is_anomaly,anomaly_score; checked before writing."""
+    out = frame[PREDICTION_COLUMNS].copy()
+    out['date'] = pd.to_datetime(out['date']).dt.date.astype(str)
+    if out.duplicated(KEYS).any() or not out.is_anomaly.isin([0, 1]).all() or not pd.to_numeric(out.anomaly_score).map(lambda v: v == v and abs(v) != float('inf')).all():
+        raise ValueError('The operational predictions are not unique, binary and finite.')
+    return out.sort_values(['date', 'merchant_id']).to_csv(index=False, lineterminator='\n').encode('utf-8')
 
 
 def upload_path(sha):
@@ -366,24 +398,49 @@ def analyze(run_id):
         status.stage('aggregate', len(days), len(roster), 'merchant-days built')
 
         status.stage('reference')
-        _, train, _, ordinary, ordinary_events, _, v1, v2, v3 = load_archive()
-        if days.date.min() <= ordinary.date.max():
-            raise OperatorError('before_reference_run', f'The data starts before the end of the frozen reference history ({ordinary.date.max().date()}).',
-                                floor=ordinary.date.max().date().isoformat())
+        _, train, test, ordinary, ordinary_events, _, v1, v2, v3 = load_archive()
+        if days.date.min() <= test[0].date.max():
+            raise OperatorError('overlaps_official', f'The data starts inside the history the official run already processed (through {test[0].date.max().date()}).',
+                                first=days.date.min().date().isoformat(), last=test[0].date.max().date().isoformat())
 
         status.stage('score', None, len(days), 'merchant-days')
-        backend = backend_for(days, events, ordinary, ordinary_events, days.date.min(), (v1, v2, v3), enable_v3=True)
-        scored = backend.official_v2_predictions(Scope(backend.roster), backend.epoch, backend.closed_through)
+        # Sequential state continues from the official run: the frozen detector starts at the official epoch, replays the
+        # official test period (reproducing the official scores) and carries its CUSUM and incident state into this batch,
+        # against the same frozen pre-period reference (never refitted, never updated from new days). Only the batch's own
+        # days are reported. Replaying the same chronology is deterministic, so batches processed one by one give the same
+        # state as one continuous replay.
+        start = days.date.min()
+        history = pd.concat([test[0], days], ignore_index=True)
+        backend = backend_for(history, pd.concat([test[1], events], ignore_index=True),
+                              ordinary, ordinary_events, test[0].date.min(), (v1, v2, v3), enable_v3=True)
+        scored = backend.official_v2_predictions(Scope(backend.roster), start, backend.closed_through)
         status.stage('score', len(scored), len(scored), 'merchant-days scored')
+        replayed = {(r['merchant_id'], str(pd.Timestamp(r['date']).date())): r['is_anomaly'] for r in
+                    backend.official_v2_predictions(Scope(backend.roster), test[0].date.min(), test[0].date.max())}
+        official_flags = sum(replayed.values())
 
         status.stage('evidence')
         backends = (backend,)
         transactions = transaction_view(events, ordinary_events)
         calendar = sorted(d.isoformat() for d in holidays.country_holidays('DZ', years=days.date.dt.year.unique()))
-        merchant_rows = merchant_view(days, events, {}, backends, calendar)
+        merchant_rows = [r for r in merchant_view(history, pd.concat([test[1], events], ignore_index=True), {}, backends, calendar)
+                         if pd.Timestamp(r['date']) >= start]
+        # incidents and advisories that reach into this batch (incidents opened earlier keep their lifecycle)
+        batch_merchants = set(days.merchant_id)
+        mine = lambda r: bool(batch_merchants & set(r.get('merchants') or [r['id'].split(':')[0]]))
+        reaches = lambda r: mine(r) and (pd.Timestamp(r.get('last_alert') or r.get('date') or r['start']) >= start or r.get('recovery_status') not in (None, 'resolved'))
         incident_records, queue = incident_view(backends)
-        advisories = advisory_view(backends, days, merchant_rows)
+        incident_records, queue = [r for r in incident_records if reaches(r)], [r for r in queue if reaches(r)]
+        advisories = [a for a in advisory_view(backends, history, merchant_rows) if pd.Timestamp(a['date']) >= start]
         forecast = forecast_view(backend.forecast(Scope(backend.roster)))
+        status.stage('hybrid')
+        operational = pd.DataFrame(scored, columns=PREDICTION_COLUMNS) if scored and not isinstance(scored[0], dict) else pd.DataFrame(scored)[PREDICTION_COLUMNS]
+        hybrid, hybrid_note = None, None
+        try:   # advisory only: it never changes the sequential flags or scores above
+            hybrid = build_hybrid(ordinary, ordinary_events, days, pd.concat([ordinary_events, test[1], events], ignore_index=True),
+                                  operational, backend, (v1, v2, v3))
+        except Exception as error:   # e.g. too little history for some of the 62 features: reported, never invented
+            hybrid_note = f'Hybrid ML candidates unavailable for this batch: {error}'
 
         status.stage('save')
         cleaning = flags.sum().to_dict()
@@ -402,7 +459,10 @@ def analyze(run_id):
                     'policy': {'version': v2['version'], 'high': IncidentMonitor.from_config(v2).threshold, 'low': None,
                                'window_days': (ordinary.date.max() - ordinary.date.min()).days + 1,
                                'min_history': v1['established_days'], 'recovery_days': v2['recovery_days']},
-                    'models': {'v1': v1['version'], 'v2': v2['version'], 'v3': v3['version'], 'v4': None},
+                    'models': {'v1': v1['version'], 'v2': v2['version'], 'v3': v3['version'], 'v4': (hybrid or {}).get('version') if hybrid else None},
+                    'continuation': {'from_run': 'official', 'replayed_from': test[0].date.min(), 'history_through': test[0].date.max(),
+                                     'replayed_official_flags': int(official_flags), 'reference': 'frozen pre-period, not updated'},
+                    'hybrid_note': hybrid_note,
                     'selection': spec['selection'], 'kind': spec['kind'],
                     'import': {'batches': len(batches), 'files': [u['filename'] for _, u in files], 'complete': complete},
                     'inputs': {u['filename']: u['sha'] for _, u in files}, 'configurations': {}, 'holidays': calendar, 'cleaning': cleaning,
@@ -412,7 +472,7 @@ def analyze(run_id):
                                'expected_development_sha256': ''}},
             'network': network_view(days, transactions), 'merchant_days': merchant_rows,
             'official_predictions': scored, 'transactions': transactions,
-            'incidents': incident_records, 'priority_queue': queue, 'advisories': advisories, 'hybrid': None,
+            'incidents': incident_records, 'priority_queue': queue, 'advisories': advisories, 'hybrid': hybrid,
             'forecast': forecast,
             'domain_rules': {'contactless': {'condition': 'Contactless / NFC amount > 2500 DZD', 'limit_dzd': 2500,
                                              'events': cleaning['contactless_limit_events'],
@@ -420,6 +480,7 @@ def analyze(run_id):
                                              'affects_official_detection': False, 'amount_transformation': 'none'}},
         })
         validate_import(payload)
+        atomic_write(folder / 'operational_predictions.csv', operational_csv(operational))
         atomic_write(folder / 'snapshot.json', json.dumps(payload, ensure_ascii=False, allow_nan=False,
                                                           separators=(',', ':')).encode('utf-8'))
         stats = {'first_date': payload['run']['first_date'], 'last_date': payload['run']['as_of'],
@@ -428,7 +489,11 @@ def analyze(run_id):
                   'duplicates_removed': int(flags['exact_duplicate'].sum()),
                   'merchant_days_scored': len(scored), 'alerts': flagged,
                   'incidents': len(incident_records), 'first_date': stats['first_date'],
-                  'last_date': stats['last_date'], 'merchants': stats['merchants'], 'complete': complete}
+                  'last_date': stats['last_date'], 'merchants': stats['merchants'], 'complete': complete,
+                  'collective_warnings': len(advisories),
+                  'hybrid_candidates': sum(1 for r in (hybrid or {}).get('rows', []) if r.get('investigation_candidate')) if hybrid else None,
+                  'hybrid_note': hybrid_note, 'reference_version': backend.reference.version, 'preprocessing_version': 'archived_v2',
+                  'model_version': v2['version'], 'contactless_limit_events': cleaning['contactless_limit_events']}
         if commit:
             # the collection changes only now, after a successful analysis: a failure keeps the last good version
             collection = read_collection(commit['collection_id'])

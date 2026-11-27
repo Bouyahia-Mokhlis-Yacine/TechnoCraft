@@ -1,7 +1,7 @@
 // What the Data collections card and the active-dataset control read: the protected SATIM dataset,
 // the saved collections (active and in the trash), the selection and the state of its analysis.
 import { getMeta } from '@/lib/api';
-import { getImport, listCollections, usable, type Collection, type ImportStatus } from '@/lib/imports';
+import { getActive, getImport, listCollections, listImports, usable, type Collection, type ImportStatus } from '@/lib/imports';
 import { viewOf, type View } from '@/lib/dataset';
 
 export interface CollectionRow {
@@ -33,6 +33,14 @@ export function collectionsPayload(ids: string[]) {
   return {
     satim: satimRow(), collections: active.map(rowOf), trash: all.filter((c) => c.trashed_at).map(rowOf),
     selection: chosen.map((c) => c.id),
+    // the administrator's platform-wide active dataset (null: the official SATIM run)
+    active: getActive(),
+    // finished and failed operational imports, newest first, for the run history table
+    runs: listImports().filter((r) => r.kind === 'import').slice(0, 50).map((r) => ({
+      run_id: r.run_id, collection_id: r.collection_id ?? null, collection_name: r.collection_name ?? r.filename ?? null, filenames: r.filenames,
+      created_at: r.created_at, state: r.state, complete: r.complete, result: r.result ?? null, error: r.error ? { message: r.error.message, code: r.error.code } : null,
+      current: !!r.collection_id && all.find((c) => c.id === r.collection_id)?.analysis?.run_id === r.run_id,
+    })),
     view: view && { ids: view.ids, names: view.names, run_id: view.runId, state: view.state, combined: view.combined, status: view.status },
   };
 }

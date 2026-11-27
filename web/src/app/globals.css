@@ -1579,7 +1579,7 @@ body.dr-open .dock-launch, body:has(.dataset-menu[open], .row-menu[open]) .dock-
 .view-progress { display: flex; gap: var(--space-2); align-items: center; font-size: 13px; }
 .view-progress svg { width: 16px; height: 16px; } .view-progress.failed { color: var(--sev-critical-fg); }
 
-.collections { display: grid; gap: var(--space-4); }
+.collections { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
 .seg button { display: inline-flex; align-items: center; gap: 6px; }
 .seg button[aria-selected="true"] { background: var(--surface); color: var(--text); }
 .seg button svg { width: 14px; height: 14px; }
@@ -1676,3 +1676,9 @@ body.dr-open .dock-launch, body:has(.dataset-menu[open], .row-menu[open]) .dock-
 /* ══ 2026-11-28: popovers stay inside the viewport (components/popover-guard.tsx sets --pop-dx) ══ */
 .dataset-pop, .row-menu-pop, .dr-pop, .info-pop { translate: var(--pop-dx, 0px) 0; max-width: calc(100vw - 16px); }
 .dataset-pop, .row-menu-pop { max-height: calc(100dvh - 96px); overflow-y: auto; }
+
+/* ══ 2026-11-28: platform-wide active dataset and run history ══ */
+.col-platform { display: block; font-size: 12px; font-weight: 700; color: var(--primary); }
+.run-history summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: var(--space-2); }
+.run-history .table-scroll { margin-top: var(--space-3); overflow-x: auto; }
+.run-history td { font-size: 13px; vertical-align: top; }

@@ -69,4 +69,4 @@ export const fmtRange = (from: string, to: string, l?: Locale) =>
     .replace(/^(\d+)[\s\u2009\u202f]*–[\s\u2009\u202f]*(\d)/, '$1–$2').replace(/[\s\u2009\u202f]+–[\s\u2009\u202f]+/, ' – ');
 /** A timestamp in Algiers time: "27 nov. 2026, 19:33" */
 export const fmtStamp = (iso: string, l?: Locale) =>
-  new Intl.DateTimeFormat(intlLocale(l), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Algiers' }).format(new Date(iso));
+  new Intl.DateTimeFormat(intlLocale(l), { dateStyle: 'medium', timeStyle: 'short', hourCycle: 'h23', timeZone: 'Africa/Algiers' }).format(new Date(iso));

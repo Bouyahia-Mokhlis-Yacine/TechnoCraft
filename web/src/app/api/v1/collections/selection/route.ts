@@ -19,6 +19,6 @@ export async function POST(req: NextRequest) {
   if (cols.some((c) => !usable(c))) return fail(409, 'not_selectable', 'A selected collection is in the trash or has no analysed data yet.');
   const res = NextResponse.json(collectionsPayload(ids));
   if (ids.length) res.cookies.set(VIEW_COOKIE, ids.join('.'), { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });
-  else res.cookies.delete(VIEW_COOKIE);
+  else res.cookies.set(VIEW_COOKIE, SATIM_ID, { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });   // an explicit return to SATIM, not the platform default
   return res;
 }

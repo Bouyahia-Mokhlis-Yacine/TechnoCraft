@@ -54,7 +54,8 @@ export interface ImportStatus {
   state: 'queued' | 'running' | 'succeeded' | 'failed'; stage?: string; stage_label?: string; stage_order?: string[];
   progress?: { done: number | null; total: number | null; unit: string | null } | null; stages_done?: string[];
   started_at?: string; finished_at?: string; pid?: number; actor?: string;
-  result?: { rows_received: number; rows_processed: number; duplicates_removed: number; merchant_days_scored: number; alerts: number; incidents: number; first_date: string; last_date: string; merchants?: number; complete: boolean; rows_added?: number };
+  result?: { rows_received: number; rows_processed: number; duplicates_removed: number; merchant_days_scored: number; alerts: number; incidents: number; first_date: string; last_date: string; merchants?: number; complete: boolean; rows_added?: number;
+    collective_warnings?: number; hybrid_candidates?: number | null; hybrid_note?: string | null; reference_version?: string; preprocessing_version?: string; model_version?: string; contactless_limit_events?: number };
   error?: { stage: string; stage_label: string; message: string; action: string; code?: string; values?: Record<string, string> };
   /** legacy single-file runs (before collections) */
   upload_id?: string; filename?: string;
@@ -339,3 +340,31 @@ export function lastGoodRun(ids: string[]): ImportStatus | null {
   return listImports().find((s) => s.state === 'succeeded' && s.selection.map((x) => x.id).sort().join(',') === want
     && fs.existsSync(path.join(dir(), s.run_id, 'snapshot.json'))) ?? null;
 }
+
+/* ── platform-wide active dataset ──────────────────────────────────────── */
+// The administrator can make collections the active dataset for every account (runs/active.json).
+// An account that chose a dataset itself (the pai_view cookie, including an explicit return to SATIM)
+// keeps its choice. The official SATIM run, its prediction file and its reviews are never changed by this.
+export interface ActiveDataset { ids: string[]; activated_at: string; actor: string }
+const activeFile = () => path.join(/*turbopackIgnore: true*/ runsDir(), 'active.json');
+export function getActive(): ActiveDataset | null {
+  try {
+    const a = JSON.parse(fs.readFileSync(activeFile(), 'utf8')) as ActiveDataset;
+    const ids = a.ids.filter((id) => usable(getCollection(id)));
+    return ids.length ? { ...a, ids } : null;
+  } catch { return null; }
+}
+export function setActive(ids: string[], actor: string): ActiveDataset | null {
+  if (!ids.length) { fs.rmSync(activeFile(), { force: true }); return null; }
+  if (ids.some((id) => !usable(getCollection(id)))) throw new Error('not_selectable');
+  const a = { ids, activated_at: new Date().toISOString(), actor };
+  writeJson(activeFile(), a);
+  return a;
+}
+/** The operational predictions of a finished run: every scored merchant-day, never the sealed submission. */
+export function predictionsFile(runId: string): string | null {
+  if (!isRunId(runId)) return null;
+  const f = path.join(dir(), runId, 'operational_predictions.csv');
+  return fs.existsSync(f) ? f : null;
+}
+

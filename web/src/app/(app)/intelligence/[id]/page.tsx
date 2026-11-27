@@ -14,24 +14,27 @@ import { Gauge, MerchantTiles, RateBars } from '@/components/visuals';
 import { symptomLabel } from '@/components/satim-evidence';
 import { PageHeader } from '@/components/ui';
 import { Balanced } from '@/components/balanced';
+import { resolveView } from '@/lib/dataset';
 
 type Params = Promise<{ id: string }>;
 const css = (o: Record<string, string | number>) => o as React.CSSProperties;
 
-export default function AdvisoryPage({ params }: { params: Params }) {
-  return <Suspense fallback={<AdvisorySkeleton />}><AdvisoryView params={params} /></Suspense>;
+type SP = Promise<{ run?: string }>;
+export default function AdvisoryPage({ params, searchParams }: { params: Params; searchParams: SP }) {
+  return <Suspense fallback={<AdvisorySkeleton />}><AdvisoryView params={params} searchParams={searchParams} /></Suspense>;
 }
 
-async function AdvisoryView({ params }: { params: Params }) {
+async function AdvisoryView({ params, searchParams }: { params: Params; searchParams: SP }) {
   const t = await getT();
-  const data = getAdvisory(decodeURIComponent((await params).id));
+  const run = (await resolveView((await searchParams).run)).runId;
+  const data = getAdvisory(decodeURIComponent((await params).id), run);
   if (!data) notFound();
   const { advisory: a, otherRate, hypotheses, incidents } = data;
   const decline = a.symptom === 'rejection_increase';
   const affected = a.excess_rejections ?? a.potential_activity_shortfall ?? a.activity_increase;
   const members = [...a.members].sort((x, y) => Number(y.affected) - Number(x.affected) || y.n_dec / Math.max(1, y.n) - x.n_dec / Math.max(1, x.n));
   // merchant × channel decline matrix that day (FR-33)
-  const days = model().byMerchant;
+  const days = model(run).byMerchant;
   const chans = [...new Set([a.channel, ...a.otherChannels.map((c) => c.channel)])];
   const matrix = members.slice(0, 18).map((mm) => ({ id: mm.merchant_id, cells: chans.map((c) => days.get(mm.merchant_id)?.find((d) => d.date === a.date)?.channels[c] ?? null) }));
 

@@ -5,7 +5,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { fail, userOf } from '@/lib/http';
 import { can } from '@/lib/session';
 import { renameCollection, restoreCollection, SATIM_ID, trashCollection } from '@/lib/imports';
-import { parseIds, VIEW_COOKIE } from '@/lib/dataset';
+import { idsFor, VIEW_COOKIE } from '@/lib/dataset';
 import { collectionsPayload } from '../shared';
 
 const ERR: Record<string, [number, string]> = {
@@ -21,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/v1/collect
   if (id === SATIM_ID) return fail(403, 'protected', 'The original SATIM dataset is protected.');
   let body: { action?: unknown; name?: unknown };
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
-  let ids = parseIds(req.cookies.get(VIEW_COOKIE)?.value);
+  let ids = idsFor(req.cookies.get(VIEW_COOKIE)?.value);
   try {
     if (body.action === 'trash') { trashCollection(id); ids = ids.filter((x) => x !== id); }
     else if (body.action === 'restore') restoreCollection(id);
@@ -33,6 +33,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/v1/collect
   }
   const res = NextResponse.json(collectionsPayload(ids));
   if (ids.length) res.cookies.set(VIEW_COOKIE, ids.join('.'), { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });
-  else res.cookies.delete(VIEW_COOKIE);
+  else res.cookies.set(VIEW_COOKIE, SATIM_ID, { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });   // an explicit return to SATIM, not the platform default
   return res;
 }

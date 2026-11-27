@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { cookies } from 'next/headers';
-import { getImport, getCollection, isCollectionId, isRunId, lastGoodRun, listCollections, selectionRun, usable, type Collection, type ImportStatus } from './imports';
+import { getActive, getImport, getCollection, isCollectionId, isRunId, lastGoodRun, listCollections, selectionRun, usable, type Collection, type ImportStatus } from './imports';
 import { runsDir } from './snapshot';
 
 export const VIEW_COOKIE = 'pai_view';
@@ -25,8 +25,10 @@ export interface View {
 }
 const OFFICIAL: View = { kind: 'official', ids: [], names: [], runId: null, state: 'ready', status: null, pinned: false, combined: false, keep: '' };
 
+/** The account's own choice (cookie; "satim" is an explicit return to the official run), else the platform's active dataset. */
+export const idsFor = (cookie: string | undefined) => (cookie !== undefined ? parseIds(cookie) : getActive()?.ids ?? []);
 export async function selectedIds(): Promise<string[]> {
-  return parseIds((await cookies()).get(VIEW_COOKIE)?.value);
+  return idsFor((await cookies()).get(VIEW_COOKIE)?.value);
 }
 
 /** The view for a page: a pinned `run` when given and available, else the cookie selection, else the official run. */
