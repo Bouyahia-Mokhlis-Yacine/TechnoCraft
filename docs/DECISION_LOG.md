@@ -37,3 +37,7 @@ The replay fingerprints the V1–V3 configuration files byte for byte, and the r
 ## 2026-11-27 · Linux serves a labelled preview; the sealed CSV stays the Windows one
 
 On Linux (Python 3.12.7 and the pinned NumPy, SciPy, pandas and scikit-learn from the same conda channel, with OpenBLAS and with MKL) the 280 development pairs reproduce the sealed digest exactly. The 711 official rows keep every key, the order and all 52 flags; 3 scores differ by at most 1.1e-16, so the official digest does not match. Decision: Linux serves a run labelled as an unsealed preview, the app refuses to offer the official download from it, and the committed y_pred_anomalies.csv (SHA-256 4613fbe3…) remains the sealed Windows output. Would change our mind: a Linux runtime that reproduces the official digest.
+
+## 2026-11-27 · Restore the built-in assistant as a labelled fallback
+
+Supersedes "An error instead of a rule-based assistant answer". The team chose demo reliability: the HPC language model stays primary, and when it is not configured, unreachable, times out or its answer fails the checks, the existing deterministic assistant answers from the same published run. Each such reply is marked `fallback` with the reason and labelled "Built-in answer" in the chat, with a "Fallback mode" bar while the model is down, so a built-in answer is never mistaken for the model's. Tested with the model online (answers from the model, 0.7–1.6 s) and with an unreachable endpoint (labelled built-in answers with evidence).
