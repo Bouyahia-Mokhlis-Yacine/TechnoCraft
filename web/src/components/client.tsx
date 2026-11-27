@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Activity, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
+import { Activity, GraduationCap, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
 import { countUp, toggleTheme } from '@design/motion.js';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct, type Locale } from '@/lib/format';
 import { useT, LanguageSwitch } from './i18n';
@@ -35,6 +35,7 @@ const SECTIONS = [
   { title: 'nav.report', items: [
     { href: '/reports', label: 'nav.reports', icon: FileText, badge: false },
     { href: '/data', label: 'nav.data', icon: Database, badge: false },
+    { href: '/learning', label: 'nav.learning', icon: GraduationCap, badge: false },
   ] },
 ] as const;
 const ADMIN_SECTION = { title: 'nav.admin', items: [{ href: '/admin', label: 'nav.accounts', icon: UsersRound, badge: false }] } as const;

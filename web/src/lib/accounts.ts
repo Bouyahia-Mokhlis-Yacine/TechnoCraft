@@ -20,6 +20,7 @@ export const PAGES = {
   simulate: { label: 'Simulator', path: '/simulate' },
   reports: { label: 'Reports', path: '/reports' },
   data: { label: 'Data & runs', path: '/data' },
+  learning: { label: 'Controlled learning', path: '/learning' },
 } as const;
 export type PageKey = keyof typeof PAGES;
 
@@ -29,6 +30,8 @@ export const ACTIONS = {
   manage: { label: 'Manage incidents', help: 'Assign, escalate, close and reopen', can: ['assign', 'escalate', 'close', 'reopen'] },
   export: { label: 'Export', help: 'CSV exports and PDF reports', can: ['export'] },
   replay: { label: 'Control live replay', help: 'Start, pause, step and reset your training replay', can: ['replay'] },
+  label: { label: 'Expert labelling', help: 'Review queued merchant-days and submit labels', can: ['label'] },
+  supervise: { label: 'Supervise learning', help: 'Approve labels, run learning jobs, activate and roll back models', can: ['supervise'] },
 } as const;
 export type ActionKey = keyof typeof ACTIONS;
 

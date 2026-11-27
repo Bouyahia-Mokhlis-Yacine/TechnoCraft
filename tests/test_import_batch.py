@@ -70,3 +70,28 @@ class ImportBatchTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class LearningBridgeTests(unittest.TestCase):
+    """The bridge maps the server-validated account to a learning role from the account store only."""
+
+    def test_roles_come_from_the_account_store(self):
+        import json, os
+        from unittest.mock import patch
+        from engine import learning_bridge
+        with TemporaryDirectory() as tmp:
+            accounts = [{'id': 'admin', 'admin': True, 'actions': []}, {'id': 'expert', 'actions': ['label']},
+                        {'id': 'lead', 'actions': ['supervise']}, {'id': 'viewer', 'actions': ['export']}]
+            Path(tmp, 'accounts.json').write_text(json.dumps({'accounts': accounts}), encoding='utf-8')
+            with patch.dict(os.environ, {'RUNS_DIR': tmp}):
+                role = lambda who: (learning_bridge.resolve(who) or type('N', (), {'role': None})).role
+                self.assertEqual(role('admin'), 'supervisor')
+                self.assertEqual(role('lead'), 'supervisor')
+                self.assertEqual(role('expert'), 'reviewer')
+                self.assertIsNone(learning_bridge.resolve('viewer'))
+                self.assertIsNone(learning_bridge.resolve('nobody'))
+                self.assertIsNone(learning_bridge.resolve({'user_id': 'x', 'role': 'supervisor'}))   # never an Actor from a request
+                with self.assertRaises(PermissionError):   # operational batches only come from the import worker
+                    learning_bridge.call('admin', 'score_operational_batch', {'observation_day': '2026-11-20'})
+                with self.assertRaises(ValueError):
+                    learning_bridge.call('admin', 'labelled_export', {})

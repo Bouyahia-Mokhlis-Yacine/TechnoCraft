@@ -228,6 +228,42 @@ def span_errors(dates):
     return errors
 
 
+def learn(run_id, folder):
+    """Feed a successful complete import to the continuous learning ledger and score its dates, in order, with
+    the operational model scheduled for each date (the active champion, with persisted CUSUM state and pinned
+    incident references). Opt-in: nothing happens before the baseline is initialised. Never fails the import."""
+    from .learning_bridge import WORKER, ledger_ready, service   # lazy: the bridge imports this module
+    if not ledger_ready():
+        return {'state': 'not_initialised'}
+    try:
+        svc = service()
+        inserted = svc.ingest_import(WORKER, run_id)['inserted']
+        snapshot_days = json.loads((folder / 'snapshot.json').read_text(encoding='utf-8'))['merchant_days']
+        rows, models_used = [], set()
+        for date in sorted({r['date'] for r in snapshot_days}):
+            try:   # a date scored by an earlier import keeps its predictions (the ledger never re-scores history)
+                scored = svc.operational_predictions(WORKER, date)
+            except LookupError:
+                svc.score_operational_batch(WORKER, date)
+                scored = svc.operational_predictions(WORKER, date)
+            models_used.add(scored['model_id'])
+            for r in scored['rows']:
+                if not r['superseded']:
+                    rows.append({'merchant_id': r['merchant_id'], 'date': date, 'is_anomaly': int(bool(r['sequential_flag'])),
+                                 'anomaly_score': r['sequential_score'], 'model_id': scored['model_id']})
+        frame = pd.DataFrame(rows)
+        if len(frame) != len(snapshot_days):
+            raise ValueError('The operational model did not score every merchant-day of this import.')
+        # the frozen import scorer's file stays beside it; the download serves the operational model's
+        (folder / 'operational_predictions.csv').replace(folder / 'frozen_predictions.csv')
+        atomic_write(folder / 'operational_predictions.csv', operational_csv(frame))
+        return {'state': 'scored', 'inserted': inserted, 'dates': frame.date.nunique(), 'models': sorted(models_used),
+                'flags': int(frame.is_anomaly.sum())}
+    except Exception as error:  # noqa: BLE001 - reported on the run; the import itself stays valid
+        traceback.print_exc(file=sys.stderr)
+        return {'state': 'failed', 'message': str(error)[:300]}
+
+
 def operational_csv(frame):
     """Every scored merchant-day (not only anomalies) as merchant_id,date,is_anomaly,anomaly_score; checked before writing."""
     out = frame[PREDICTION_COLUMNS].copy()
@@ -506,6 +542,9 @@ def analyze(run_id):
             result['rows_added'] = batch['rows_added']
         status.write(state='succeeded', stage='done', stage_label='Analysis complete', progress=None,
                      stages_done=list(STAGES), finished_at=now(), result=result)
+        if commit and complete:
+            result['learning'] = learn(run_id, folder)
+            status.write(result=result)
     except Exception as error:  # noqa: BLE001 - every failure is reported in status.json
         stage = status.data.get('stage') or 'collect'
         known = isinstance(error, ValueError)
