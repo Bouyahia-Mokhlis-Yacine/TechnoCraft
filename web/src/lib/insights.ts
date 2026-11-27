@@ -124,7 +124,7 @@ export function listClusters() {
   const m = model();
   if (!m.snap.run.models.v3) return null;
   return {
-    method: 'Frozen V3 likelihood subset scan with ordinary date-max calibration',
+    method: 'Frozen Collective Detection likelihood subset scan with ordinary date-max calibration',
     clusters: m.advisories.map((a) => ({
       id: a.id, kind: a.symptom === 'rejection_increase' ? 'declines' as const : 'activity' as const,
       date: a.date, channel: a.channel, observed: a.observed, expected: a.expected,

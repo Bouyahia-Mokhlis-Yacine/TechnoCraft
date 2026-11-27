@@ -38,7 +38,7 @@ async function AdvisoryView({ params }: { params: Params }) {
       <div className="detail-grid">
         <div className="stack">
           <section className="story m-rise">
-            <span className="meta">V3 advisory · {fmtDate(a.date)} · {a.category ?? 'All categories'}</span>
+            <span className="meta">Collective Detection advisory · {fmtDate(a.date)} · {a.category ?? 'All categories'}</span>
             <p>{fmtInt(a.observed)} observed vs {fmtNum(a.expected, 1)} expected · {fmtInt(affected)} estimated affected events</p>
             {decline ? <RateBars tone="hero" rows={[{ label: 'Selected merchants', value: a.observed_rate, hot: true },
               { label: 'Expected', value: a.expected_rate }, { label: 'Other channels', value: otherRate }]} /> :
@@ -85,7 +85,7 @@ async function AdvisoryView({ params }: { params: Params }) {
             <div className="panel-head"><div><h2>Merchants on the channel</h2><p>That day</p></div></div>
             {decline && <MerchantTiles items={members.map((mm) => ({ id: mm.merchant_id, k: mm.n_dec, n: mm.n, affected: mm.affected, flagged: mm.flagged }))} />}
             <ul className="reasons">{members.map((mm) => <li key={mm.merchant_id}><Link href={'/merchants/' + mm.merchant_id}>{mm.merchant_id}</Link>
-              {' · '}{fmtInt(mm.observed)} observed vs {fmtNum(mm.expected, 1)} expected{mm.affected ? ' · corroborated' : ''}{mm.flagged ? ' · official V2 alert' : ''}</li>)}</ul>
+              {' · '}{fmtInt(mm.observed)} observed vs {fmtNum(mm.expected, 1)} expected{mm.affected ? ' · corroborated' : ''}{mm.flagged ? ' · official Sequential Detection alert' : ''}</li>)}</ul>
           </section>
           <section className="panel m-rise" style={css({ '--i': 2 })}>
             <div className="panel-head"><div><h2>Merchant × channel</h2><p>Declined / total · darker = more declines</p></div></div>

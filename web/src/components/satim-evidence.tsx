@@ -11,7 +11,7 @@ export function HybridEvidence({ row, nested = false }: { row: HybridRow; nested
   const evidence = row.evidence;
   const groups = Object.entries(evidence?.group_attributions_heuristic ?? {}).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
   return <section className={nested ? undefined : 'panel m-rise'}>
-    {!nested && <div className="panel-head"><div><h2>V4 advisory evidence</h2><p>Isolation Forest H3 · 62 features</p></div></div>}
+    {!nested && <div className="panel-head"><div><h2>Hybrid ML advisory evidence</h2><p>Isolation Forest H3 · 62 features</p></div></div>}
     <p>Fusion score {fmtNum(row.v4_advisory_score, 3)} · ML score {fmtNum(row.ml_score, 3)} · ordinary ML tail rank {fmtPct(row.v4_ordinary_rank, 2)}</p>
     {evidence && <ul className="reasons">
       <li>Evidence source {evidence.decision_source}</li>

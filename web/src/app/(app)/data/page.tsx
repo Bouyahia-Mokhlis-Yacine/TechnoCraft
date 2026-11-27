@@ -48,7 +48,7 @@ async function Data() {
               <tr><td>Frozen managed cutoff</td><td className="r">{fmtNum(r.policy.high, 6)}</td></tr>
               <tr><td>Sealed score parity</td><td className="r">{r.parity.sealed ? 'Verified against the archive' : 'Preview · archive digest differs'}</td></tr>
               <tr><td>Replayed merchant-days</td><td className="r">{r.parity.development_rows} development · {r.parity.official_rows} official template</td></tr>
-              <tr><td>Advisory models</td><td className="r">{r.models.v3 ?? 'V3 disabled'} · {r.models.v4 ?? 'V4 disabled'}</td></tr>
+              <tr><td>Advisory models</td><td className="r">{r.models.v3 ?? 'Collective Detection disabled'} · {r.models.v4 ?? 'Hybrid ML disabled'}</td></tr>
               <tr><td>Training period ends</td><td className="r">{fmtDate(r.train_end)}</td></tr>
               <tr><td>Flagged merchant-days</td><td className="r">{fmtInt(r.flagged_days)}</td></tr>
               <tr><td>Public holidays</td><td className="r">{r.holidays.filter((h) => h >= r.first_date && h <= r.as_of).map(fmtDate).join(', ') || 'none in range'}</td></tr>

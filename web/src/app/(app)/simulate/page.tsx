@@ -23,7 +23,7 @@ async function Simulate() {
         <WhatIf base={base} />
       </section>
       <section className="panel m-rise" style={{ '--i': 1 } as React.CSSProperties}>
-        <div className="panel-head"><div><h2>Review cost vs missed anomalies</h2><p>Illustrative costs applied to the frozen V2 development results</p></div></div>
+        <div className="panel-head"><div><h2>Review cost vs missed anomalies</h2><p>Illustrative costs applied to the frozen Sequential Detection development results</p></div></div>
         <ReviewCost curve={v.curve} policy={v.policy} trainEnd={v.trainEnd} />
       </section>
     </>

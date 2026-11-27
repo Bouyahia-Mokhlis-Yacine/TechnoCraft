@@ -112,9 +112,9 @@ async function Overview({ searchParams }: { searchParams: SP }) {
           <section className="panel m-rise" style={css({ '--i': 7 })}>
             <div className="panel-head"><div><h2>Signals</h2><p>Last 14 days</p></div></div>
             <div className="signal-stats">
-              <Link href="/intelligence" className="sig"><b className="num">{meta.run.models.v3 ? o.advisories.length : '—'}</b><span>V3 collective advisories</span><ArrowRight aria-hidden /></Link>
-              <Link href="/intelligence#ml-candidates" className="sig"><b className="num">{o.mlCandidates ?? '—'}</b><span>V4 investigation candidates</span><ArrowRight aria-hidden /></Link>
-              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>under V2 observation at data cutoff</span></div>
+              <Link href="/intelligence" className="sig"><b className="num">{meta.run.models.v3 ? o.advisories.length : '—'}</b><span>Collective Detection warnings</span><ArrowRight aria-hidden /></Link>
+              <Link href="/intelligence#ml-candidates" className="sig"><b className="num">{o.mlCandidates ?? '—'}</b><span>Hybrid ML investigation candidates</span><ArrowRight aria-hidden /></Link>
+              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>under Sequential Detection observation at data cutoff</span></div>
             </div>
           </section>
 

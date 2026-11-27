@@ -49,7 +49,7 @@ const QUESTION: Record<string, (a: Args) => string> = {
   forecast: (a) => `Forecast for the next 7 days${mer(a)}`,
   channel_activity: (a) => `Which channels show concurrent abnormal behaviour ${per(a)}${ch(a)}`,
   top_declines: (a) => `Which merchants have the most declines ${per(a)}`,
-  hybrid_evidence: (a) => 'V4 investigation candidates ' + per(a) + mer(a),
+  hybrid_evidence: (a) => 'Hybrid ML investigation candidates ' + per(a) + mer(a),
   domain_evidence: (a) => 'Contactless limit breaches ' + per(a) + mer(a),
   data_quality: () => 'Data quality audit',
   business_impact: (a) => 'Business impact ' + per(a) + mer(a),

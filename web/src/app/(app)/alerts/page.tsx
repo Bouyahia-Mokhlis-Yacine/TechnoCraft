@@ -57,7 +57,7 @@ async function Alerts({ searchParams }: { searchParams: SP }) {
         </div>
       ) : <EmptyState title="No alert matches these filters">Try a wider period or reset the filters.</EmptyState>}
       <Pager page={res.page} pageSize={res.pageSize} total={res.total} params={p} path="/alerts" />
-      <MethodNote>Official V2 combines instantaneous probabilistic and persistent count evidence at the frozen cutoff {meta.run.policy.high}. The gauge shows the predictive interval, expected level and observed value. V3 advisories and V4 investigation candidates are available under Intelligence.</MethodNote>
+      <MethodNote>Official Sequential Detection combines instantaneous probabilistic and persistent count evidence at the frozen cutoff {meta.run.policy.high}. The gauge shows the predictive interval, expected level and observed value. Collective Detection advisories and Hybrid ML investigation candidates are available under Intelligence.</MethodNote>
     </>
   );
 }

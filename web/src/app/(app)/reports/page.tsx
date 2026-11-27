@@ -127,9 +127,9 @@ function IncidentBrief({ details }: { details: NonNullable<ReturnType<typeof get
   return <article className="panel report">
     <ReportHead title={'Incident brief · ' + incident.id} scope={incident.merchant + ' · ' + incident.onset + ' to ' + incident.end} />
     <p>Model lifecycle {LIFECYCLE[incident.lifecycle]} · operator review {REVIEW[incident.review.status]}</p>
-    <h3>Official V2 evidence</h3>
+    <h3>Official Sequential Detection evidence</h3>
     <ul className="report-notes">{anomalies.map((a) => <li key={a.id}><b>{a.date}</b> {a.explanation} {a.check}</li>)}</ul>
-    {advisory && <p>V3 advisory · {advisory.channel} · {symptomLabel(advisory.symptom)}. The shared cause remains unverified.</p>}
+    {advisory && <p>Collective Detection advisory · {advisory.channel} · {symptomLabel(advisory.symptom)}. The shared cause remains unverified.</p>}
     <ImpactEvidence record={incident.evidence} />
     <RunEvidence from={incident.onset} to={incident.end} merchant={incident.merchant} />
   </article>;
@@ -145,7 +145,7 @@ function RunEvidence({ from, to, merchant }: { from: string; to: string; merchan
       (!merchant || s.transactions.merchants[s.transactions.merchant[i]] === merchant));
   }, 0);
   return <div className="report-foot">
-    <p>V4 ML investigation candidates {candidates ?? 'unavailable'} · advisory ranking.</p>
+    <p>Hybrid ML investigation candidates {candidates ?? 'unavailable'} · advisory ranking.</p>
     <p>Contactless limit evidence {breaches} retained events above 2,500 DZD. High breach prevalence reflects synthetic data generation.</p>
     <p>Archive batch coverage is assumed. Monetary comparisons require complete qualifying amounts.</p>
   </div>;
@@ -223,7 +223,7 @@ function Weekly({ end }: { end: string }) {
         <div className="health-chips">{b.topMerchants.map(([id, n]) => <span key={id} className="hc hc-issue"><i aria-hidden />{id}<small>{n} flagged day{n > 1 ? 's' : ''}</small></span>)}</div>
       </>)}
       {b.advisories.length > 0 && <>
-        <h3>V3 collective advisories</h3>
+        <h3>Collective Detection warnings</h3>
         <ul className="report-notes">{b.advisories.map((a) => <li key={a.id}>{fmtDate(a.date)} · {a.channel} · {symptomLabel(a.symptom)} · {fmtInt(a.observed)} observed vs {fmtNum(a.expected, 1)} expected</li>)}</ul>
       </>}
       <RunEvidence from={b.from} to={b.to} />

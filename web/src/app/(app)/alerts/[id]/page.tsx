@@ -74,7 +74,7 @@ async function Alert({ params }: { params: Params }) {
               <summary>How was this computed?</summary>
               <ul>
                 <li>Historical count reference uses a weekday-adjusted Poisson law or a pooled Gamma–Poisson law for sparse merchant history.</li>
-                <li>Frozen V2 combines instantaneous and persistent count evidence. Managed score {fmtNum(a.score, 4)} · boundary {fmtNum(policy.high, 4)}.</li>
+                <li>Frozen Sequential Detection combines instantaneous and persistent count evidence. Managed score {fmtNum(a.score, 4)} · boundary {fmtNum(policy.high, 4)}.</li>
                 <li>Reference {a.evidence.reference_version} · {a.historyDays} eligible prior merchant-days · run {runId}.</li>
                 <li>The score measures unusualness relative to historical activity. Confirm causes using independent evidence.</li>
               </ul>

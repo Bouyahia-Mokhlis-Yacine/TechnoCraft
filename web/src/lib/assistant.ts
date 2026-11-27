@@ -145,7 +145,7 @@ function shortfall(c: Ctx, out: Reply) {
     ? `Plus forte baisse : ${top.id}, ${fmtInt(top.obs)} transactions contre ${fmtInt(top.exp)} attendues (−${fmtInt(top.gap)}, ${fmtPct(top.gap / top.exp, 0)}).`
     : `Largest shortfall: ${top.id}, ${fmtInt(top.obs)} transactions against ${fmtInt(top.exp)} expected (−${fmtInt(top.gap)}, ${fmtPct(top.gap / top.exp, 0)}).`);
   out.table = { head: c.lang === 'fr' ? ['Commerçant', 'Observé', 'Attendu', 'Écart'] : ['Merchant', 'Observed', 'Expected', 'Shortfall'], rows: rows.map((r) => [r.id, fmtInt(r.obs), fmtInt(r.exp), `−${fmtInt(r.gap)} (${fmtPct(r.gap / r.exp, 0)})`]) };
-  out.text.push(c.lang === 'fr' ? 'Attendu = référence du moteur V2 (médiane des 28 jours précédents, même type de jour). Un écart n’est une alerte que si le moteur l’a signalé.' : 'Expected = the V2 engine’s reference (median of the previous 28 days of the same day type). A shortfall is only an alert if the engine flagged it.');
+  out.text.push(c.lang === 'fr' ? 'Attendu = référence du moteur de détection séquentielle (médiane des 28 jours précédents, même type de jour). Un écart n’est une alerte que si le moteur l’a signalé.' : 'Expected = the Sequential Detection engine’s reference (median of the previous 28 days of the same day type). A shortfall is only an alert if the engine flagged it.');
   for (const r of rows.slice(0, 3)) out.evidence.push({ label: r.id, href: `/merchants/${r.id}` });
 }
 
@@ -170,8 +170,8 @@ function channels(c: Ctx, out: Reply) {
       const aff = a.members.filter((m) => m.affected).length;
       const symptom = a.symptom.replaceAll('_', ' ');
       out.text.push(c.lang === 'fr'
-        ? [fmtD(a.date, 'fr'), a.channel, symptom, fmtInt(a.observed) + ' observés / ' + fmtNum(a.expected, 1) + ' attendus', aff + ' commerçants corroborés', 'avis V3'].join(' · ')
-        : [fmtD(a.date, 'en'), a.channel, symptom, fmtInt(a.observed) + ' observed / ' + fmtNum(a.expected, 1) + ' expected', aff + ' merchants corroborated', 'V3 advisory'].join(' · '));
+        ? [fmtD(a.date, 'fr'), a.channel, symptom, fmtInt(a.observed) + ' observés / ' + fmtNum(a.expected, 1) + ' attendus', aff + ' commerçants corroborés', 'avis de détection collective'].join(' · ')
+        : [fmtD(a.date, 'en'), a.channel, symptom, fmtInt(a.observed) + ' observed / ' + fmtNum(a.expected, 1) + ' expected', aff + ' merchants corroborated', 'Collective Detection advisory'].join(' · '));
       out.evidence.push({ label: a.id, href: `/intelligence/${a.id}` });
     }
   } else out.text.push(c.lang === 'fr' ? 'Aucun comportement anormal simultané par canal détecté sur la période.' : 'No concurrent abnormal channel behaviour was detected in the period.');
@@ -257,15 +257,15 @@ function nextCheck(c: Ctx, out: Reply) {
 
 function hybrid(c: Ctx, out: Reply) {
   const hybrid = model().snap.hybrid;
-  if (!hybrid) { out.text.push('V4 advisory evidence is unavailable for this run.'); return; }
+  if (!hybrid) { out.text.push('Hybrid ML advisory evidence is unavailable for this run.'); return; }
   const rows = hybrid.rows.filter((r) => (c.merchant ? r.merchant_id === c.merchant : r.investigation_candidate)
     && r.date >= c.from && r.date <= c.to).sort((a, b) => b.v4_advisory_score - a.v4_advisory_score);
-  out.text.push(c.lang === 'fr' ? 'Classement consultatif V4. Le rang décrit la rareté historique du score ML.' :
-    'V4 advisory ranking. The ordinary tail rank describes the rarity of Isolation Forest evidence.');
+  out.text.push(c.lang === 'fr' ? 'Classement consultatif ML hybride. Le rang décrit la rareté historique du score ML.' :
+    'Hybrid ML advisory ranking. The ordinary tail rank describes the rarity of Isolation Forest evidence.');
   if (!rows.length) out.text.push(c.lang === 'fr' ? 'Aucun résultat pour ce périmètre.' : 'No matching evidence in this period.');
   out.table = { head: ['Merchant', 'Date', 'Fusion score', 'Ordinary ML tail rank', 'Candidate'],
     rows: rows.slice(0, MAX_ROWS).map((r) => [r.merchant_id, r.date, fmtNum(r.v4_advisory_score, 3), fmtPct(r.v4_ordinary_rank, 2), r.investigation_candidate ? 'Yes' : '—']) };
-  out.evidence.push({ label: 'V4 investigation evidence', href: '/intelligence#ml-candidates' });
+  out.evidence.push({ label: 'Hybrid ML investigation evidence', href: '/intelligence#ml-candidates' });
 }
 
 function domain(c: Ctx, out: Reply) {
@@ -306,7 +306,7 @@ function impact(c: Ctx, out: Reply) {
 
 const INTENTS: { name: string; test: (c: Ctx) => boolean; run: (c: Ctx, o: Reply) => void; what: (c: Ctx) => string }[] = [
   { name: 'help', test: (c) => /^(help|aide|\?)$|what can you|que (peux|sais)-tu|que pouvez/.test(c.n), run: () => {}, what: () => 'help' },
-  { name: 'hybrid', test: (c) => /\b(v4|ml|isolation forest|investigation candidate)\b/.test(c.n), run: hybrid, what: (c) => c.merchant ?? 'V4 advisory' },
+  { name: 'hybrid', test: (c) => /\b(v4|ml|isolation forest|investigation candidate)\b/.test(c.n), run: hybrid, what: (c) => c.merchant ?? 'Hybrid ML advisory' },
   { name: 'domain', test: (c) => /(contactless|nfc|sans contact)/.test(c.n) && /(limit|breach|violation|seuil|plafond)/.test(c.n), run: domain, what: (c) => c.merchant ?? 'contactless channel' },
   { name: 'quality', test: (c) => /(data quality|data audit|negative amount|missing amount|qualite des donnees)/.test(c.n), run: quality, what: () => 'whole archive' },
   { name: 'impact', test: (c) => /(business impact|payment impact|gross affected|value shortfall|impact economique)/.test(c.n), run: impact, what: (c) => c.merchant ?? 'incident impact' },

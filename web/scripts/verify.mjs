@@ -199,8 +199,8 @@ try {
       assert.equal((await json('/api/v1/health')).run_id, other.run_id);
       assert.deepEqual((await json('/api/v1/anomalies?scope=official')).predictions, scored.predictions);
       await navigate('/intelligence', 'Network intelligence');
-      await page.getByText('V4 advisory module disabled', { exact: true }).waitFor();
-      await page.getByText('V3 advisory module disabled', { exact: true }).waitFor();
+      await page.getByText('Hybrid ML module disabled', { exact: true }).waitFor();
+      await page.getByText('Collective Detection module disabled', { exact: true }).waitFor();
     } finally {
       setLatest(latest);
     }
