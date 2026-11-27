@@ -5,7 +5,7 @@ import type { Metadata } from 'next';
 import { getMeta, listAnomalies, type AnomalyType } from '@/lib/api';
 import { fmtDay, fmtNum } from '@/lib/format';
 import { GaugeCell, MethodNote } from '@/components/visuals';
-import { SEVERITIES, TYPES, observedVsExpected } from '@/lib/labels';
+import { SEVERITIES, TYPES, observedVsExpected, LIFECYCLE } from '@/lib/labels';
 import { FilterForm } from '@/components/client';
 import { EmptyState, ExportLink, PageHeader, Pager, SeverityBadge, TypeLabel, flat } from '@/components/ui';
 
@@ -28,6 +28,8 @@ async function Alerts({ searchParams }: { searchParams: SP }) {
       </PageHeader>
       <FilterForm>
         <label className="field">Severity<select name="severity" defaultValue={p.severity ?? ''}><option value="">All</option>{(['critical', 'high', 'medium', 'low'] as const).map((s) => <option key={s} value={s}>{SEVERITIES[s].label}</option>)}</select></label>
+        <label className="field">Business criticality<select name="criticality" defaultValue={p.criticality ?? ''}><option value="">All</option><option value="high">High</option><option value="elevated">Elevated</option><option value="resolved">Resolved</option></select></label>
+        <label className="field">Incident state<select name="lifecycle" defaultValue={p.lifecycle ?? ''}><option value="">All</option>{Object.entries(LIFECYCLE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label className="field">Symptom<select name="type" defaultValue={p.type ?? ''}><option value="">All</option>{(Object.keys(TYPES) as AnomalyType[]).map((t) => <option key={t} value={t}>{TYPES[t].label}</option>)}</select></label>
         <label className="field">Merchant<select name="merchant" defaultValue={p.merchant ?? ''}><option value="">All</option>{meta.merchants.map((m) => <option key={m}>{m}</option>)}</select></label>
         <label className="field">Category<select name="category" defaultValue={p.category ?? ''}><option value="">All</option>{meta.categories.map((c) => <option key={c}>{c}</option>)}</select></label>

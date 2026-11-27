@@ -37,6 +37,8 @@ async function Transactions({ searchParams }: { searchParams: SP }) {
         <label className="field">To<input type="date" name="to" defaultValue={p.to} min={meta.firstDate} max={meta.asOf} /></label>
         <label className="field">Quality<select name="quality" defaultValue={p.quality ?? ''}><option value="">All</option><option value="missing_amount">Missing amount</option><option value="negative_amount">Negative input amount</option><option value="invalid_amount">Invalid amount</option><option value="unknown_channel">Unknown channel</option><option value="category_imputed">Recovered category</option></select></label>
         <label className="field">Contactless<select name="contactless" defaultValue={p.contactless ?? ''}><option value="">All</option><option value="breach">Over 2,500 DZD</option><option value="within">Within limit</option></select></label>
+        <label className="field">Min amount (DZD)<input type="number" name="min" min={0} step="any" inputMode="decimal" defaultValue={p.min ?? ''} style={{ minWidth: 0, width: 130 }} /></label>
+        <label className="field">Max amount (DZD)<input type="number" name="max" min={0} step="any" inputMode="decimal" defaultValue={p.max ?? ''} style={{ minWidth: 0, width: 130 }} /></label>
         <label className="field">Sort<select name="sort" defaultValue={p.sort ?? ''}><option value="">Newest first</option><option value="amount_desc">Largest amount</option><option value="amount_asc">Smallest amount</option><option value="status">Status</option></select></label>
       </FilterForm>
 

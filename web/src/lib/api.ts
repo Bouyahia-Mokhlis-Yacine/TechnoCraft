@@ -146,12 +146,15 @@ export function getOverview(f: OverviewFilters) {
 }
 
 /* ── official anomalies (FR-26) ──────────────────────────────────────── */
-export interface AlertFilters { severity?: string; type?: string; merchant?: string; category?: string; channel?: string; from?: string; to?: string; sort?: string; page?: number }
+export interface AlertFilters { severity?: string; type?: string; merchant?: string; category?: string; channel?: string; from?: string; to?: string; sort?: string; page?: number; criticality?: string; lifecycle?: string }
 export function listAnomalies(f: AlertFilters) {
   const m = model();
   const day = (a: Anomaly) => m.byMerchant.get(a.merchant)!.find((d) => d.date === a.date)!;
   const chs = channelSet(f.channel);
-  let rows = m.anomalies.filter((a) =>
+  // business criticality and incident state come from the alert's incident (engine lifecycle and triage)
+  const incOf = new Map(m.incidents.map((i) => [i.id, i]));
+  const incOk = (a: Anomaly) => { const i = incOf.get(a.incidentId); return (!f.criticality || i?.evidence.criticality === f.criticality) && (!f.lifecycle || i?.lifecycle === f.lifecycle); };
+  let rows = m.anomalies.filter((a) => incOk(a) &&
     (!f.severity || a.severity === f.severity) && (!f.type || a.type === f.type) && (!f.merchant || a.merchant === f.merchant) &&
     (!f.category || a.category === f.category) && (!f.from || a.date >= f.from) && (!f.to || a.date <= f.to) && (!chs || [...chs].some((c) => (day(a).channels[c]?.[0] ?? 0) > 0)));
   rows = [...rows].sort(f.sort === 'score' ? (a, b) => b.score - a.score || b.date.localeCompare(a.date) : (a, b) => b.date.localeCompare(a.date) || b.score - a.score);
@@ -272,7 +275,7 @@ export function getMerchant(id: string) {
 }
 
 /* ── transactions (FR-23, sanitized) ─────────────────────────────────── */
-export interface TxFilters { merchant?: string; from?: string; to?: string; category?: string; channel?: string; status?: string; quality?: string; contactless?: string; sort?: string; page?: number }
+export interface TxFilters { merchant?: string; from?: string; to?: string; category?: string; channel?: string; status?: string; quality?: string; contactless?: string; min?: string; max?: string; sort?: string; page?: number }
 export function listTransactions(f: TxFilters, pageSize = 50) {
   const t = model().snap.transactions;
   const mIdx = f.merchant ? t.merchants.indexOf(f.merchant) : -1, chs = channelSet(f.channel);
@@ -282,6 +285,8 @@ export function listTransactions(f: TxFilters, pageSize = 50) {
     if ((f.merchant && t.merchant[i] !== mIdx) || (f.from && date < f.from) || (f.to && date > f.to) || (f.category && t.category[i] !== f.category) || (chs && !chs.has(t.channel[i])) || (f.status && t.status[i] !== f.status)) continue;
     if (f.quality && !t.quality[i].includes(f.quality)) continue;
     if (f.contactless === 'breach' && !t.contactless_limit[i]) continue;
+    // amount range (DZD, the active policy's amount); rows without an amount are left out of a range
+    if ((f.min || f.max) && (t.amount[i] === null || (f.min && t.amount[i]! < Number(f.min)) || (f.max && t.amount[i]! > Number(f.max)))) continue;
     if (f.contactless === 'within' && (t.channel[i] !== 'Contactless / NFC' || t.amount[i] === null || t.contactless_limit[i])) continue;
     const flags = t.quality[i].map((flag) => flag.replaceAll('_', ' '));
     if (t.contactless_limit[i]) flags.push('contactless limit exceeded');

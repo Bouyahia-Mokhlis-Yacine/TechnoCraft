@@ -216,6 +216,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
                     )}
                     {m.shown >= m.total && m.reply.report && <ReportPreview report={m.reply.report} compact={dock} />}
                     {m.shown >= m.total && m.reply.scope && <small className="scope">{m.reply.scope}</small>}
+                    {m.shown >= m.total && m.reply.fallback && <small className="fallback-tag" title="Answered by the built-in deterministic assistant from the same engine data">Built-in answer · {m.reply.fallback === 'model_rejected' ? 'the model’s answer failed the checks' : m.reply.fallback === 'model_off' ? 'no language model configured' : 'language model unavailable'}</small>}
                   </div>
                 </div>
               ))}
@@ -227,7 +228,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
           <div className="chat-col">
             {(modelState === 'offline' || modelState === 'off') && (
               <p className={`model-note ${modelState}`} role="status">
-                <i aria-hidden />{modelState === 'offline' ? 'Language model offline: the assistant can’t answer until it’s back.' : 'No language model configured: the assistant can’t answer.'}
+                <i aria-hidden />{modelState === 'offline' ? 'Fallback mode: language model offline, built-in answers only.' : 'Fallback mode: no language model configured, built-in answers only.'}
                 {modelState === 'offline' && <button type="button" onClick={checkModel}>Retry</button>}
               </p>
             )}

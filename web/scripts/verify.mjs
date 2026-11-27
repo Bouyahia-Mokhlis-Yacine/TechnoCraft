@@ -119,19 +119,15 @@ try {
   await page.getByLabel('Duration (days)').fill('2');
   assert.notEqual(await page.locator('.sim-kpis').innerText(), before);
   await navigate('/assistant', /assistant|ask the dashboard/i);
-  // answers come from the language model only; without it the assistant must say so (503), never answer from rules
+  // the language model answers when it is online; otherwise the built-in assistant stands in, marked as fallback
   const modelState = (await json('/api/v1/assistant/status')).model;
   for (const question of ['Network summary', 'Which hybrid ML investigation candidates are there this week?', 'How many contactless limit breaches are there?',
     'What is the business impact this week?', 'Forecast for the next 7 days', 'What data quality problems should I consider?']) {
     const response = await context.request.post(origin + '/api/v1/assistant', { data: { question } });
-    if (modelState !== 'online') {
-      assert.equal(response.status(), 503, question);
-      assert.match((await response.json()).error.code, /^model_/);
-      continue;
-    }
     assert.equal(response.status(), 200, question);
     const reply = await response.json();
-    assert.equal(reply.source, 'model');
+    if (modelState === 'online') assert(reply.source === 'model' || reply.fallback === 'model_rejected', question);
+    else { assert.equal(reply.source, 'rules', question); assert.match(reply.fallback, /^model_/, question); }
     assert(!reply.refused && reply.evidence.length, question);
   }
   // guard refusals still work without the model

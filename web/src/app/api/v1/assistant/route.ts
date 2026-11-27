@@ -1,11 +1,11 @@
 // POST /api/v1/assistant { question, conversation_id? }: read-only, allowlisted (SRS FR-45–47). With
 // LLM_URL set, a local model on our own HPC answers from allowlisted tools and sees the earlier turns
 // of the conversation (llm/README.md). Without the model, or when its answer fails the checks, the
-// request fails with 503: no substitute answer is ever shown.
+// built-in deterministic assistant answers, marked `fallback` with the reason.
 // `page` ({ path, search }) is the page the question was asked from (assistant dock): the model can
 // read that page's figures; `selection` holds parts of it the user selected. Every turn is saved in the caller's conversation. No third-party API.
 import type { NextRequest } from 'next/server';
-import { ask, ModelError } from '@/lib/llm';
+import { ask } from '@/lib/llm';
 import { appendTurn, getConversation } from '@/lib/conversations';
 import { fail, userOf } from '@/lib/http';
 import { describePage } from '@/lib/page-context';
@@ -31,9 +31,8 @@ export async function POST(req: NextRequest) {
   const search = typeof body.page?.search === 'string' && body.page.search.length < 400 ? body.page.search.replace(/^\?/, '') : '';
   const page = path && path !== '/assistant' ? describePage(path, search, user.id) : null;
   const selection = page ? sanitizeSelections(body.selection) : [];
-  let reply;
-  try { reply = await ask(question, conv?.turns ?? [], page, selection, user.id); }
-  catch (e) { if (e instanceof ModelError) return fail(503, e.code, e.message); throw e; }
+  // the language model answers; the built-in assistant stands in (marked `fallback`) when it cannot
+  const reply = await ask(question, conv?.turns ?? [], page, selection, user.id);
   const saved = appendTurn(user.id, conv?.id, question, reply, page ? { title: page.title, href: page.link.href } : undefined, selection);
   return Response.json({ ...reply, conversation: { id: saved.id, title: saved.title, updated: saved.updated }, page: page ? { title: page.title, href: page.link.href } : null });
 }

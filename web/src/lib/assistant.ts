@@ -16,6 +16,8 @@ export interface Reply {
   report?: { id: string; version: number; title: string };
   /** language model: answered / configured but unreachable / not configured (unknown for guarded refusals) */
   model?: 'online' | 'offline' | 'off';
+  /** set when the built-in answer stands in for the language model, with the reason */
+  fallback?: 'model_off' | 'model_offline' | 'model_rejected';
 }
 
 const MAX_ROWS = 6;
