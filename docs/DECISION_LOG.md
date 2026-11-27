@@ -25,3 +25,7 @@ Options: four fixed demo roles (analyst, supervisor, reader, administrator) or o
 ## 2026-11-27 · An error instead of a rule-based assistant answer
 
 Options: answer with the deterministic rules when the language model is missing, slow or rejected, or return an explicit error. Decision: the API returns 503 (model_off, model_offline, model_rejected) and the chat says so. Guard refusals (intent, card data, write actions) still answer, since they state no figures. Evidence: rules phrased for this dataset can state wrong figures once the data changes; an operator is better served by no answer than a false one. Would change our mind: rules that are regenerated and verified with every published run.
+
+## 2026-11-27 · User-defined KPIs by formula
+
+Options: a fixed set of overview cards, or cards each account chooses. Decision: every account picks its cards, chart type and order, and can define a KPI as a formula over named measures computed by the engine (for example declined / transactions). Formulas are parsed into a tree and evaluated, never run as code, and validated again on the server. Evidence: analysts track different indicators; a formula keeps every value traceable to engine measures. Would change our mind: a need for functions over time windows, which the formula language does not offer.
