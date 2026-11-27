@@ -16,8 +16,8 @@
 @keyframes m-sweep  { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @keyframes m-flash  { from { background: var(--flash, var(--sev-critical-bg)); } }
 
-/* Entrance: add .m-rise and set --i (0..7) for stagger */
-.m-rise { animation: m-rise var(--dur-slow) var(--ease-out) both; animation-delay: calc(var(--i, 0) * var(--stagger)); }
+/* Entrance: add .m-rise and set --i (0..7) for stagger. Fill "backwards", never "both": a transform kept after the animation makes the element a stacking context and traps its popovers under later cards. */
+.m-rise { animation: m-rise var(--dur-slow) var(--ease-out) backwards; animation-delay: calc(var(--i, 0) * var(--stagger)); }
 .m-fade { animation: m-fade var(--dur-slow) var(--ease-out) both; animation-delay: var(--delay, 0ms); }
 
 /* Chart line draw: give the <path>/<polyline> pathLength="1" */

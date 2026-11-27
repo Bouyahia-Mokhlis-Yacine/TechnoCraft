@@ -1545,7 +1545,7 @@ body.picking #content, body.picking #content * { cursor: crosshair !important; }
 .filters.panel .field > select, .filters.panel .field > input { width: 100%; }
 .dr-pop.dr-right { left: auto; right: 0; }
 @media (max-width: 640px) { .dr-pop.dr-right { left: 12px; right: 12px; } }
-body.dr-open .dock-launch { opacity: 0; pointer-events: none; }
+body.dr-open .dock-launch, body:has(.dataset-menu[open], .row-menu[open]) .dock-launch { opacity: 0; pointer-events: none; }
 
 /* ══ 2026-11-27: language switch, active dataset control, data collections ══ */
 .lang-switch { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border-strong); background: var(--surface-sunken); }
@@ -1672,3 +1672,7 @@ body.dr-open .dock-launch { opacity: 0; pointer-events: none; }
 .balanced > .stack { display: contents; }
 .balanced > .stack > * { align-self: start; min-width: 0; }
 .stack.packed { grid-auto-flow: row dense; grid-auto-rows: 1px; row-gap: 0; align-items: start; }
+
+/* ══ 2026-11-28: popovers stay inside the viewport (components/popover-guard.tsx sets --pop-dx) ══ */
+.dataset-pop, .row-menu-pop, .dr-pop, .info-pop { translate: var(--pop-dx, 0px) 0; max-width: calc(100vw - 16px); }
+.dataset-pop, .row-menu-pop { max-height: calc(100dvh - 96px); overflow-y: auto; }

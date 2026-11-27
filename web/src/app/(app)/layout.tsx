@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { ArrowRight, Database, Layers } from 'lucide-react';
 import { NavFallback, NavLinks, NavTracker, SidebarToggle } from '@/components/client';
 import { AssistantDock } from '@/components/assistant-dock';
+import { PopoverGuard } from '@/components/popover-guard';
 import { I18nProvider } from '@/components/i18n';
 import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
 import { resolveView } from '@/lib/dataset';
@@ -100,6 +101,7 @@ async function AuthorizedApp({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <Suspense fallback={null}><IfPage page="assistant"><AssistantDock /></IfPage></Suspense>
+      <PopoverGuard />
     </I18nProvider>
   );
 }
