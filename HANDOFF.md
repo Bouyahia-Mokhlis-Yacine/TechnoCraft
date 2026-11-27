@@ -20,7 +20,10 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
   - No historical forecast vintages exist in the snapshot, so actual-vs-past-forecast is not shown.
 - `git stash@{0}`: a teammate's uncommitted Overview edit (full-width "ov-lower" grid). It conflicts with the user's two-column layout decision and depends on CSS that no longer exists. It is also saved at `.verification/teammate-overview-grid.patch`. Don't apply it without asking the user.
 
+**2026-11-28 (pushed, `f680c8b`)**: Live Monitoring merged (`a314f80`), localised (`00a7306`); future batches continue the official run's sequential state, Hybrid ML on imports, platform-wide activation (`runs/active.json`), `operational_predictions_<run_id>.csv`, run history (`53369f9`); read APIs follow `pai_lang` (`f680c8b`). See README "Import future transaction data" and the integration report table.
+
 **Running processes**
+- Replay service: `python -m src.live_monitoring.service` on 127.0.0.1:8765 (state `runs/live-monitoring/replay.sqlite3`, log `.verification/live-service.log`). Its token is `LIVE_MONITORING_TOKEN` in `web/.env.local` (private, git-ignored); start the service with the same value.
 - Demo on port 3000, all interfaces (the team reaches it at `http://10.80.223.212:3000`).
   - Started detached from `web/` with `SATIM_PYTHON=<conda env python> setsid nohup npm start -- -p 3000`. Its log is `.verification/demo-server.log`.
   - It serves preview run `cbb4e4f7167a4688` from `runs/`.
