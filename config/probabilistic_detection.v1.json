@@ -1,0 +1,69 @@
+{
+  "version": "satim-probabilistic-v1",
+  "established_days": 14,
+  "interval_coverage": 0.9,
+  "low_exposure": 5,
+  "resampling_draws": 8192,
+  "seed": 710,
+  "batch": {
+    "offline_policy": "Official training roster dates are assumed complete at local end of day. No feed telemetry is available. Serving requires an externally declared closed-through watermark."
+  },
+  "development": {
+    "if_feature_start": "2026-09-15",
+    "calibration_start": "2026-09-22",
+    "burden_start": "2026-10-06",
+    "reserved_start": "2026-10-17",
+    "reserved_end": "2026-10-24",
+    "cold_start_merchants": 7,
+    "cold_start_support_days": [
+      0,
+      7
+    ]
+  },
+  "alerts": {
+    "candidate_tail_ranks": [
+      0.0025,
+      0.005,
+      0.01,
+      0.02
+    ],
+    "max_ordinary_alerts_per_merchant_week": 0.07,
+    "selected_tail_ranks": {
+      "Probabilistic": 0.005,
+      "Robust MAD": 0.01,
+      "Isolation Forest": 0.01
+    },
+    "selection_rule": "Select the largest candidate within the ordinary-day burden limit for each model. Disable binary alerting if no candidate meets the limit. Raw scores remain available.",
+    "frozen_ordinary_basis": {
+      "calibration_merchant_days": 490,
+      "burden_merchant_days": 385,
+      "ordinary_last_date": "2026-10-16"
+    }
+  },
+  "reference": {
+    "calibration": "expanding prior-only from known training seed batches",
+    "burden": "frozen as of burden_start",
+    "reserved": {
+      "mode": "frozen",
+      "freeze_on": "2026-10-17"
+    },
+    "update_rule": "Exclude all fresh observations by default. A future reviewed-mode refresh requires explicit dated clearance of complete batches for each merchant-day. Quarantine affected dates pending review."
+  },
+  "baselines": {
+    "robust_local_min_days": 7,
+    "robust_mad_floors": [
+      0.1,
+      0.1,
+      0.12,
+      0.12
+    ],
+    "isolation_forest_trees": 256
+  },
+  "episodes": {
+    "alert_max_gap_days": 0,
+    "truth_grouping": "Consecutive labelled dates with the same merchant and anomaly type",
+    "matching": "One-to-one on same merchant with actual alert dates overlapping positive dates. Maximize the match count, then prefer greater overlap and smaller first-alert delay. No symptom-to-label mapping or timing tolerance.",
+    "required_precision": 0.4,
+    "definition_status": "provisional"
+  }
+}

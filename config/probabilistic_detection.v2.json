@@ -1,0 +1,95 @@
+{
+  "version": "satim-probabilistic-v2",
+  "instantaneous_reference": "satim-probabilistic-v1",
+  "ratio_banks": {
+    "compact": [
+      0.65,
+      1.55
+    ],
+    "expanded": [
+      0.45,
+      0.65,
+      0.8,
+      1.25,
+      1.55,
+      2.0
+    ]
+  },
+  "primary_bank": "expanded",
+  "candidate_tail_ranks": [
+    0.0025,
+    0.005,
+    0.01,
+    0.02
+  ],
+  "fusion_anchor_tail_rank": 0.01,
+  "above_max_multipliers": [
+    1.25,
+    1.5,
+    2,
+    3,
+    4
+  ],
+  "persistence_days": 2,
+  "observation_likelihood_ratio": 4,
+  "dismissal_likelihood_ratio": 2,
+  "recovery_days": 2,
+  "reference_policy": "Start each replay epoch with its own strictly prior frozen v1 reference and zero sequential state. In reviewed operation, pin the effective version on observation or incident onset. Admit complete dates only through explicit dated review; hold candidate and incident dates pending review.",
+  "frozen": {
+    "calibration_merchant_days": 490,
+    "burden_merchant_days": 385,
+    "ordinary_last_date": "2026-10-16",
+    "budget_per_merchant_week": 0.07,
+    "fusion": {
+      "compact": {
+        "instant_scale": 2.311382963531434,
+        "sequential_scale": 3.612142583692715,
+        "persistence": 2
+      },
+      "expanded": {
+        "instant_scale": 2.311382963531434,
+        "sequential_scale": 3.678059291249046,
+        "persistence": 2
+      }
+    },
+    "policies": {
+      "v1": {
+        "alpha": 0.005,
+        "threshold": 2.65817044975609,
+        "ordinary_alerts": 2
+      },
+      "compact/cusum": {
+        "alpha": null,
+        "threshold": 4.623431321963369,
+        "ordinary_alerts": 2,
+        "above_max_multiplier": 1.25
+      },
+      "compact/combined": {
+        "alpha": 0.0025,
+        "threshold": 1.432641416752573,
+        "ordinary_alerts": 0
+      },
+      "compact/managed": {
+        "alpha": 0.0025,
+        "threshold": 1.432641416752573,
+        "ordinary_alerts": 0
+      },
+      "expanded/cusum": {
+        "alpha": null,
+        "threshold": 4.742193908855419,
+        "ordinary_alerts": 1,
+        "above_max_multiplier": 1.25
+      },
+      "expanded/combined": {
+        "alpha": 0.0025,
+        "threshold": 1.432641416752573,
+        "ordinary_alerts": 0
+      },
+      "expanded/managed": {
+        "alpha": 0.0025,
+        "threshold": 1.432641416752573,
+        "ordinary_alerts": 0
+      }
+    }
+  }
+}
