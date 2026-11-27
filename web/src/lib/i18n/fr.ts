@@ -835,4 +835,7 @@ export const fr: Record<keyof typeof en, string> = {
   'kpi.name.declined - expected_declines': "Refus excédentaires",
   'kpi.name.collective_warnings': "Avertissements collectifs",
   'kpi.name.ml_candidates': "Candidats ML hybride",
+  'nav.live': "Surveillance en direct",
+  'acct.action.replay': "Piloter le rejeu en direct",
+  'acct.help.replay': "Démarrer, mettre en pause, avancer et réinitialiser votre rejeu d’entraînement",
 };

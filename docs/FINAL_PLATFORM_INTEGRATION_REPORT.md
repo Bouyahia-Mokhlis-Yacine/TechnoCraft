@@ -2,6 +2,10 @@
 
 Branch `final-platform-integration`, built on 27 November 2026 from `main` (`e98cf7d`) plus the latest frontend work, with `origin/backend-integration` (`c7f7586`) merged in. Linux preview checks ran on Fedora (Node.js 22.23, Python 3.12.7), and sealed release verification ran on Windows (Node.js 20.19.5, `.verification/sealed-env` Python 3.12.7), where the live local demo server on port `3000` serves sealed run `4d13a45b617d44b4`.
 
+## Live Monitoring research extension
+
+`live-monitoring-integration` extends the verified `4ce5a1c2bf2ee0ca00386b0af8f853f6bf7d41a9` base with a separately versioned historical replay. The frozen daily engine reran in the sealed Windows environment with exact parity on 280 development and 711 official score–flag pairs. The isolated sealed CSV had 52 flagged rows and matched the committed CSV digest. Browser verification used the isolated publication. The research report and notebooks describe the measured capability and remaining work. [Live Monitoring research report](../reports/live_monitoring_results.md)
+
 ## 1. Architecture
 
 Official CSVs → `python -m engine.export` (frozen Probabilistic, Sequential, Collective and Hybrid ML modules in `src/`, replay in `engine/`) → atomically published `runs/<run_id>/snapshot.json`, per-run prediction CSV and `runs/latest.json` → Next.js readers (`web/src/lib/snapshot.ts`, `model.ts`, `api.ts`), read on every request → `/api/v1` routes and pages. The web layer applies filters and view sums only. It contains no competing detector. See [ARCHITECTURE.md](ARCHITECTURE.md) for the contract.

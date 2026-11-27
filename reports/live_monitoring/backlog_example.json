@@ -1,0 +1,175 @@
+{
+  "date": "2026-10-15",
+  "selection": "post-hoc demonstration",
+  "truth": {
+    "onset": "2026-10-15T09:10:00",
+    "end": "2026-10-15T09:40:00",
+    "channel": "pos",
+    "merchants": [],
+    "changed_events": 5,
+    "same_day_backlog": true
+  },
+  "ordinary_daily_events": 465,
+  "overlay_daily_events": 465,
+  "ordinary_daily_closure": [
+    {
+      "date": "2026-10-15",
+      "status": "complete",
+      "scored": 35,
+      "flagged": []
+    }
+  ],
+  "overlay_daily_closure": [
+    {
+      "date": "2026-10-15",
+      "status": "complete",
+      "scored": 35,
+      "flagged": []
+    }
+  ],
+  "ordinary_warnings": [
+    {
+      "id": "0:1:2026-10-15T16:20:00",
+      "opened": "2026-10-15T16:20:00",
+      "state": "Resolved",
+      "timeline": [
+        {
+          "time": "2026-10-15T16:20:00",
+          "state": "Early warning"
+        },
+        {
+          "time": "2026-10-15T16:25:00",
+          "state": "Persistent warning"
+        },
+        {
+          "time": "2026-10-15T17:45:00",
+          "state": "Recovering"
+        },
+        {
+          "time": "2026-10-15T17:55:00",
+          "state": "Resolved"
+        }
+      ],
+      "hits": 8,
+      "quiet": 3,
+      "scope": [
+        "network",
+        "all"
+      ],
+      "symptom": "Activity surge",
+      "from": "2026-10-15T14:55:00",
+      "through": "2026-10-15T16:55:00",
+      "observed": 58,
+      "expected": 28.28104760817844,
+      "signal": "Directional CUSUM",
+      "unit": "transactions",
+      "action": "Check ingestion completeness and compare channel telemetry with expected traffic.",
+      "explanation": "all recorded 58 transactions versus 28.3 expected in the evidence window. Directional CUSUM crossed the replay warning threshold.",
+      "limitation": "Replay evidence supports investigation. Independent telemetry is required to establish a service interruption.",
+      "reference_days": 21,
+      "cusum": [
+        0.0,
+        11.246929994120688
+      ],
+      "kind": "Intraday early warning",
+      "last": "2026-10-15T16:55:00",
+      "score": 11.246929994120688
+    }
+  ],
+  "overlay_warnings": [
+    {
+      "id": "0:1:2026-10-15T16:20:00",
+      "opened": "2026-10-15T16:20:00",
+      "state": "Resolved",
+      "timeline": [
+        {
+          "time": "2026-10-15T16:20:00",
+          "state": "Early warning"
+        },
+        {
+          "time": "2026-10-15T16:25:00",
+          "state": "Persistent warning"
+        },
+        {
+          "time": "2026-10-15T17:45:00",
+          "state": "Recovering"
+        },
+        {
+          "time": "2026-10-15T17:55:00",
+          "state": "Resolved"
+        }
+      ],
+      "hits": 8,
+      "quiet": 3,
+      "scope": [
+        "network",
+        "all"
+      ],
+      "symptom": "Activity surge",
+      "from": "2026-10-15T14:55:00",
+      "through": "2026-10-15T16:55:00",
+      "observed": 58,
+      "expected": 28.28104760817844,
+      "signal": "Directional CUSUM",
+      "unit": "transactions",
+      "action": "Check ingestion completeness and compare channel telemetry with expected traffic.",
+      "explanation": "all recorded 58 transactions versus 28.3 expected in the evidence window. Directional CUSUM crossed the replay warning threshold.",
+      "limitation": "Replay evidence supports investigation. Independent telemetry is required to establish a service interruption.",
+      "reference_days": 21,
+      "cusum": [
+        0.0,
+        11.246929994120688
+      ],
+      "kind": "Intraday early warning",
+      "last": "2026-10-15T16:55:00",
+      "score": 11.246929994120688
+    },
+    {
+      "id": "5:0:2026-10-15T09:35:00",
+      "opened": "2026-10-15T09:35:00",
+      "state": "Resolved",
+      "timeline": [
+        {
+          "time": "2026-10-15T09:35:00",
+          "state": "Early warning"
+        },
+        {
+          "time": "2026-10-15T09:40:00",
+          "state": "Persistent warning"
+        },
+        {
+          "time": "2026-10-15T10:15:00",
+          "state": "Recovering"
+        },
+        {
+          "time": "2026-10-15T10:35:00",
+          "state": "Resolved"
+        }
+      ],
+      "hits": 2,
+      "quiet": 3,
+      "scope": [
+        "channel",
+        "pos"
+      ],
+      "symptom": "Activity shortfall",
+      "from": "2026-10-15T04:50:00",
+      "through": "2026-10-15T09:40:00",
+      "observed": 11,
+      "expected": 37.45254849113152,
+      "signal": "Directional CUSUM",
+      "unit": "transactions",
+      "action": "Check ingestion completeness and compare channel telemetry with expected traffic.",
+      "explanation": "pos recorded 11 transactions versus 37.5 expected in the evidence window. Directional CUSUM crossed the replay warning threshold.",
+      "limitation": "Replay evidence supports investigation. Independent telemetry is required to establish a service interruption.",
+      "reference_days": 21,
+      "cusum": [
+        11.101655259406357,
+        0.0
+      ],
+      "kind": "Intraday early warning",
+      "last": "2026-10-15T09:40:00",
+      "score": 11.101655259406357
+    }
+  ]
+}

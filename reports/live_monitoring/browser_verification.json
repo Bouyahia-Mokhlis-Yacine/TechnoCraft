@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "environment": "Windows, Chromium, Next.js production build and loopback Python replay on isolated state",
+  "first_plot_ms": 832,
+  "warm_snapshot_ms": 21,
+  "collective_warnings": 1,
+  "resolved_warnings": 1,
+  "assistant": "deterministic fallback",
+  "follow_up": {
+    "status": "passed",
+    "first_plot_ms": 848,
+    "warm_snapshot_ms": 17,
+    "early_warning_detail": "POS activity shortfall in same-day backlog fixture",
+    "individual_warning_recovery": "passed",
+    "backend_summary_metrics": "reconciled to finalized interval and cumulative counts",
+    "stop_control": "passed"
+  },
+  "existing_regression": {
+    "status": "passed",
+    "checks": "Existing browser journeys, official API parity, review locking, CSV/PDF and responsive checks"
+  },
+  "checks": ["authentication", "cross-site write rejection", "start", "chart update", "pause", "step", "speed change", "channel and merchant selection", "refresh", "resume", "daily closure", "collective detail and recovery", "live assistant", "390px viewport", "reset", "restricted account"]
+}

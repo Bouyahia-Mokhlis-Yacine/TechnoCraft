@@ -2,6 +2,10 @@
 
 The original research Decision Log remains in the Technocraft research workspace with its retrospective provenance disclosures. The entries below record current integration decisions.
 
+## 2026-11-27 · Keep intraday research and replay in a separate branch
+
+The remote integration head was verified at `4ce5a1c2bf2ee0ca00386b0af8f853f6bf7d41a9` before branching. Add a separately calibrated training-archive replay. Keep the hierarchical probabilistic daily detector with directional CUSUM authoritative for official predictions, and retain collective and hybrid investigation roles. Use timer-driven scoring, per-account SQLite checkpoints and authenticated snapshot polling. Limit behavioural warnings to eligible exposure and label the mode as historical simulation. The sample is small and the short-disruption benchmark has low exposure, so the evidence supports a research workspace only. The implementation commit `88beefc` records its Git author and commit time as `2026-11-27T21:52:20+01:00`.
+
 ## 2026-11-27 · Freeze the serving policy
 
 Use archived V2 for the official flag and score, with an October 16 reference cutoff and a separate October 25 reset. Use V3 warnings, V4 ranking and operational domain evidence for investigation. Keep source configuration and input fingerprints. Revisit only if the organizers authorize a new official policy.

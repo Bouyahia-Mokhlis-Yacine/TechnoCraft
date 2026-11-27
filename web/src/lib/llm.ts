@@ -227,6 +227,11 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
   const selIds = [...new Set(selection.flatMap((x) => `${x.text ?? ''} ${x.tip ?? ''} ${Object.values(x.table ?? {}).join(' ')} ${(x.links ?? []).join(' ')}`.match(/\b(?:MER-\d{4}|INC-\d{4}-\d{4})\b/g) ?? []))].slice(0, 2);
   let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`, qLang) : guarded;
   if (guarded.refused && guarded.refused !== 'unsupported') rules = guarded;
+  const live = page?.path === '/live';
+  if (live && page && (!guarded.refused || guarded.refused === 'unsupported')) {
+    rules = { ...rules, intent: 'live_replay', refused: undefined, text: page.summary, table: undefined,
+      evidence: [page.link], scope: page.title };
+  }
   if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
   // on another page, a question about "this chart" that the rules cannot place gets the page summary
   else if (page && (BROAD.has(rules.intent) || rules.refused === 'unsupported') && (selection.length || ABOUT_PAGE.test(norm(q)))) {
@@ -253,7 +258,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         parameters: { type: 'object', properties: { merchant: { type: 'string' }, period: { type: 'string', enum: Object.keys(PERIODS) } } },
       },
     }));
-    const tools = [...base, ...appToolDefs(), ...operational, ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])] as Tool[];
+    const tools = (live ? [PAGE_TOOL] : [...base, ...appToolDefs(), ...operational,
+      ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])]) as Tool[];
     const run = model().snap.run;
     const asOf = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${run.as_of}T00:00:00Z`)).replace(',', '');
     const system = prompt.replace('{{AS_OF}}', asOf).replace('{{RUN_ID}}', run.run_id) + (page ? pageNote(page) : '') + (selection.length ? SELECTION_NOTE : '');
@@ -261,6 +267,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const past = historyMessages(history);
     // earlier turns may be in another language: the reply follows the current message (rule 6)
     let sys = past.length ? `${system}\nAnswer the latest message in its own language, even if earlier turns used another one.` : system;
+    if (live) sys += '\nUse page_context for this training-archive replay. Identify the clock as simulated. Keep intraday warnings, collective advisories and simulated frozen daily flags distinct. Establish service causes only from independent telemetry.';
     const active = owner ? activeReport(owner, page, history) : null;
     if (active) sys += `\nThe report being worked on (report_id ${active.id}, version ${active.version ?? 1}): ${JSON.stringify(active.spec)}\nIf the user asks to change, add, remove, reorder, rename, shorten or translate anything in it, call compose_report with report_id "${active.id}" and the complete updated title and sections, keeping everything else exactly as it is. Only create a new report when they ask for a new one.`;
     const lang = qLang;
@@ -273,8 +280,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const used: Display[] = [];
     // numbers may come from this turn's tool results, the question, or earlier (already checked)
     // turns; not from the rules text, whose own numbers (rules 1–11) must not whitelist anything
-    let repaired = false, nudged = false, madeFile = false, force: string | undefined;
-    const wantsFile = WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q)));
+    let repaired = false, nudged = false, madeFile = false, force: string | undefined = live ? 'page_context' : undefined;
+    const wantsFile = !live && (WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q))));
     let sources = `${active ? JSON.stringify(active.spec) : ''}\n${q}${block}\n${asOf}\n${run.run_id}\n${past.map((m) => m.content).join('\n')}`;
     const rounds = wantsFile ? MAX_ROUNDS + 2 : MAX_ROUNDS; // a report may need figures first, then its text
     for (let round = 0; round < rounds; round++) {
@@ -302,7 +309,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         }
         if (PROHIBITED.test(norm(text))) { console.warn('[assistant] model answer rejected: prohibited term'); break; }
         const ids = text.match(/\bMER-\d{4}(?::\d{4}-\d{2}-\d{2})?\b/gi) ?? [];
-        if (ids.some((id) => !sources.includes(id.toUpperCase()) || !model().byMerchant.has(id.split(':')[0].toUpperCase()))) break;
+        if (ids.some((id) => !sources.includes(id.toUpperCase()) ||
+            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) break;
         const bad = unknownNumbers(text, sources);
         if (bad.length) {
           console.warn(`[assistant] model answer ${repaired ? 'rejected' : 'sent back'}: ${bad.join(', ')} not in the tool results`);
@@ -326,7 +334,9 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         const composed = tc.function?.name === 'compose_report' ? compose(tc.function.arguments, sources, owner, lang) : null;
         if (composed?.display) madeFile = true;
         const { result, display } = composed ? composed : tc.function?.name === 'page_context' && page
-          ? { result: { page: page.title, panels: page.panels, ...page.data }, display: { intent: 'page', evidence: [], scope: `Scope: ${page.title} · engine run ${run.run_id}` } as Display }
+          ? { result: { page: page.title, panels: page.panels, ...page.data }, display: { intent: live ? 'live_replay' : 'page',
+              evidence: live ? [page.link] : [], scope: live ? page.title : `Scope: ${page.title} · engine run ${run.run_id}` } as Display }
+          : live ? { result: { error: 'Only page_context is available for live replay evidence.' }, display: undefined }
           : runTool(tc.function?.name, tc.function?.arguments, lang);
         if (display) used.push(display);
         const content = JSON.stringify(result);

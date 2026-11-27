@@ -67,6 +67,7 @@ export function pageOf(pathname: string): PageKey | 'admin' | null {
     // API resources map onto the page that shows them
     const api: Record<string, PageKey> = { imports: 'data', overview: 'overview', kpis: 'overview', forecasts: 'overview', incidents: 'incidents', anomalies: 'alerts', advisories: 'intelligence', assistant: 'assistant', reports: 'reports', runs: 'data' };
     const [res, kind] = p.split('/').filter(Boolean);
+    if (res === 'live') return 'live';
     if (res === 'export') return kind === 'transactions' ? 'transactions' : kind === 'anomalies' ? 'alerts' : kind === 'incidents' ? 'incidents' : null;
     return api[res] ?? null;
   }

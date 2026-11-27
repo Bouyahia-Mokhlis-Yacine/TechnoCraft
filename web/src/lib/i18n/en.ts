@@ -833,4 +833,7 @@ export const en = {
   'kpi.name.declined - expected_declines': "Excess declines",
   'kpi.name.collective_warnings': "Collective warnings",
   'kpi.name.ml_candidates': "Hybrid ML candidates",
+  'nav.live': "Live Monitoring",
+  'acct.action.replay': "Control live replay",
+  'acct.help.replay': "Start, pause, step and reset your training replay",
 };

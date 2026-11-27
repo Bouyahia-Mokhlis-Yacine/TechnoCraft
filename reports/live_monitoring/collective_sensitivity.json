@@ -1,0 +1,26 @@
+[
+  {
+    "window_minutes": 5,
+    "threshold": 0.0,
+    "ordinary_warning_days": 0,
+    "held_out_cases": 6,
+    "paired_hits": 0,
+    "median_delay_minutes": null
+  },
+  {
+    "window_minutes": 15,
+    "threshold": 1.270859266271613,
+    "ordinary_warning_days": 3,
+    "held_out_cases": 6,
+    "paired_hits": 0,
+    "median_delay_minutes": null
+  },
+  {
+    "window_minutes": 60,
+    "threshold": 4.7856507378998225,
+    "ordinary_warning_days": 5,
+    "held_out_cases": 6,
+    "paired_hits": 0,
+    "median_delay_minutes": null
+  }
+]

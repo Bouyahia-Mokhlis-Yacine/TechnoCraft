@@ -13,6 +13,8 @@ import { sanitizeSelections } from '@/lib/selection';
 import { hasSensitiveIdentifier } from '@/lib/privacy';
 import { localeOf } from '@/lib/i18n/server';
 import { withLocale } from '@/lib/i18n/scope';
+import { liveContext, LIVE_QUESTION } from '@/lib/live-context';
+import { canSee } from '@/lib/session';
 
 export async function POST(req: NextRequest) {
   const user = userOf(req);
@@ -31,7 +33,10 @@ export async function POST(req: NextRequest) {
   // asked from another page through the dock: the server rebuilds that page's figures itself
   const path = typeof body.page?.path === 'string' && /^\/[\w\-/%.]*$/.test(body.page.path) && body.page.path.length < 120 && !body.page.path.startsWith('/api') ? body.page.path : null;
   const search = typeof body.page?.search === 'string' && body.page.search.length < 400 ? body.page.search.replace(/^\?/, '') : '';
-  const page = path && path !== '/assistant' ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
+  const live = path === '/live' || LIVE_QUESTION.test(question);
+  if (live && !canSee(user, '/live')) return fail(403, 'forbidden', 'Your account does not have access to Live Monitoring.');
+  const page = live ? await liveContext(user.id, question)
+    : path && path !== '/assistant' ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
   const selection = page ? sanitizeSelections(body.selection) : [];
   // the language model answers; the built-in assistant stands in (marked `fallback`) when it cannot
   const locale = localeOf(req);
