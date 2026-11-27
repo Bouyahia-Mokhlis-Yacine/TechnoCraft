@@ -17,3 +17,7 @@ Use Python reference-pinned lifecycle IDs. Acknowledge, comment, assign, escalat
 ## 2026-11-27 · Restrict scenario arithmetic
 
 The former simulator implemented an independent statistical scorer. The replacement combines Python forecast volume, outcome and value with observed channel-hour shares and user assumptions. It yields planning estimates and cannot write to review, reference or prediction state.
+
+## 2026-11-27 · Administrator-managed accounts instead of fixed roles
+
+Options: four fixed demo roles (analyst, supervisor, reader, administrator) or one administrator who creates accounts. Decision: one administrator creates each account and ticks the pages it sees and three action groups (review incidents, manage incidents, export). The proxy checks every page and API call; routes re-check each write and export. Passwords are scrypt hashes, five failures lock a username for a minute, and editing an account revokes its sessions. Evidence: SATIM teams differ in what they need to see; fixed roles could not express it. Would change our mind: integration with SATIM's own directory (SSO), which this local scheme does not replace.
