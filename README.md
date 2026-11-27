@@ -88,3 +88,9 @@ Your final deliverable combines your working platform with your unified test pre
 - **No hand-edited predictions or test hardcoding:** The IT evaluation team will re-run your backend pipeline on `X_test_transactions.csv` to verify it deterministically reproduces `y_pred_anomalies.csv` and your dashboard results.
 - **Official data only:** Do not substitute self-generated datasets.
 - **Operational anomalies, not fraud:** Never use "fraud" labels or wording anywhere in the platform.
+
+## Operational continuous learning
+
+The backend can now review complete imported merchant-days, quarantine held episodes and train a separate Hierarchical Probabilistic Detection, Directional CUSUM, Collective Detection and Probabilistic–Isolation Forest Hybrid challenger. It uses a dedicated SQLite registry, independent prospective shadow evaluation and supervisor-controlled activation. See the [backend API contract](docs/CONTINUOUS_LEARNING_API.md) and [verification results](reports/continuous_learning_results.md).
+
+Run the focused synthetic and authorization checks with `python -m unittest discover -s tests -p test_continuous_learning.py`. The sealed export workflow above continues to verify the competition numbers.
