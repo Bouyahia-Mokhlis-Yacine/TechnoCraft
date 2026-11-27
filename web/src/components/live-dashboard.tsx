@@ -3,19 +3,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { Activity, Clock3, Pause, Play, Radio, RotateCcw, SkipForward, Square } from 'lucide-react';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from '@/lib/format';
+import type { Key, T } from '@/lib/i18n';
+import { useT } from './i18n';
 import type { ReplayPoint, ReplaySnapshot, ReplayWarning, Scope } from '@/lib/live-types';
 import styles from './live-dashboard.module.css';
 
-const scopeKinds = { network: 'Network', channel: 'Channel', merchant: 'Merchant', category: 'Merchant category' };
-const channels: Record<string, string> = {
-  all: 'Payment network', pos: 'POS terminals', ecommerce: 'E-commerce',
-  mobile: 'Mobile app', nfc: 'Contactless', transfer: 'Bank transfer', unknown: 'Unknown channel',
-};
-const scopeLabel = ([kind, name]: Scope) => kind === 'channel' || kind === 'network' ? channels[name] ?? name : name;
+const scopeKinds = ['network', 'channel', 'merchant', 'category'] as const;
+/** A value from the replay service (status, state, symptom…) in the interface language; unknown values pass through. */
+const tv = (t: T, prefix: string, v?: string | null) => { if (!v) return ''; const k = `${prefix}.${v}` as Key, s = t(k); return s === k ? v : s; };
+const scopeLabel = (t: T, [kind, name]: Scope) => kind === 'channel' || kind === 'network' ? tv(t, 'live.ch', name) : name;
 const stamp = (time?: string | null) => time?.replace('T', ' ').slice(0, 19) || '—';
 const minute = (time: string) => time.slice(11, 16);
-const metric = (n?: number | null, formatter: (n: number) => string = fmtInt) => n == null ? '—' : formatter(n);
-const fmtExpected = (n: number) => fmtNum(n, 1);
+const metric = (n: number | null | undefined, formatter: (n: number) => string) => n == null ? '—' : formatter(n);
 const isCollective = (w: ReplayWarning) => w.kind === 'Collective advisory';
 
 async function request(params: string, body?: Record<string, unknown>, signal?: AbortSignal): Promise<ReplaySnapshot> {
@@ -25,19 +24,19 @@ async function request(params: string, body?: Record<string, unknown>, signal?: 
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message ?? 'Replay update failed.');
+  if (!response.ok) throw new Error(data.error?.message ?? '');
   return data;
 }
 
-function Chart({ title, points, mode, warnings = [] }: {
-  title: string; points: ReplayPoint[]; mode: 'interval' | 'cumulative' | 'rejections' | 'accepted';
+function Chart({ title, points, mode, warnings = [], t }: {
+  title: string; t: T; points: ReplayPoint[]; mode: 'interval' | 'cumulative' | 'rejections' | 'accepted';
   warnings?: ReplayWarning[];
 }) {
   if (!points.length) return null;
   const chart = {
-    interval: { primary: 'observed', secondary: 'expected', unit: 'transactions' },
-    cumulative: { primary: 'cumulative', secondary: 'cumulative_expected', unit: 'transactions' },
-    rejections: { primary: 'rejections', secondary: 'cancellations', unit: 'attempts' },
+    interval: { primary: 'observed', secondary: 'expected', unit: t('live.unitTx') },
+    cumulative: { primary: 'cumulative', secondary: 'cumulative_expected', unit: t('live.unitTx') },
+    rejections: { primary: 'rejections', secondary: 'cancellations', unit: t('live.unitAttempts') },
     accepted: { primary: 'accepted_value', secondary: null, unit: 'DZD' },
   }[mode] as { primary: keyof ReplayPoint; secondary: keyof ReplayPoint | null; unit: string };
   const max = Math.max(1, ...points.map(p => Math.max(Number(p[chart.primary]),
@@ -55,15 +54,15 @@ function Chart({ title, points, mode, warnings = [] }: {
     ...points.map((p, i) => `${x(i)},${y(p.lower)}`).reverse()].join(' ');
   const ticks = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
   const markers = warnings.flatMap(w => [
-    { time: w.opened, id: w.id, text: w.symptom, recovery: false },
-    ...w.timeline.filter(t => t.state === 'Resolved').map(t => ({ time: t.time, id: w.id, text: 'Resolved', recovery: true })),
+    { time: w.opened, id: w.id, text: tv(t, 'live.symptom', w.symptom), recovery: false },
+    ...w.timeline.filter(s => s.state === 'Resolved').map(s => ({ time: s.time, id: w.id, text: tv(t, 'live.state', 'Resolved'), recovery: true })),
   ]);
   return <figure className={styles.chart}>
     <figcaption><strong>{title}</strong><span>{chart.unit}</span></figcaption>
     <svg viewBox="0 0 630 184" role="img" aria-label={title}>
       {[0, .5, 1].map(f => <g key={f}>
         <line x1={58} x2={613} y1={y(f * max)} y2={y(f * max)} className={styles.gridline} />
-        <text x={51} y={y(f * max) + 4} textAnchor="end">{mode === 'accepted' ? fmtInt(f * max) : fmtExpected(f * max)}</text>
+        <text x={51} y={y(f * max) + 4} textAnchor="end">{mode === 'accepted' ? fmtInt(f * max, t.locale) : fmtNum(f * max, 1, t.locale)}</text>
       </g>)}
       {mode === 'interval' && points.length > 1 && <polygon points={band} className={styles.band} />}
       {mode === 'interval' && markers.map(m => {
@@ -79,34 +78,36 @@ function Chart({ title, points, mode, warnings = [] }: {
       </text>)}
     </svg>
     {chart.secondary && <div className={styles.legend}>
-      <span><i />{mode === 'rejections' ? 'Rejected' : 'Observed'}</span>
-      <span><i />{mode === 'rejections' ? 'Cancelled' : 'Expected'}</span>
-      {mode === 'interval' && <span><i />90% model interval</span>}
+      <span><i />{mode === 'rejections' ? t('live.rejected') : t('live.observed')}</span>
+      <span><i />{mode === 'rejections' ? t('live.cancelled') : t('live.expected')}</span>
+      {mode === 'interval' && <span><i />{t('live.interval90')}</span>}
     </div>}
   </figure>;
 }
 
 function Warnings({ title, values }: { title: string; values: ReplayWarning[] }) {
+  const t = useT();
   return <section className="panel">
-    <div className="panel-head"><div><h2>{title}</h2><p>{values.filter(w => w.state !== 'Resolved').length} active</p></div></div>
+    <div className="panel-head"><div><h2>{title}</h2><p>{t('live.activeN', { n: values.filter(w => w.state !== 'Resolved').length })}</p></div></div>
     {values.length ? <div className={styles.warningList}>{values.map(w => <details key={w.id}>
-      <summary><span><strong>{w.symptom}</strong><small>{scopeLabel(w.scope)} · {stamp(w.opened)}</small></span>
-        <span className="chip">{w.state}</span></summary>
+      <summary><span><strong>{tv(t, 'live.symptom', w.symptom)}</strong><small>{scopeLabel(t, w.scope)} · {stamp(w.opened)}</small></span>
+        <span className="chip">{tv(t, 'live.state', w.state)}</span></summary>
       <div className={styles.detail}>
-        <p>{w.explanation}</p>
-        <p className="muted">{stamp(w.from)} to {stamp(w.through)} · Evidence score {fmtExpected(w.score)}
-          {w.reference_days !== undefined && ` · ${w.reference_days} prior dates`}</p>
-        {w.cusum && <p>Directional CUSUM ↓ {fmtExpected(w.cusum[0])} · ↑ {fmtExpected(w.cusum[1])}</p>}
-        {w.merchants && <p><strong>Selected merchants</strong> {w.merchants.join(', ')}. Individually corroborated {w.corroborated?.join(', ') || 'none'}.</p>}
-        <p>{w.action} {w.limitation}</p>
-        <ol className={styles.timeline} aria-label="Warning timeline">{w.timeline.map((step, i) =>
-          <li key={i}><time>{stamp(step.time)}</time> {step.state}</li>)}</ol>
+        <p lang="en">{w.explanation}</p>
+        <p className="muted">{t('live.fromTo', { from: stamp(w.from), to: stamp(w.through) })} · {t('live.score', { v: fmtNum(w.score, 1, t.locale) })}
+          {w.reference_days !== undefined && ` · ${t('live.priorDates', { n: w.reference_days })}`}</p>
+        {w.cusum && <p>{t('live.cusum')} ↓ {fmtNum(w.cusum[0], 1, t.locale)} · ↑ {fmtNum(w.cusum[1], 1, t.locale)}</p>}
+        {w.merchants && <p><strong>{t('intel.selected')}</strong> {w.merchants.join(', ')}. {t('live.corroborated', { list: w.corroborated?.join(', ') || t('common.none').toLowerCase() })}</p>}
+        <p lang="en">{w.action} {w.limitation}</p>
+        <ol className={styles.timeline} aria-label={t('live.timeline')}>{w.timeline.map((step, i) =>
+          <li key={i}><time>{stamp(step.time)}</time> {tv(t, 'live.state', step.state)}</li>)}</ol>
       </div>
-    </details>)}</div> : <p className={styles.empty}>No warnings in this replay yet.</p>}
+    </details>)}</div> : <p className={styles.empty}>{t('live.noWarnings')}</p>}
   </section>;
 }
 
 export function LiveDashboard({ control }: { control: boolean }) {
+  const t = useT();
   const [state, setState] = useState<ReplaySnapshot>();
   const [error, setError] = useState('');
   const [commandError, setCommandError] = useState('');
@@ -174,23 +175,23 @@ export function LiveDashboard({ control }: { control: boolean }) {
 
   return <div className={styles.workspace}>
     <section className={`panel ${styles.control}`}>
-      <div className="panel-head"><div><h2>Simulated Live Monitoring — Historical Replay</h2>
-        <p>Training archive · Archive-local clock · No production feed connected</p></div>
-        <span className="chip"><Radio size={14} /> {state?.status ?? 'Connecting'}</span></div>
+      <div className="panel-head"><div><h2>{t('live.title')}</h2>
+        <p>{t('live.sub')}</p></div>
+        <span className="chip"><Radio size={14} /> {state ? tv(t, 'live.status', state.status) : t('live.connecting')}</span></div>
       <div className={styles.controls}>
-        <label>Start date<input aria-label="Start date" type="date" min={state?.min_date} max={state?.max_date}
+        <label>{t('live.start')}<input type="date" min={state?.min_date} max={state?.max_date}
           value={unstarted ? form.start || state?.default_date || '' : state?.start || ''}
           disabled={!control || !unstarted || busy}
           onChange={e => setForm({ ...form, start: e.target.value })} /></label>
-        <label>End date<input aria-label="End date" type="date" min={form.start || state?.min_date} max={state?.max_date}
+        <label>{t('live.end')}<input type="date" min={form.start || state?.min_date} max={state?.max_date}
           value={unstarted ? form.end || form.start || state?.default_date || '' : state?.end || ''}
           disabled={!control || !unstarted || busy}
           onChange={e => setForm({ ...form, end: e.target.value })} /></label>
-        <label>Scenario<select value={unstarted ? form.preset : state?.preset} disabled={!control || !unstarted || busy}
+        <label>{t('live.scenario')}<select value={unstarted ? form.preset : state?.preset} disabled={!control || !unstarted || busy}
           onChange={e => setForm({ ...form, preset: e.target.value })}>
-          {Object.entries(state?.presets ?? {}).map(([key, name]) => <option value={key} key={key}>{name}</option>)}
+          {Object.entries(state?.presets ?? {}).map(([key, name]) => <option value={key} key={key}>{tv(t, 'live.preset', key) === key ? name : tv(t, 'live.preset', key)}</option>)}
         </select></label>
-        <label>Playback speed<select value={unstarted ? form.speed : state?.speed} disabled={!control || busy}
+        <label>{t('live.speed')}<select value={unstarted ? form.speed : state?.speed} disabled={!control || busy}
           onChange={e => {
             const speed = Number(e.target.value);
             setForm({ ...form, speed });
@@ -200,88 +201,85 @@ export function LiveDashboard({ control }: { control: boolean }) {
         </select></label>
       </div>
       {control ? <div className={styles.buttons}>
-        <button className="btn btn-primary" disabled={busy || !state || !unstarted} onClick={() => command('start')}><Play />Start</button>
+        <button className="btn btn-primary" disabled={busy || !state || !unstarted} onClick={() => command('start')}><Play />{t('live.btnStart')}</button>
         {state?.status === 'running'
-          ? <button className="btn btn-secondary" disabled={busy} onClick={() => command('pause')}><Pause />Pause</button>
-          : <button className="btn btn-secondary" disabled={busy || state?.status !== 'paused'} onClick={() => command('resume')}><Play />Resume</button>}
-        <button className="btn btn-secondary" disabled={busy || state?.status !== 'paused'} onClick={() => command('step')}><SkipForward />Step forward</button>
-        <button className="btn btn-secondary" disabled={busy || unstarted} onClick={() => command('stop')}><Square />Stop</button>
-        <button className="btn btn-secondary" disabled={busy || !state || state.status === 'idle'} onClick={() => command('reset')}><RotateCcw />Reset</button>
-      </div> : <p className={styles.empty}>This account has read access. Replay controls require a separate permission.</p>}
+          ? <button className="btn btn-secondary" disabled={busy} onClick={() => command('pause')}><Pause />{t('live.btnPause')}</button>
+          : <button className="btn btn-secondary" disabled={busy || state?.status !== 'paused'} onClick={() => command('resume')}><Play />{t('live.btnResume')}</button>}
+        <button className="btn btn-secondary" disabled={busy || state?.status !== 'paused'} onClick={() => command('step')}><SkipForward />{t('live.btnStep')}</button>
+        <button className="btn btn-secondary" disabled={busy || unstarted} onClick={() => command('stop')}><Square />{t('live.btnStop')}</button>
+        <button className="btn btn-secondary" disabled={busy || !state || state.status === 'idle'} onClick={() => command('reset')}><RotateCcw />{t('common.reset')}</button>
+      </div> : <p className={styles.empty}>{t('live.readOnly')}</p>}
       <div className={styles.clock}>
-        <span><Clock3 size={15} /> <strong>Simulated time</strong> {stamp(state?.clock)}</span>
-        <progress aria-label="Simulation progress" value={state?.progress ?? 0} max={1} />
-        <span>{fmtPct(state?.progress ?? 0)}</span>
+        <span><Clock3 size={15} /> <strong>{t('live.simTime')}</strong> {stamp(state?.clock)}</span>
+        <progress aria-label={t('live.progress')} value={state?.progress ?? 0} max={1} />
+        <span>{fmtPct(state?.progress ?? 0, 1, t.locale)}</span>
       </div>
-      <p className={styles.feed}><Activity size={15} />{state?.feed ?? 'Waiting for replay'}
-        {state?.watermark && ` · Watermark ${stamp(state.watermark)}`}</p>
-      {error && <p className={styles.error} role="status">{error} Reconnecting automatically.</p>}
-      {commandError && <p className={styles.error} role="alert">{commandError}</p>}
-      {state?.status === 'failed' && <p className={styles.error} role="alert">Replay stopped while finalizing an interval. Review the local service log.</p>}
+      <p className={styles.feed}><Activity size={15} /><span lang={state?.feed ? 'en' : undefined}>{state?.feed ?? t('live.waiting')}</span>
+        {state?.watermark && ` · ${t('live.watermark', { at: stamp(state.watermark) })}`}</p>
+      {error && <p className={styles.error} role="status">{error || t('live.unavailable')} {t('live.reconnecting')}</p>}
+      {commandError && <p className={styles.error} role="alert">{commandError || t('live.commandFailed')}</p>}
+      {state?.status === 'failed' && <p className={styles.error} role="alert">{t('live.failed')}</p>}
     </section>
-    {state?.truth && <details className={`panel ${styles.truth}`}><summary>Synthetic scenario truth</summary>
-      <p>{stamp(state.truth.onset)} to {stamp(state.truth.end)} · {state.truth.channel ? scopeLabel(['channel', state.truth.channel]) : 'Training archive scope'}
-        {state.truth.merchants.length ? ` · ${state.truth.merchants.join(', ')}` : ''} · {state.truth.changed_events} changed events
-        {state.truth.same_day_backlog && ' · Same-day backlog'}</p></details>}
+    {state?.truth && <details className={`panel ${styles.truth}`}><summary>{t('live.truth')}</summary>
+      <p>{t('live.fromTo', { from: stamp(state.truth.onset), to: stamp(state.truth.end) })} · {state.truth.channel ? scopeLabel(t, ['channel', state.truth.channel]) : t('live.archiveScope')}
+        {state.truth.merchants.length ? ` · ${state.truth.merchants.join(', ')}` : ''} · {t('live.changed', { n: state.truth.changed_events })}
+        {state.truth.same_day_backlog && ` · ${t('live.backlog')}`}</p></details>}
     {state?.scopes && <>
       <section className="panel">
-        <div className="panel-head"><div><h2>Live activity</h2><p>{scopeLabel(current)} · Finalized five-minute intervals</p></div></div>
+        <div className="panel-head"><div><h2>{t('live.activity')}</h2><p>{scopeLabel(t, current)} · {t('live.intervals')}</p></div></div>
         <div className={styles.controls}>
-          <label>Scope<select value={scope[0]} onChange={e => {
+          <label>{t('live.scope')}<select value={scope[0]} onChange={e => {
             const kind = e.target.value;
             setScope((state.scopes ?? []).find(s => s[0] === kind) ?? ['network', 'all']);
-          }}>{Object.entries(scopeKinds).filter(([key]) => state.scopes?.some(s => s[0] === key))
-            .map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
-          <label>Selection<select value={scope[1]} onChange={e => setScope([scope[0], e.target.value])}>
-            {selectedOptions.map(key => <option value={key[1]} key={key[1]}>{scopeLabel(key)}</option>)}</select></label>
-          <label>Window<select value={limit} onChange={e => setLimit(Number(e.target.value))}>
-            <option value={3}>Last 15 minutes</option><option value={12}>Last hour</option>
-            <option value={72}>Last six hours</option><option value={288}>Current day</option></select></label>
+          }}>{scopeKinds.filter((key) => state.scopes?.some(s => s[0] === key))
+            .map((key) => <option key={key} value={key}>{t(`live.kind.${key}` as Key)}</option>)}</select></label>
+          <label>{t('live.selection')}<select value={scope[1]} onChange={e => setScope([scope[0], e.target.value])}>
+            {selectedOptions.map(key => <option value={key[1]} key={key[1]}>{scopeLabel(t, key)}</option>)}</select></label>
+          <label>{t('live.window')}<select value={limit} onChange={e => setLimit(Number(e.target.value))}>
+            <option value={3}>{t('live.w15')}</option><option value={12}>{t('live.w60')}</option>
+            <option value={72}>{t('live.w6h')}</option><option value={288}>{t('live.wDay')}</option></select></label>
         </div>
         <dl className={styles.metrics}>
           {[
-            ['Received today', metric(point?.cumulative)], ['Expected this interval', metric(point?.expected, fmtExpected)],
-            ['Current transactions/min', metric(metrics?.transactions_per_minute, fmtExpected)],
-            ['Accepted value today', metric(point?.daily_value, fmtCompactDzd)],
-            ['Rejection rate today', metric(metrics?.daily_rejection_rate, fmtPct)],
-            ['Active early warnings', metric(metrics?.active_individual)], ['Active collective advisories', metric(metrics?.active_collective)],
-            ['Affected merchants', metric(metrics?.affected_merchants)], ['Affected channels', metric(metrics?.affected_channels)],
-            ['Last event', stamp(state.last_event)], ['Minutes since last event', metric(metrics?.minutes_since_event, fmtExpected)],
+            [t('live.mReceived'), metric(point?.cumulative, (n) => fmtInt(n, t.locale))], [t('live.mExpected'), metric(point?.expected, (n) => fmtNum(n, 1, t.locale))],
+            [t('live.mRate'), metric(metrics?.transactions_per_minute, (n) => fmtNum(n, 1, t.locale))],
+            [t('live.mValue'), metric(point?.daily_value, (n) => fmtCompactDzd(n, t.locale))],
+            [t('live.mRej'), metric(metrics?.daily_rejection_rate, (n) => fmtPct(n, 1, t.locale))],
+            [t('live.mWarn'), metric(metrics?.active_individual, (n) => fmtInt(n, t.locale))], [t('live.mColl'), metric(metrics?.active_collective, (n) => fmtInt(n, t.locale))],
+            [t('live.mMerchants'), metric(metrics?.affected_merchants, (n) => fmtInt(n, t.locale))], [t('live.mChannels'), metric(metrics?.affected_channels, (n) => fmtInt(n, t.locale))],
+            [t('live.mLast'), stamp(state.last_event)], [t('live.mSince'), metric(metrics?.minutes_since_event, (n) => fmtNum(n, 1, t.locale))],
           ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
         </dl>
         <div className={styles.charts}>
-          <Chart title="Observed and expected activity" points={points} mode="interval" warnings={visibleWarnings} />
-          <Chart title="Cumulative activity" points={points} mode="cumulative" />
-          <Chart title="Rejections and cancellations" points={points} mode="rejections" />
-          <Chart title="Accepted payment value" points={points} mode="accepted" />
+          <Chart t={t} title={t('live.cInterval')} points={points} mode="interval" warnings={visibleWarnings} />
+          <Chart t={t} title={t('live.cCumulative')} points={points} mode="cumulative" />
+          <Chart t={t} title={t('live.cRej')} points={points} mode="rejections" />
+          <Chart t={t} title={t('live.cValue')} points={points} mode="accepted" />
         </div>
-        {!points.length && <p className={styles.empty}>The first chart point appears after one finalized interval.</p>}
-        <p className={styles.feed}>Reference {state.reference_days} prior dates · {fmtInt(state.reference_events ?? 0)} prior events
-          {state.monitoring && ` · Directional CUSUM ↓ ${fmtExpected(state.monitoring.downward_cusum)} · ↑ ${fmtExpected(state.monitoring.upward_cusum)}`}</p>
-        <p className={styles.feed}>Sparse scopes accumulate expected events before evaluating an activity window. Median accepted ticket
-          {' '}{state.median_ticket == null ? '—' : fmtCompactDzd(state.median_ticket)} · Prior median
-          {' '}{state.reference_median_ticket == null ? '—' : fmtCompactDzd(state.reference_median_ticket)}</p>
-        {state.minimum_amount_tail != null && <p className={styles.feed}>Smallest merchant-relative amount tail this interval
-          {' '}{fmtPct(state.minimum_amount_tail)} · Descriptive amount evidence</p>}
+        {!points.length && <p className={styles.empty}>{t('live.firstPoint')}</p>}
+        <p className={styles.feed}>{t('live.reference', { days: state.reference_days ?? 0, events: fmtInt(state.reference_events ?? 0, t.locale) })}
+          {state.monitoring && ` · ${t('live.cusum')} ↓ ${fmtNum(state.monitoring.downward_cusum, 1, t.locale)} · ↑ ${fmtNum(state.monitoring.upward_cusum, 1, t.locale)}`}</p>
+        <p className={styles.feed}>{t('live.sparse')} {t('live.ticket', { now: state.median_ticket == null ? '—' : fmtCompactDzd(state.median_ticket, t.locale), prior: state.reference_median_ticket == null ? '—' : fmtCompactDzd(state.reference_median_ticket, t.locale) })}</p>
+        {state.minimum_amount_tail != null && <p className={styles.feed}>{t('live.amountTail', { v: fmtPct(state.minimum_amount_tail, 1, t.locale) })}</p>}
       </section>
       <div className={styles.duo}>
-        <Warnings title="Intraday early warnings" values={visibleWarnings.filter(w => !isCollective(w))} />
-        <Warnings title="Collective advisories" values={visibleWarnings.filter(isCollective)} />
+        <Warnings title={t('live.early')} values={visibleWarnings.filter(w => !isCollective(w))} />
+        <Warnings title={t('live.collective')} values={visibleWarnings.filter(isCollective)} />
       </div>
       <div className={styles.duo}>
-        <section className="panel"><div className="panel-head"><div><h2>Transaction domain evidence</h2>
-          <p>Recent contactless rule observations</p></div></div>
+        <section className="panel"><div className="panel-head"><div><h2>{t('live.domain')}</h2>
+          <p>{t('live.domainSub')}</p></div></div>
           <ul className={styles.list}>{(state.domain ?? []).slice(0, 10).map((d, i) =>
-            <li key={i}>{stamp(d.time)} · {d.merchant} · {fmtCompactDzd(d.amount)} · {d.rule}</li>)}</ul>
-          {!state.domain?.length && <p className={styles.empty}>No rule observations yet.</p>}
+            <li key={i}>{stamp(d.time)} · {d.merchant} · {fmtCompactDzd(d.amount, t.locale)} · {d.rule}</li>)}</ul>
+          {!state.domain?.length && <p className={styles.empty}>{t('live.noDomain')}</p>}
         </section>
-        <section className="panel"><div className="panel-head"><div><h2>Simulated daily closure</h2>
-          <p>Frozen merchant-day detector · Isolated replay results</p></div></div>
+        <section className="panel"><div className="panel-head"><div><h2>{t('live.closure')}</h2>
+          <p>{t('live.closureSub')}</p></div></div>
           <ul className={styles.list}>{(state.daily ?? []).map(d => <li key={d.date}>
-            <strong>{d.date}</strong> · {d.status} · {d.scored} scored · {d.flagged.length} daily flags
+            <strong>{d.date}</strong> · {tv(t, 'live.status', d.status)} · {t('live.scored', { n: d.scored })} · {t('live.dailyFlags', { n: d.flagged.length })}
             {d.flagged.length > 0 && <small>{d.flagged.map(m => m.merchant).join(', ')}</small>}
           </li>)}</ul>
-          {!state.daily?.length && <p className={styles.empty}>Results appear when the simulated day closes.</p>}
+          {!state.daily?.length && <p className={styles.empty}>{t('live.noClosure')}</p>}
         </section>
       </div>
     </>}

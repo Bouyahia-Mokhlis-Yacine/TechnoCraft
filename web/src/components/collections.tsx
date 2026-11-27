@@ -531,10 +531,16 @@ function ImportDialog({ t, into, collections, selection, onClose, onStarted }: {
 
 /* ── live import status ──────────────────────────────────────────────── */
 
-const since = (iso: string | undefined, t: T) => { if (!iso) return ''; const s = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 1000)); return s < 60 ? t('time.sec', { n: s }) : t('time.minSec', { m: Math.floor(s / 60), s: s % 60 }); };
+/** The current time, ticking each second after mount (null during the server render and hydration). */
+function useNow() {
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { const tick = () => setNow(Date.now()); const first = setTimeout(tick, 0), id = setInterval(tick, 1000); return () => { clearTimeout(first); clearInterval(id); }; }, []);
+  return now;
+}
+const since = (iso: string | undefined, t: T, now: number | null) => { if (!iso || now === null) return '…'; const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000)); return s < 60 ? t('time.sec', { n: s }) : t('time.minSec', { m: Math.floor(s / 60), s: s % 60 }); };
 
 export function RunCard({ run, t, onRetry, onOpen, onReimport }: { run: ImportStatus; t: T; onRetry: (id: string) => void; onOpen: (collectionId: string) => void; onReimport: () => void }) {
-  const order = run.stage_order ?? STAGE_ORDER;
+  const order = run.stage_order ?? STAGE_ORDER, now = useNow();
   const at = order.indexOf(run.stage ?? '');
   const p = run.progress;
   const unitKey = (u: string | null) => `unit.${(u ?? '').replace(/[^a-z]+/g, '_')}` as Parameters<T>[0];
@@ -548,7 +554,7 @@ export function RunCard({ run, t, onRetry, onOpen, onReimport }: { run: ImportSt
             : run.state === 'failed' ? t('run.failedAt', { stage: t(`stage.${run.error?.stage ?? run.stage ?? 'collect'}` as Parameters<T>[0]) })
             : t(`stage.${run.stage ?? 'queued'}` as Parameters<T>[0])}</b>
           <span className="muted">{run.collection_name && `${run.collection_name} · `}{t('run.filesN', { n: run.filenames.length })}: {run.filenames.join(', ')} · {t(run.complete ? 'imp.complete' : 'imp.partial').toLowerCase()}
-            {ACTIVE(run) && ` · ${t('run.elapsed', { time: since(run.started_at ?? run.created_at, t) })}`}</span>
+            {ACTIVE(run) && ` · ${t('run.elapsed', { time: since(run.started_at ?? run.created_at, t, now) })}`}</span>
         </div>
       </div>
       {ACTIVE(run) && (

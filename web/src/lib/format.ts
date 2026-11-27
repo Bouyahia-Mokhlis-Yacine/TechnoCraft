@@ -62,8 +62,11 @@ export const fmtDayYear = (iso: string, l?: Locale) => df({ day: 'numeric', mont
 export const fmtLongDate = (iso: string, l?: Locale) => df({ day: 'numeric', month: 'long', year: 'numeric' }, l).format(utc(iso));
 export const weekdayName = (iso: string, l?: Locale) => df({ weekday: 'long' }, l).format(utc(iso));
 /** "14–20 nov. 2026", "28 oct. – 3 nov. 2026" (Intl range formatting) */
+// ICU versions differ on the spaces around the dash (Node vs the browser), which breaks hydration:
+// normalise to "14–20 nov. 2026" between two days and "28 oct. – 3 nov. 2026" otherwise.
 export const fmtRange = (from: string, to: string, l?: Locale) =>
-  from === to ? fmtDayYear(from, l) : df({ day: 'numeric', month: 'short', year: 'numeric' }, l).formatRange(utc(from), utc(to));
+  from === to ? fmtDayYear(from, l) : df({ day: 'numeric', month: 'short', year: 'numeric' }, l).formatRange(utc(from), utc(to))
+    .replace(/^(\d+)[\s\u2009\u202f]*–[\s\u2009\u202f]*(\d)/, '$1–$2').replace(/[\s\u2009\u202f]+–[\s\u2009\u202f]+/, ' – ');
 /** A timestamp in Algiers time: "27 nov. 2026, 19:33" */
 export const fmtStamp = (iso: string, l?: Locale) =>
   new Intl.DateTimeFormat(intlLocale(l), { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Algiers' }).format(new Date(iso));

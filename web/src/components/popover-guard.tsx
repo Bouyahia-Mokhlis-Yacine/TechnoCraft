@@ -12,8 +12,9 @@ export function PopoverGuard() {
     let frame = 0;
     const fit = () => {
       for (const el of document.querySelectorAll<HTMLElement>(POPOVERS)) {
-        if (!el.offsetParent && getComputedStyle(el).position !== 'fixed') continue;   // closed
-        el.style.setProperty('--pop-dx', '0px');
+        // closed popovers are never touched: a style written before hydration would not match the server HTML
+        if (!el.checkVisibility({ visibilityProperty: true })) { if (el.style.getPropertyValue('--pop-dx')) el.style.removeProperty('--pop-dx'); continue; }
+        el.style.removeProperty('--pop-dx');
         const r = el.getBoundingClientRect();
         if (!r.width) continue;
         const dx = r.left < MARGIN ? MARGIN - r.left : r.right > innerWidth - MARGIN ? Math.max(MARGIN - r.left, innerWidth - MARGIN - r.right) : 0;

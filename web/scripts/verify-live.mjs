@@ -21,6 +21,9 @@ async function signIn(page, user, secret) {
 
 try {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  // the interface defaults to French; this journey asserts the English labels
+  const english = ctx => ctx.addCookies([{ name: 'pai_lang', value: 'en', url: origin }]);
+  await english(context);
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -116,6 +119,7 @@ try {
   await form.getByRole('button', { name: 'Create account' }).click();
   await page.getByText(readerName, { exact: true }).waitFor();
   const restricted = await browser.newContext();
+  await english(restricted);
   const readPage = await restricted.newPage();
   await signIn(readPage, user, readerSecret);
   await readPage.getByText('This account has read access.', { exact: false }).waitFor();
