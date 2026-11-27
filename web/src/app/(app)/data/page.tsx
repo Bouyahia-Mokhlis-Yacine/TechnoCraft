@@ -1,3 +1,4 @@
+import { Download } from 'lucide-react';
 import { DataSkeleton } from '@/components/skeletons';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -23,7 +24,12 @@ async function Data() {
   const audit = can(user, 'audit') ? readAll().slice(-40).reverse() : null;
   return (
     <>
-      <PageHeader title="Data & runs" />
+      <PageHeader title="Data & runs">
+        {/* the official submission: the full 711-row template, frozen schema, only from a sealed run */}
+        {can(user, 'export') && (r.parity.sealed
+          ? <a className="btn btn-secondary" href="/api/v1/export/predictions" download><Download aria-hidden />Official predictions (CSV)</a>
+          : <span className="muted" title="The official file is only offered when this run reproduces the sealed archive digest">Official predictions: sealed run only</span>)}
+      </PageHeader>
       <section className="panel m-rise">
         <div className="panel-head"><div><h2>Cleaning</h2><p>Before scoring</p></div></div>
         <Pipeline start={{ label: 'rows received', value: c.raw_rows }} end={{ label: 'rows scored', value: c.retained_events }} steps={[
@@ -69,8 +75,8 @@ async function Data() {
           <section className="panel m-rise">
             <div className="panel-head"><div><h2>Data-quality limitations</h2></div></div>
             <ul className="reasons">
-              <li>{fmtInt(c.contactless_limit_events)} retained contactless transactions exceed 2,500 DZD. The unusually high rate reflects synthetic data generation. Original amounts are preserved.</li>
-              <li>{fmtInt(c.negative_amount)} negative amounts are excluded from monetary metrics. Their events remain in activity and outcome counts.</li>
+              <li>{fmtInt(c.contactless_limit_events)} retained contactless transactions exceed the 2,500 DZD contactless limit. Mentors confirmed the high rate comes from synthetic data generation. Clipping, linear scaling, exponential compression and quantile mapping were evaluated and rejected: they distort amounts without improving detection or forecasting. Original amounts are kept, violations are shown separately on Transactions, and a violation never makes a merchant-day anomalous on its own.</li>
+              <li>{fmtInt(c.negative_amount)} negative amounts are excluded from monetary metrics; their events remain in activity and outcome counts. Mentors confirmed they are recording errors: the absolute-value correction is a separate opt-in audit (<code>python -m engine.mentor_audit</code>) and never feeds the official predictions.</li>
               <li>New merchants use a pooled Gamma–Poisson reference. Sparse evidence widens the uncertainty.</li>
               <li>Feed completeness is assumed for supplied competition roster days. Service telemetry is unavailable.</li>
               <li>Forecasts assume conditional independence across merchants and exclude shared shocks.</li>

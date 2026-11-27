@@ -1,6 +1,6 @@
 // Self-check for the KPI formula parser: node src/lib/formula.test.ts
 import assert from 'node:assert/strict';
-import { checkKpis, DEFAULT_KPIS, evaluate, parse } from './formula.ts';
+import { checkKpis, DEFAULT_KPIS, SUGGESTED_KPIS, evaluate, parse } from './formula.ts';
 
 const v = { transactions: 200, declined: 10, accepted_value: 5000, days: 4, alerts: 0 };
 const run = (f: string) => { const p = parse(f); assert.ok(p.ok, f); return evaluate(p.tree, v); };
@@ -18,6 +18,7 @@ const u = parse('declined / transactions');
 assert.deepEqual(u.ok ? u.uses : null, ['declined', 'transactions']);
 
 assert.ok(checkKpis(DEFAULT_KPIS).ok);
+assert.ok(checkKpis(SUGGESTED_KPIS.map((k, i) => ({ ...k, id: `s-${i}` }))).ok);   // every suggestion is a valid formula
 assert.equal(checkKpis([]).ok, false);
 assert.equal(checkKpis([{ ...DEFAULT_KPIS[0], formula: 'oops(' }]).ok, false);
 assert.equal(checkKpis([{ ...DEFAULT_KPIS[0], chart: 'pie3d' }]).ok, false);

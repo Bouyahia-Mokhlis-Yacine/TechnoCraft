@@ -31,11 +31,12 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
         <label className="field">Review<select name="status" defaultValue={p.status ?? ''}><option value="">Any</option>{Object.entries(REVIEW).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         <label className="field">Severity<select name="severity" defaultValue={p.severity ?? ''}><option value="">Any</option>{(['critical', 'high', 'medium', 'low'] as const).map((s) => <option key={s} value={s}>{SEVERITIES[s].label}</option>)}</select></label>
         <label className="field">Merchant<select name="merchant" defaultValue={p.merchant ?? ''}><option value="">All</option>{meta.merchants.map((m) => <option key={m}>{m}</option>)}</select></label>
+        <label className="field">Sort by<select name="sort" defaultValue={p.sort ?? ''}><option value="">Business priority</option><option value="severity">Statistical severity</option><option value="impact">Estimated impact</option><option value="duration">Duration</option></select></label>
       </FilterForm>
       {rows.length ? (
         <div className="panel table-panel m-rise">
           <table className="data">
-            <thead><tr><th className="r">Rank</th><th className="r">Priority</th><th>Incident</th><th>Severity</th><th>State</th><th>Review</th><th>Period</th><th className="r">Exposure</th></tr></thead>
+            <thead><tr><th className="r">Rank</th><th className="r">Priority</th><th>Incident</th><th>Severity</th><th>State</th><th>Review</th><th>Period</th><th className="r">Exposure</th><th>Who acts</th></tr></thead>
             <tbody>
               {rows.map((i) => (
                 <tr key={i.id}>
@@ -47,6 +48,7 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
                   <td><ReviewChip s={i.review.status} escalated={i.review.escalated} />{i.review.owner && <span className="muted"> {i.review.owner}</span>}</td>
                   <td className="num">{i.days > 1 ? `${fmtDay(i.onset)} → ${fmtDay(i.end)} (${i.days} d)` : fmtDay(i.onset)}</td>
                   <td className="r num">{fmtInt(i.affectedEvents)} tx · {fmtCompactDzd(i.valueExposure)}</td>
+                  <td className="who-acts"><b>{i.evidence.responsible_role}</b><small className="muted">{i.evidence.first_action}</small></td>
                 </tr>
               ))}
             </tbody>

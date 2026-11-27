@@ -1423,3 +1423,7 @@ body.picking #content, body.picking #content * { cursor: crosshair !important; }
 .kpi-measures li button { flex-shrink: 0; padding: 2px 8px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface-sunken); color: var(--text); cursor: pointer; }
 .kpi-measures li button:hover { border-color: var(--primary); }
 .kpi-measures li button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.kpi-dialog .row { flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.who-acts { min-width: 220px; }
+.who-acts b, .who-acts small { display: block; }
+.who-acts small { margin-top: 2px; line-height: 1.35; }

@@ -5,7 +5,7 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, Plus, SlidersHorizontal, Trash2, X } from 'lucide-react';
-import { CHARTS, DEFAULT_KPIS, FORMATS, GOOD, MAX_KPIS, MEASURES, parse, type KpiCard, type Measure } from '@/lib/formula';
+import { CHARTS, DEFAULT_KPIS, FORMATS, GOOD, MAX_KPIS, MEASURES, SUGGESTED_KPIS, parse, type KpiCard, type Measure } from '@/lib/formula';
 
 export function KpiEditor({ initial }: { initial: KpiCard[] }) {
   const router = useRouter();
@@ -19,7 +19,7 @@ export function KpiEditor({ initial }: { initial: KpiCard[] }) {
   const open = () => { setCards(initial); setError(null); dialog.current?.showModal(); };
   const set = (i: number, patch: Partial<KpiCard>) => setCards((cs) => cs.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   const move = (i: number, by: number) => setCards((cs) => { const n = [...cs], [c] = n.splice(i, 1); n.splice(i + by, 0, c); return n; });
-  const add = () => { setCards((cs) => [...cs, { id: `k-${Date.now().toString(36)}`, label: 'New KPI', formula: '', format: 'int', chart: 'line', good: 'up' }]); setFocus(cards.length); };
+  const add = (preset?: Omit<KpiCard, 'id'>) => { setCards((cs) => [...cs, { id: `k-${Date.now().toString(36)}`, ...(preset ?? { label: 'New KPI', formula: '', format: 'int', chart: 'line', good: 'up' }) }]); setFocus(cards.length); };
   /** Clicking a measure inserts it at the cursor of the formula being edited. */
   const insert = (m: Measure) => {
     const el = formulas.current[focus], c = cards[focus];
@@ -84,7 +84,13 @@ export function KpiEditor({ initial }: { initial: KpiCard[] }) {
         </ol>
 
         <div className="row">
-          <button type="button" className="btn btn-secondary" onClick={add} disabled={cards.length >= MAX_KPIS}><Plus aria-hidden />Add KPI</button>
+          <button type="button" className="btn btn-secondary" onClick={() => add()} disabled={cards.length >= MAX_KPIS}><Plus aria-hidden />Add KPI</button>
+          <label className="field">Or add a suggested KPI
+            <select value="" disabled={cards.length >= MAX_KPIS} onChange={(e) => { const p = SUGGESTED_KPIS[Number(e.target.value)]; if (p) add(p); }}>
+              <option value="">Choose…</option>
+              {SUGGESTED_KPIS.map((p, i) => <option key={p.label} value={i} disabled={cards.some((c) => c.formula === p.formula)}>{p.label} = {p.formula}</option>)}
+            </select>
+          </label>
           <button type="button" className="btn btn-ghost" onClick={() => setCards(DEFAULT_KPIS)}>Reset to the default six</button>
         </div>
 

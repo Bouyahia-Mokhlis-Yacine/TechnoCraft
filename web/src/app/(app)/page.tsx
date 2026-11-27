@@ -61,7 +61,8 @@ async function Overview({ searchParams }: { searchParams: SP }) {
     const isDefault = DEFAULT_KPIS.some((x) => x.id === c.id && x.formula === c.formula);
     return {
       ...c, icon: ICON[c.id] ?? Sigma, value, d,
-      note: c.formula === 'open_incidents' ? 'active or recovering' : isDefault && NOTE[c.id] ? NOTE[c.id] : `= ${c.formula}`,
+      note: c.formula === 'open_incidents' ? 'active or recovering' : isDefault && NOTE[c.id] ? NOTE[c.id]
+        : /\baffected_/.test(c.formula) ? `estimate, not a confirmed loss · = ${c.formula}` : `= ${c.formula}`,
       series: c.chart === 'number' || !f.ok ? [] : o.measures.daily.map((v) => evaluate(f.tree, v)),
     };
   });

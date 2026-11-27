@@ -39,12 +39,19 @@ export function rankedIncidents(): Ranked[] {
     (a.rank ?? Infinity) - (b.rank ?? Infinity) || b.end.localeCompare(a.end) || a.id.localeCompare(b.id));
 }
 
-export interface IncidentFilters { lifecycle?: string; status?: string; severity?: string; merchant?: string; scope?: string }
+export interface IncidentFilters { lifecycle?: string; status?: string; severity?: string; merchant?: string; scope?: string; sort?: string }
 export function listIncidents(f: IncidentFilters) {
-  return rankedIncidents().filter((i) =>
+  const rows = rankedIncidents().filter((i) =>
     (f.scope === 'all' || (!f.scope && i.open) || (f.scope === 'closed' && !i.open)) &&
     (!f.lifecycle || i.lifecycle === f.lifecycle) && (!f.status || i.review.status === f.status) &&
-    (!f.severity || i.severity === f.severity) && (!f.merchant || i.merchant === f.merchant));
+    (!f.severity || i.severity === f.severity) && (!f.merchant || i.merchant === f.merchant));;
+  // the default order is the engine's evaluated priority (MCDA rank); the others re-sort the same rows
+  const by: Record<string, (a: Ranked, b: Ranked) => number> = {
+    severity: (a, b) => b.peakScore - a.peakScore,
+    impact: (a, b) => (b.valueExposure ?? -1) - (a.valueExposure ?? -1),
+    duration: (a, b) => b.days - a.days,
+  };
+  return f.sort && by[f.sort] ? [...rows].sort((a, b) => by[f.sort!](a, b) || (a.rank ?? Infinity) - (b.rank ?? Infinity)) : rows
 }
 
 export function getIncident(id: string) {
@@ -86,8 +93,15 @@ export function getOverview(f: OverviewFilters) {
   // amounts: the known sum (the engine leaves missing amounts out); cards say when it is partial
   const base = (t: { events: number; accepted: number; declined: number; cancelled: number; refunded: number; acceptedValue: number | null; attemptedValue: number | null; knownAcceptedValue?: number; knownAttemptedValue?: number }) =>
     ({ transactions: t.events, accepted: t.accepted, declined: t.declined, cancelled: t.cancelled, refunded: t.refunded, accepted_value: t.knownAcceptedValue ?? t.acceptedValue, attempted_value: t.knownAttemptedValue ?? t.attemptedValue });
+  const impactOf = (list: typeof openInScope) => {
+    const est = list.filter((i) => i.valueExposure !== null);
+    return { affected_value: est.length ? est.reduce((t, i) => t + (i.valueExposure ?? 0), 0) : null,
+      affected_transactions: est.length ? est.reduce((t, i) => t + (i.affectedEvents ?? 0), 0) : null };
+  };
   const measures: { cur: Values; prior: Values | null; daily: Values[] } = {
-    cur: { ...base(cur.totals), alerts: anomalies.length, merchants_flagged: affected, open_incidents: openInScope.length, critical_incidents: openInScope.filter((i) => i.severity === 'critical').length, days: len },
+    cur: { ...base(cur.totals), alerts: anomalies.length, merchants_flagged: affected, open_incidents: openInScope.length, critical_incidents: openInScope.filter((i) => i.severity === 'critical').length, days: len,
+      // impact of open merchant incidents (one per merchant episode, so nothing is counted twice); null when none has an estimate
+      ...impactOf(openInScope) },
     // incidents are a state "now": no prior value and no daily history
     prior: prev && priorAnomalies ? { ...base(prev.totals), alerts: priorAnomalies.length, merchants_flagged: new Set(priorAnomalies.map((a) => a.merchant)).size, days: len } : null,
     daily: cur.days.map((d) => { const day = anomalies.filter((a) => a.date === d.date); return { ...base(d), alerts: day.length, merchants_flagged: new Set(day.map((a) => a.merchant)).size, days: 1 }; }),

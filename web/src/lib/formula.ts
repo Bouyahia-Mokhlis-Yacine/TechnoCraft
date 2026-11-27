@@ -14,6 +14,8 @@ export const MEASURES = {
   merchants_flagged: { label: 'Merchants with alerts', unit: 'int', help: 'Distinct merchants with at least one alert' },
   open_incidents: { label: 'Open incidents', unit: 'int', help: 'Incidents open now (no history: no trend or prior period)' },
   critical_incidents: { label: 'Critical incidents', unit: 'int', help: 'Open incidents of critical severity, now' },
+  affected_transactions: { label: 'Affected transactions', unit: 'int', help: 'Estimated transaction shortfall of open incidents (engine impact model), now' },
+  affected_value: { label: 'Gross affected activity', unit: 'dzd', help: 'Estimated gross payment activity affected by open incidents (DZD, engine impact model; not a confirmed loss), now' },
   days: { label: 'Days', unit: 'int', help: 'Number of days in the period (for daily averages)' },
 } as const;
 export type Measure = keyof typeof MEASURES;
@@ -86,6 +88,19 @@ export const CHARTS = { number: 'Number only', line: 'Line', area: 'Area', bars:
 export const GOOD = { up: 'Up is good', down: 'Down is good', none: 'Neutral' } as const;
 export interface KpiCard { id: string; label: string; formula: string; format: keyof typeof FORMATS; chart: keyof typeof CHARTS; good: keyof typeof GOOD }
 export const MAX_KPIS = 12;
+
+/** One-click cards for the editor: the indicators the network dashboard is expected to offer. */
+export const SUGGESTED_KPIS: Omit<KpiCard, 'id'>[] = [
+  { label: 'Acceptance rate', formula: 'accepted / transactions', format: 'pct', chart: 'line', good: 'up' },
+  { label: 'Rejection rate', formula: 'declined / transactions', format: 'pct', chart: 'line', good: 'down' },
+  { label: 'Cancellation rate', formula: 'cancelled / transactions', format: 'pct', chart: 'line', good: 'down' },
+  { label: 'Refund rate', formula: 'refunded / transactions', format: 'pct', chart: 'line', good: 'down' },
+  { label: 'Official anomalies', formula: 'alerts', format: 'int', chart: 'bars', good: 'down' },
+  { label: 'Critical incidents', formula: 'critical_incidents', format: 'int', chart: 'number', good: 'down' },
+  { label: 'Gross affected activity', formula: 'affected_value', format: 'dzd', chart: 'number', good: 'down' },
+  { label: 'Average ticket', formula: 'accepted_value / accepted', format: 'dzd', chart: 'line', good: 'none' },
+  { label: 'Transactions per day', formula: 'transactions / days', format: 'num', chart: 'line', good: 'up' },
+];
 
 export const DEFAULT_KPIS: KpiCard[] = [
   { id: 'transactions', label: 'Transactions', formula: 'transactions', format: 'int', chart: 'number', good: 'up' },
