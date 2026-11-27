@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
+import { Activity, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
 import { countUp, toggleTheme } from '@design/motion.js';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 
@@ -19,6 +19,7 @@ export function CountUp({ value, kind }: { value: number; kind: keyof typeof FOR
 const SECTIONS = [
   { title: 'Monitor', items: [
     { href: '/', label: 'Overview', icon: LayoutGrid, badge: false },
+    { href: '/live', label: 'Live Monitoring', icon: Activity, badge: false },
     { href: '/incidents', label: 'Incidents', icon: Siren, badge: true },
     { href: '/alerts', label: 'Alerts', icon: TriangleAlert, badge: false },
   ] },

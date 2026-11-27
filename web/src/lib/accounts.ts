@@ -10,6 +10,7 @@ import type { KpiCard } from './formula';
 /** Pages an account can be given. Detail pages follow their list (an incident page needs Incidents). */
 export const PAGES = {
   overview: { label: 'Overview', path: '/' },
+  live: { label: 'Live Monitoring', path: '/live' },
   incidents: { label: 'Incidents', path: '/incidents' },
   alerts: { label: 'Alerts', path: '/alerts' },
   intelligence: { label: 'Intelligence', path: '/intelligence' },
@@ -27,6 +28,7 @@ export const ACTIONS = {
   review: { label: 'Review incidents', help: 'Comment and acknowledge', can: ['comment', 'acknowledge'] },
   manage: { label: 'Manage incidents', help: 'Assign, escalate, close and reopen', can: ['assign', 'escalate', 'close', 'reopen'] },
   export: { label: 'Export', help: 'CSV exports and PDF reports', can: ['export'] },
+  replay: { label: 'Control live replay', help: 'Start, pause, step and reset your training replay', can: ['replay'] },
 } as const;
 export type ActionKey = keyof typeof ACTIONS;
 
