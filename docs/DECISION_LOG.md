@@ -29,3 +29,7 @@ Options: answer with the deterministic rules when the language model is missing,
 ## 2026-11-27 · User-defined KPIs by formula
 
 Options: a fixed set of overview cards, or cards each account chooses. Decision: every account picks its cards, chart type and order, and can define a KPI as a formula over named measures computed by the engine (for example declined / transactions). Formulas are parsed into a tree and evaluated, never run as code, and validated again on the server. Evidence: analysts track different indicators; a formula keeps every value traceable to engine measures. Would change our mind: a need for functions over time windows, which the formula language does not offer.
+
+## 2026-11-27 · Store the frozen configs with their archived bytes
+
+The replay fingerprints the V1–V3 configuration files byte for byte, and the recorded digests (including the frozen V2 ae0e8b51…) are those of the CRLF files. The branch had committed LF copies, so a fresh clone refused to export on every platform. Decision: commit the CRLF bytes, which .gitattributes already stores verbatim. No setting changed; the digests now match on checkout.
