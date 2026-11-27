@@ -30,10 +30,14 @@ try {
     if (!r.failure()?.errorText.includes('ERR_ABORTED')) errors.push(r.failure()?.errorText);
   });
   assert.equal((await context.request.get(origin + '/api/v1/overview')).status(), 401);
+  // sign in with an account (the administrator by default): SATIM_TEST_USER / SATIM_TEST_PASSWORD
+  const password = process.env.SATIM_TEST_PASSWORD;
+  assert(password, 'Set SATIM_TEST_PASSWORD (and SATIM_TEST_USER, default admin) for the test account.');
   await page.goto(origin + '/login');
-  await page.locator('input[value="supervisor"]').check();
+  await page.getByLabel('Username').fill(process.env.SATIM_TEST_USER ?? 'admin');
+  await page.getByLabel('Password').fill(password);
   const dashboardStart = performance.now();
-  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.getByRole('button', { name: 'Sign in' }).click();
   await page.getByRole('heading', { name: 'Network overview', exact: true }).waitFor();
   await page.getByRole('heading', { name: 'Network activity', exact: true }).waitFor();
   const dashboardMs = performance.now() - dashboardStart;
@@ -50,7 +54,8 @@ try {
   const snapshot = JSON.parse(readFileSync(path.join(runs, latest.path), 'utf8'));
   const health = await json('/api/v1/health');
   assert.equal(health.run_id, latest.run_id);
-  assert.equal(health.sealed_parity, true);
+  // a labelled preview run (exact local replay, sealed digest not reproduced) only when explicitly allowed
+  if (process.env.SATIM_TEST_ALLOW_PREVIEW !== '1') assert.equal(health.sealed_parity, true);
   const overview = await json('/api/v1/overview');
   const total = snapshot.network.daily.filter((d) => d.date >= overview.scope.from).reduce((a, b) => a + b.transactions, 0);
   assert.equal(overview.kpis.events.value, total);
@@ -114,14 +119,25 @@ try {
   await page.getByLabel('Duration (days)').fill('2');
   assert.notEqual(await page.locator('.sim-kpis').innerText(), before);
   await navigate('/assistant', /assistant|ask the dashboard/i);
-  for (const question of ['Network summary', 'V4 investigation candidates', 'Contactless limit breaches',
-    'Business impact', 'Forecast for the next 7 days', 'Data quality audit']) {
+  // answers come from the language model only; without it the assistant must say so (503), never answer from rules
+  const modelState = (await json('/api/v1/assistant/status')).model;
+  for (const question of ['Network summary', 'Which hybrid ML investigation candidates are there this week?', 'How many contactless limit breaches are there?',
+    'What is the business impact this week?', 'Forecast for the next 7 days', 'What data quality problems should I consider?']) {
     const response = await context.request.post(origin + '/api/v1/assistant', { data: { question } });
-    assert.equal(response.status(), 200);
+    if (modelState !== 'online') {
+      assert.equal(response.status(), 503, question);
+      assert.match((await response.json()).error.code, /^model_/);
+      continue;
+    }
+    assert.equal(response.status(), 200, question);
     const reply = await response.json();
-    assert.equal(reply.source, 'rules');
+    assert.equal(reply.source, 'model');
     assert(!reply.refused && reply.evidence.length, question);
   }
+  // guard refusals still work without the model
+  const refusal = await context.request.post(origin + '/api/v1/assistant', { data: { question: 'Close incident ' + incident.id } });
+  assert.equal(refusal.status(), 200);
+  assert.equal((await refusal.json()).refused, 'write');
   const privateInput = '5'.repeat(6) + '*'.repeat(6) + '8'.repeat(4);
   const privateResponse = await context.request.post(origin + '/api/v1/assistant', { data: { question: privateInput } });
   assert.equal(privateResponse.status(), 422);
@@ -144,6 +160,8 @@ try {
   }
   for (const kind of ['predictions', 'transactions', 'anomalies', 'incidents']) {
     const response = await context.request.get(origin + '/api/v1/export/' + kind);
+    // the official submission is only offered from a sealed run
+    if (kind === 'predictions' && !health.sealed_parity) { assert.equal(response.status(), 409); continue; }
     assert.equal(response.status(), 200);
     const csv = await response.text();
     assert(!/masked_pan|card_number/i.test(csv));

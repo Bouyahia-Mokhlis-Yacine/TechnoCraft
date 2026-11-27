@@ -213,8 +213,15 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   try {
     const { prompt, tools: base } = loadContract();
-    const operational = ['hybrid_evidence', 'domain_evidence', 'data_quality', 'business_impact'].map((name) => ({
-      type: 'function', function: { name, description: name.replaceAll('_', ' '),
+    // the operational evidence tools: the description is all the model knows about each one
+    const OPERATIONAL: Record<string, string> = {
+      hybrid_evidence: 'Hybrid ML intelligence (Isolation Forest fused with the probabilistic score): advisory investigation candidates, including merchant-days the official detector did not flag, with their main abnormal feature groups. Advisory only, never an official anomaly.',
+      domain_evidence: 'Contactless domain rule: transactions above the 2,500 DZD contactless limit (counts per merchant and period). Use for any question about contactless limits, limit breaches or limit violations. These are transaction-level rule checks, not anomalies and not card data.',
+      data_quality: 'Data quality audit of the dataset: duplicates removed, missing amounts, negative amounts, missing categories, unknown channels, cold-start merchants, contactless limit violations and known synthetic-data limitations.',
+      business_impact: 'Estimated business impact of incidents: expected vs observed transactions, transaction shortfall, gross affected payment activity (not a confirmed loss), excess rejections, with uncertainty intervals.',
+    };
+    const operational = Object.keys(OPERATIONAL).map((name) => ({
+      type: 'function', function: { name, description: OPERATIONAL[name],
         parameters: { type: 'object', properties: { merchant: { type: 'string' }, period: { type: 'string', enum: Object.keys(PERIODS) } } },
       },
     }));
