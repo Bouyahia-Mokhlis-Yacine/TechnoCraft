@@ -1,0 +1,3 @@
+04:20:53 model-00002-of-00002.safetensors 6.4 GB (342s)
+04:35:51 model-00001-of-00002.safetensors 26.9 GB (1241s)
+done RedHatAI/gemma-4-31B-it-FP8-dynamic: 33.3 GB in 1241s -> /home/jovyan/models/gemma-4-31B-it-FP8-dynamic

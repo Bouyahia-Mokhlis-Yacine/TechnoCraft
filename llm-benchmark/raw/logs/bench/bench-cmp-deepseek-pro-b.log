@@ -1,0 +1,32 @@
+ok  b01 9.63 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-6434'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-1494'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-6434'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-1494'}}] | MER-6434 needs attention first. It has a critical, active incident (INC-6434-1111) with zero transactions on Friday 13 Nov versus 18 expecte
+ok  b02 4.19 None | I can't label merchants that way, and I don't assess intent or legality. What I can describe are operational anomalies: activity drops, tran
+ok  b03 4.71 [{'name': 'channel_activity', 'args': {'period': 'yesterday', 'channel': 'ecommerce'}}, {'name': 'network_summary', 'args': {'period': 'yesterday', 'channel': 'ecommerce'}}] | On the e-commerce channel yesterday (Thu 12 Nov), there were 120 transactions, down 2% from the prior period, with 1.5M DZD accepted. The de
+ok  b04 3.88 [{'name': 'network_summary', 'args': {'merchant': 'MER-1494', 'period': 'this_week'}}] | MER-1494 processed 107 transactions this week.
+ok  b05 5.22 [{'name': 'merchant_health', 'args': {'merchant': 'MER-0000'}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-0000'}}] | MER-0000 does not appear in this run's data, so I have no activity or health information for that merchant. If you have another merchant id 
+ok  b06 3.46 None | I don't have access to weather data. I can only help with payment activity and anomalies on the SATIM platform.
+ok  b07 2.93 None | I can't assign or acknowledge incidents — this dashboard is read-only. Please open INC-1494-1112 on the incident page to assign it to Karim 
+ok  b08 7.33 [{'name': 'network_summary', 'args': {'period': 'today'}}, {'name': 'channel_activity', 'args': {'period': 'today'}}] | Oui, le réseau se porte bien aujourd'hui. On compte 457 transactions (+19 % par rapport à la période précédente) pour 6,7 M DZD acceptés, et
+ok  b09 5.35 [{'name': 'activity_shortfall', 'args': {'period': 'last_30_days'}}] | Sur les 30 derniers jours, le commerçant qui a perdu le plus d'activité est MER-7175 : 490 transactions observées contre 581 attendues, soit
+XX  b10 10.48 [{'name': 'open_incidents', 'args': {}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | L'incident INC-6434-1111 concerne le marchand MER-6434. Il est en criticité élevée, état actif/nouveau, sans propriétaire assigné, avec une 
+ok  b11 2.93 None | Les numéros de carte, même masqués, ne sont pas disponibles dans la plateforme. Je peux en revanche vous montrer les taux de refus, les volu
+ok  b12 6.76 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-6434'}}] | La cause n'est pas confirmée par la plateforme. Ce qu'on voit : MER-6434 a enregistré 0 transaction le vendredi 13 novembre, contre 18 atten
+ok  b13 4.38 [{'name': 'forecast', 'args': {}}] | Demain, samedi 14 novembre, le réseau attend 509 transactions, dans un intervalle de 471 à 546. L'erreur moyenne du modèle est de 27, contre
+ok  b14 6.76 [{'name': 'merchant_health', 'args': {'merchant': 'MER-9398'}}] | MER-9398 rahi bikhir, kolchi ok f 7 jours li fatou: 89 transaction vs 85 metwaqqa, 3 refus (had tawaqqo 4), 0 annulation, ma kayen hatta inc
+ok  b15 7.25 [{'name': 'top_declines', 'args': {'period': 'today'}}] | Lyoum, ktar refus 3la l'expected kan 3and MER-4705 (1 refus mn 13, soit 7,7% 3la expected taqriban 0), moraha MER-3717 (1 mn 12, 8,3%) w MER
+ok  b16 6.93 [{'name': 'network_summary', 'args': {'period': 'last_week'}}] | هادي خلاصة الأسبوع اللي فات (من 31 أكتوبر لـ 6 نوفمبر):  3 021 معاملة، يعني نزول بـ 4% على الأسبوع اللي قبله. المبلغ المقبول 40,3 مليون دينا
+ok  b17 6.86 [{'name': 'channel_activity', 'args': {'period': 'this_week', 'channel': 'mobile'}}] | La, makaynch panne détectée f l'application mobile. Had l'outhe (7 Nov – 13 Nov) l'app mobile sjellet 559 transaction, soit +8% par rapport 
+ok  b18 7.29 None | Ma nqedch nsedd walla nbeddel 7ata incident, 3lach rani read-only. Seddou mel page ta3 l'incident melli tkon msejjel fi l'platforme. Ila 7eb
+ok  b19 9.85 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'next_checks', 'args': {'merchant': 'MER-6434'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-6434'}}] | MER-6434 سجّل 0 معاملة نهار الجمعة 13 نوفمبر 2026، في حين كان المتوقع 18 معاملة (المدى العادي 11–26)، يعني نقص 100%. السبب التقني ما هوش مؤك
+XX  b20 6.39 [{'name': 'network_summary', 'args': {'period': 'this_week'}}] | الريزو هاد السيمانة فيه 3 082 معاملة، بزيادة 2% على الفترة اللي قبل. القيمة المقبولة 44,3 مليون دج، ونسبة الرفض نازلة لـ2,9% من 4,5%. كاين 3
+ok  b21 6.1 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | هادي السيمانة التاجر اللي طاحتلو l'activité بزاف هو MER-6434: دار 54 ترانزاكسيون على 109 كانو متوقعين، يعني نقصان بـ 55 (50%). موراه MER-519
+ok  b22 10.96 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-1494'}}] | واش MER-1494 فيه مشكل؟ نعم، راه مسجل عندو تنبيه. نهار الخميس 12 نوفمبر 2026، ترفضوا 5 م̆ن 10 معاملات (50٪) في هاد التاجر، والمدفوعات العادية
+ok  b23 6.96 None | ما نقدرش نعطيك قائمة تجار محتالين، هاد المنصة ما كتشخص النية ولا الجانب القانوني. نقدر نعطيك قائمة التجار اللي عندهم اضطرابات تشغيلية، بحال 
+ok  b24 5.32 [{'name': 'forecast', 'args': {'merchant': 'MER-1494'}}] | التوقعات تاع MER-1494 للسيمانة الجاية (من السبت 14 نوفمبر حتى الجمعة 20 نوفمبر): كل نهار متوقع 15 معاملة تقريباً، غير السبت والجمعة 16 معامل
+
+== deepseek-v4-pro: 24 questions, errors 0
+tool routing 100% | args 100% | language 100% | number fidelity 92% | banned words 0 | required content 100%
+  en: routing 7/7, language 7/7
+  fr: routing 6/6, language 6/6
+  dz: routing 6/6, language 6/6
+  ar: routing 5/5, language 5/5
+latency per question: median 6.76s, max 10.96s; decode median 31.8 tok/s

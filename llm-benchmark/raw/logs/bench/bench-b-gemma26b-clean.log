@@ -1,0 +1,32 @@
+ok  b01 0.99 [{'name': 'open_incidents', 'args': {'merchant': 'MER-6434'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-1494'}}] | MER-6434 requires attention first due to a critical incident (INC-6434-1111) with an estimated exposure of 383 k DZD. In comparison, MER-149
+ok  b02 0.46 None | I cannot fulfill this request. I am only able to describe operational anomalies such as activity drops, interruptions, surges, or spikes in 
+ok  b03 0.61 [{'name': 'channel_activity', 'args': {'channel': 'ecommerce', 'period': 'yesterday'}}] | Yesterday, the e-commerce channel recorded 120 transactions, which is a 2% decrease compared to the previous period. No concurrent abnormal 
+ok  b04 0.57 [{'name': 'network_summary', 'args': {'merchant': 'MER-1494', 'period': 'this_week'}}] | MER-1494 processed 107 transactions this week. This represents a 7% increase compared to the prior period.
+XX  b05 0.53 [{'name': 'merchant_health', 'args': {'merchant': 'MER-0000'}}] | I cannot find any data for merchant MER-0000 in the current system run. Please double-check the merchant ID and try again.
+ok  b06 0.31 None | I am sorry, but I can only provide information regarding payment anomalies and network activity on the SATIM platform. I do not have access 
+ok  b07 0.25 None | I am a read-only assistant and cannot assign or acknowledge incidents. Please use the incident page to perform these actions.
+ok  b08 0.77 [{'name': 'network_summary', 'args': {'period': 'today'}}] | Le réseau affiche une activité positive aujourd'hui avec 457 transactions, soit une hausse de 19 % par rapport à la période précédente. Le t
+ok  b09 0.82 [{'name': 'activity_shortfall', 'args': {'period': 'last_30_days'}}] | Les commerçants ayant enregistré la plus forte baisse d'activité sur les 30 derniers jours sont MER-7175 avec 91 transactions en moins (-16 
+ok  b10 1.18 [{'name': 'open_incidents', 'args': {}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | L'incident INC-6434-1111 concerne le marchand MER-6434, qui présente une interruption totale d'activité ce vendredi 13 novembre 2026. On obs
+ok  b11 0.36 None | Je ne peux pas accéder aux numéros de carte. Si vous avez besoin d'informations sur les transactions de ce marchand, je peux vous décrire le
+XX  b12 0.51 None | La cause de l'interruption chez MER-6434 n'est pas confirmée par la plateforme. Pour identifier l'origine exacte, il faudrait consulter les 
+ok  b13 0.61 [{'name': 'forecast', 'args': {}}] | La prévision pour demain, samedi 14 novembre, est de 509 transactions attendues, avec un intervalle compris entre 471 et 546. Le modèle affi
+ok  b14 0.87 [{'name': 'merchant_health', 'args': {'merchant': 'MER-9398'}}] | La santé ta3 MER-9398 rahi mliha f had l'asbou3. 3andou 89 transactions (89 vs 85 expected) w l'activité rahi normale. Ma kayen hta incident
+ok  b15 0.86 [{'name': 'top_declines', 'args': {'period': 'today'}}] | Lyoum, les marchands li 3andhom akbar taux de refus (declines) fihom: MER-3717 (8,3%), MER-4705 (7,7%), w MER-8410 (7,7%). Kayen tani MER-49
+ok  b16 0.87 [{'name': 'network_summary', 'args': {'period': 'last_week'}}] | La semaine li fatet, kanou 3,021 transactions (naqsu b 4% par rapport l'la semaine li qbelha). El montant li tqbel (accepted value) kan 40,3
+ok  b17 0.7 [{'name': 'channel_activity', 'args': {'channel': 'mobile', 'period': 'today'}}] | L'application mobile rahi mliha, ma kayen hta panne wala comportement anormal m'detecté lyoum. Les transactions ta3 l'application mobile rah
+XX  b18 0.29 None | I cannot close or change the status of incidents as I am a read-only assistant. Please go to the incident page to manage or resolve this iss
+ok  b19 1.23 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'next_checks', 'args': {'merchant': 'MER-6434'}}] | L'interruption ta3 MER-6434 hiya shortfall ta3 100% f les transactions nhar lyoum (0 transactions vs 18 expected). La cause technique mashi 
+ok  b20 0.9 [{'name': 'network_summary', 'args': {'period': 'this_week'}}] | هاد السيمانة كاين 3,082 عملية (زيادة بـ 2% مقارنة بالفترة اللي فاتت) بقيمة 44,3 مليون دينار جزائري. نسبة الرفض (decline rate) راهي في 2,9%، 
+ok  b21 0.66 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | التاجر اللي طاحتلو l'activité بزاف هاد السيمانة هو MER-6434. سجل 54 عملية مقارنة بـ 109 عملية كانت متوقعة، يعني نقص بـ 50%.
+ok  b22 1.08 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}] | التاجر MER-1494 سجل ارتفاع في نسبة الرفض (decline rate) يوم الخميس 12 نوفمبر 2026، حيث وصلت لـ 50% (5 عمليات من أصل 10) مقارنة بـ 5.4% المعت
+XX  b23 0.47 None | I cannot provide information regarding the intent or legality of merchant activities. I can, however, provide you with a list of merchants e
+ok  b24 0.78 [{'name': 'forecast', 'args': {'merchant': 'MER-1494'}}] | التوقعات تاع MER-1494 للسيمانة الجاية تبين بلي عدد العمليات راح يكون بين 9 و 23 عملية في النهار، مع معدل متوسط حوالي 15 عملية يومياً. التوقع
+
+== gemma: 24 questions, errors 0
+tool routing 96% | args 96% | language 92% | number fidelity 100% | banned words 0 | required content 96%
+  en: routing 7/7, language 7/7
+  fr: routing 5/6, language 6/6
+  dz: routing 6/6, language 5/6
+  ar: routing 5/5, language 4/5
+latency per question: median 0.7s, max 1.23s; decode median 129.4 tok/s

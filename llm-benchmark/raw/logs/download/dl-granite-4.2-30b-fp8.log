@@ -1,0 +1,8 @@
+04:29:16 model-00007-of-00007.safetensors 0.8 GB (67s)
+04:32:55 model-00006-of-00007.safetensors 4.9 GB (286s)
+04:35:52 model-00001-of-00007.safetensors 4.9 GB (463s)
+04:39:08 model-00002-of-00007.safetensors 4.9 GB (659s)
+04:41:15 model-00003-of-00007.safetensors 4.9 GB (786s)
+04:44:12 model-00004-of-00007.safetensors 4.9 GB (964s)
+04:47:39 model-00005-of-00007.safetensors 4.9 GB (1170s)
+done ibm-granite/granite-4.2-30b-fp8: 30.1 GB in 1170s -> /home/jovyan/models/granite-4.2-30b-fp8

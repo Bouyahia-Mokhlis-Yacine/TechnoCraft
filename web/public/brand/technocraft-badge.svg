@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" role="img" aria-label="Built at TechnoCraft 2026" shape-rendering="crispEdges">
+  <rect width="200" height="48" fill="#202028"/>
+  <rect x="1" y="1" width="198" height="46" fill="none" stroke="#f2b705" stroke-width="2"/>
+  <text x="100" y="18" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-size="9" fill="#f0e8d8" letter-spacing="1">BUILT AT</text>
+  <text x="100" y="33" text-anchor="middle" font-family="'Courier New', Courier, monospace" font-weight="bold" font-size="14" fill="#f2b705" letter-spacing="1">TECHNOCRAFT 2026</text>
+  <!-- grass-over-dirt pixel strip -->
+  <rect x="2" y="39" width="196" height="3" fill="#589828"/>
+  <rect x="2" y="42" width="196" height="4" fill="#785030"/>
+  <g fill="#387018"><rect x="18" y="42" width="4" height="2"/><rect x="58" y="42" width="4" height="2"/><rect x="106" y="42" width="4" height="2"/><rect x="150" y="42" width="4" height="2"/></g>
+  <g fill="#5a3a22"><rect x="34" y="44" width="4" height="2"/><rect x="82" y="44" width="4" height="2"/><rect x="128" y="44" width="4" height="2"/><rect x="174" y="44" width="4" height="2"/></g>
+</svg>

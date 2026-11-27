@@ -1,0 +1,228 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "network_summary",
+      "description": "Transaction count, accepted value, decline rate, flagged merchants and open incidents for a period, optionally for one channel or merchant.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_week",
+              "last_week",
+              "last_30_days"
+            ],
+            "description": "Time window relative to the data date. Default this_week (last 7 days)."
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "ecommerce",
+              "pos",
+              "mobile",
+              "nfc",
+              "transfer"
+            ],
+            "description": "ecommerce = E-commerce CIB/Edahabia, pos = TPE/POS terminal, mobile = Mobile App, nfc = Contactless/NFC, transfer = Bank transfer/virement."
+          },
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "explain_merchant",
+      "description": "Why a merchant was flagged: its latest anomaly with observed vs expected values, evidence and the suggested check.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [
+          "merchant"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "merchant_health",
+      "description": "Health components of one merchant over the last 7 days.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [
+          "merchant"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "open_incidents",
+      "description": "Unresolved incidents ranked by priority, with severity, state, owner and estimated exposure.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "forecast",
+      "description": "Advisory 7-day transaction forecast with 80% interval and backtest error, network-wide or for one merchant.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "channel_activity",
+      "description": "Concurrent abnormal behaviour per payment channel (network advisories, outages, decline waves) and channel volumes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_week",
+              "last_week",
+              "last_30_days"
+            ],
+            "description": "Time window relative to the data date. Default this_week (last 7 days)."
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "ecommerce",
+              "pos",
+              "mobile",
+              "nfc",
+              "transfer"
+            ],
+            "description": "ecommerce = E-commerce CIB/Edahabia, pos = TPE/POS terminal, mobile = Mobile App, nfc = Contactless/NFC, transfer = Bank transfer/virement."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "top_declines",
+      "description": "Merchants with the most declined transactions above their expected rate.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_week",
+              "last_week",
+              "last_30_days"
+            ],
+            "description": "Time window relative to the data date. Default this_week (last 7 days)."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "activity_shortfall",
+      "description": "Merchants furthest below their expected transaction count (activity drops).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "today",
+              "yesterday",
+              "this_week",
+              "last_week",
+              "last_30_days"
+            ],
+            "description": "Time window relative to the data date. Default this_week (last 7 days)."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "next_checks",
+      "description": "Who acts and what to check first for open incidents.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "merchant": {
+            "type": "string",
+            "pattern": "^MER-\\d{4}$",
+            "description": "Merchant id, e.g. MER-1234."
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
+  }
+]

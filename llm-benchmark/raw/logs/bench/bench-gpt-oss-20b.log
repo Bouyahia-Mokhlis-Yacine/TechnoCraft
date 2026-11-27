@@ -1,0 +1,40 @@
+ok  en01 4.58 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER‑6434 was flagged because it had **0 transactions on 13 Nov 2026** while the expected range for that day is 11–26. The drop is a 100 % sh
+ok  en02 1.17 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | Yesterday the network processed 383 transactions, a 1 % drop from the previous period, with 5.0 M DZD accepted. The decline rate was 3.7 %, 
+ok  en03 1.34 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | The biggest drop this week was for MER‑6434, with 54 transactions versus an expected 109 (a 50 % shortfall). Other merchants with notable dr
+ok  en04 1.52 [{'name': 'forecast', 'args': {'merchant': ''}}] | The network forecast for the next 7 days shows expected transaction volumes around 509 on the weekend days (14 Nov and 20 Nov) and about 421
+ok  en05 1.01 [{'name': 'channel_activity', 'args': {'period': 'last_week', 'channel': 'nfc'}}] | No abnormal channel behaviour was reported for contactless payments last week. The volume dropped by about 10 % compared to the previous per
+ok  en06 1.17 [{'name': 'top_declines', 'args': {'period': 'last_30_days'}}] | MER‑3470 had the highest number of declined transactions in the last 30 days, with 41 declines out of 276 attempts (14.9 %). The next highes
+ok  en07 1.82 [{'name': 'next_checks', 'args': {'merchant': ''}}] | Check the open incidents first. For example, INC‑6434‑1111 (MER‑6434) suggests looking at the ingestion watermark, the merchant’s opening sc
+ok  en08 1.13 [{'name': 'merchant_health', 'args': {'merchant': 'MER-9398'}}] | MER‑9398 is healthy.   - Recent activity: 89 transactions (expected 85).   - Rejections: 3 of 89 (expected ~4).   - Cancellations: 0 (expect
+ok  en09 0.43 None | I’m sorry, but I can’t answer that. I can describe any operational anomalies for MER‑6434 if you’d like.
+ok  en10 0.47 None | I’m sorry, but I can’t provide card numbers. I can give you a summary of the merchant’s activity for today if that would help.
+ok  fr01 1.93 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}] | MER‑1494 a été signalé parce que 5 sur 10 paiements (50 %) ont été refusés le jeudi 12 novembre 2026, alors que son taux attendu est de 5,4 
+XX  fr02 0.64 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | 383 transactions were processed on the network yesterday.
+ok  fr03 1.57 [{'name': 'open_incidents', 'args': {'merchant': ''}}] | Il y a deux incidents encore ouverts :  1. **INC‑6434‑1111** – MER‑6434 – gravité : critique, état : actif · nouveau – exposition estimée : 
+XX  fr04 1.14 [{'name': 'forecast', 'args': {'merchant': 'MER-6434'}}] | Advisory forecast for MER‑6434 (Fri 13 Nov 2026).   Expected transactions next week: 14–18 per day, with a 80 % interval of 11–26.   Back‑te
+ok  fr05 0.54 [{'name': 'channel_activity', 'args': {'period': 'this_week', 'channel': 'ecommerce'}}] | Non, aucune panne n’a été détectée sur le e‑paiement CIB cette semaine. Les volumes restent stables, avec une légère baisse de 4 % par rappo
+ok  fr06 1.59 [{'name': 'top_declines', 'args': {'period': 'this_week'}}] | Les commerçants avec le plus de refus cette semaine sont :  - MER‑1494 : 10 refus sur 107 transactions (9,3 %) – attendu ≈ 6 refus.   - MER‑
+ok  fr07 1.12 [{'name': 'next_checks', 'args': {'merchant': 'MER-1494'}}] | Pour MER‑1494 :   - Vérifiez d’abord les statuts par canal ;   - Demandez les codes de raison du gateway et les journaux de service.   La ca
+XX  fr08 0.48 None | I’m sorry, but I can’t close incidents. Please visit the incident page to resolve INC‑6434‑1111.
+ok  fr09 1.74 [{'name': 'network_summary', 'args': {'period': 'last_30_days', 'channel': 'mobile'}}] | Sur le canal mobile, les 30 derniers jours ont vu 2 300 transactions, soit une baisse de 1 % par rapport à la période précédente. Le montant
+XX  fr10 0.44 None | I’m sorry, but I can’t answer that. I can describe any operational anomalies for MER‑6434 if you’d like.
+XX  dz01 1.58 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER‑6434 was flagged because it had **0 transactions on 13 Nov 2026** while the expected range for that day is 11–26.   The alert was trigge
+XX  dz02 1.29 [{'name': 'network_summary', 'args': {'period': 'today'}}] | كُلّ اليوم، كان عندنا 457 معاملة فالشبكة، مع قيمة مقبولة 6.7 مليون دينار، ومعدل رفض 2.0٪. هذا هو العدد اللي ظهر فالتقرير.
+XX  dz03 1.72 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | The merchants with the biggest activity drops this week are:  - MER‑6434: 54 transactions vs 109 expected (‑55, 50 % drop).   - MER‑5199: 89
+ok  dz04 1.52 [{'name': 'open_incidents', 'args': {'merchant': ''}}] | Oui, il y a encore deux incidents ouverts. Le premier (INC‑6434‑1111) est critique et actif, affectant MER‑6434 avec une exposition estimée 
+ok  dz05 1.22 [{'name': 'forecast', 'args': {'merchant': ''}}] | التحليل: التوقعات للأسبوع الجاي كتشير إلى أن عدد المعاملات اليومية راح يكون بين 471 و 546، مع متوسط يومي تقريبا 509 معاملات. هذا التقدير مبن
+XX  dz06 1.34 None | Je ne peux pas confirmer si une vérification est nécessaire. Vous pouvez consulter la santé du commerçant pour voir s’il y a des anomalies.
+ok  dz07 1.45 [{'name': 'channel_activity', 'args': {'period': 'this_week', 'channel': 'pos'}}] | لا، ما كاين حتى انقطاع ولا ارتفاع غير طبيعي فـ TPE هاد السيمانة. عدد المعاملات كان 1 052، وهو زيادة 8 % على الفترة السابقة، ماشي حاجة مقلقة.
+XX  dz08 1.64 [{'name': 'network_summary', 'args': {'merchant': 'MER-6434', 'period': 'this_week'}}] | MER‑6434 a9dara 54 transaction (−36 % vs l‑period li 3la l‑qbl), 731 k DZD ma3tina, w 1,9 % decline rate. 1 merchant flagged w 1 incident ou
+XX  ar01 1.71 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER‑6434 had **0 transactions on 13 Nov 2026** while the normal range is 11–26, a 100 % shortfall.   The alert was triggered by the complete
+ok  ar02 1.17 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | الريزو كامل كان عندو 383 معاملة البارح، مع قيمة مقبولة 5,0 مليون دينار، ومعدل رفض 3,7 %. كانو 2 تجار مرفوعين و2 حوادث مفتوحة.
+ok  ar03 2.11 [{'name': 'top_declines', 'args': {'period': 'last_30_days'}}] | الجهات اللي عندها أعلى نسبة رفض في الشهر الأخير هي:  - MER‑3470: 41 رفض من 276 مع معدل 14,9 % (متوقّع ≈ 25 رفض 9,0 %) - MER‑1494: 30 رفض من 
+XX  ar04 0.43 None | I’m sorry, but I can’t provide card numbers. I can share other information about the merchant if that would help.
+
+== gemma: 32 questions, errors 0
+tool routing 94% | args 97% | language 75% | number fidelity 100% | banned words 0
+  en: routing 10/10, language 10/10
+  fr: routing 10/10, language 6/10
+  dz: routing 6/8, language 6/8
+  ar: routing 4/4, language 2/4
+latency per question: median 1.34s, max 4.58s; decode median 96.2 tok/s

@@ -1,0 +1,10 @@
+03:16:07 model-00009-of-00010.safetensors 0.7 GB (210s)
+04:38:27 model-00008-of-00010.safetensors 4.0 GB (155s)
+04:41:15 model-00007-of-00010.safetensors 4.0 GB (323s)
+04:44:11 model-00002-of-00010.safetensors 4.0 GB (500s)
+04:46:41 model-00006-of-00010.safetensors 4.0 GB (650s)
+04:48:27 model-00005-of-00010.safetensors 4.0 GB (755s)
+04:49:52 model-00004-of-00010.safetensors 4.0 GB (841s)
+04:51:17 model-00003-of-00010.safetensors 4.0 GB (925s)
+04:52:43 model-00001-of-00010.safetensors 4.0 GB (1011s)
+done nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8: 32.7 GB in 1011s -> /home/jovyan/models/NVIDIA-Nemotron-3-Nano-30B-A3B-FP8

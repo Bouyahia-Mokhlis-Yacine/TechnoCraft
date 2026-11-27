@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAI Style Guide</title>
+<link rel="icon" href="assets/logo-mark.svg">
+<!-- preview only: the app self-hosts these via @fontsource (see DESIGN_RULES §6) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Open+Sans:wght@400;600&family=IBM+Plex+Sans+Arabic:wght@400;600&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="motion.css">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+  body { background: var(--bg); }
+  .chrome { position: sticky; top: 0; z-index: 10; }
+  .brand-bar { height: var(--brand-bar-h); background: var(--brand-accent); }
+  .topbar { height: var(--topbar-h); display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar .mark { width: 28px; height: 28px; }
+  .topbar .name { font-family: var(--font-display); font-weight: 600; font-size: var(--text-md); }
+  .topbar .spacer { flex: 1; }
+  .live { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-xs); color: var(--text-secondary); }
+  main { max-width: 1200px; margin: 0 auto; padding: var(--space-8) var(--space-6); display: grid; gap: var(--space-10); }
+  section > h2 { font-size: var(--text-xl); margin-bottom: var(--space-2); }
+  section > p { color: var(--text-secondary); margin: 0 0 var(--space-4); }
+  .section-head { display: flex; justify-content: space-between; align-items: end; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-4); }
+  .section-head p { color: var(--text-secondary); margin: var(--space-2) 0 0; }
+  .eyebrow { font-size: var(--text-xs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+  .grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-4); box-shadow: var(--shadow-sm); }
+  .swatch { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border); background: var(--surface); }
+  .swatch div { height: 56px; }
+  .swatch span { display: block; padding: var(--space-2); font-size: var(--text-xs); }
+  .swatch code { font-family: var(--font-mono); color: var(--text-muted); }
+  .row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 600; white-space: nowrap; }
+  .badge svg { width: 14px; height: 14px; }
+  .sev-critical { --sev: var(--sev-critical); } .badge.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical-fg); }
+  .sev-high { --sev: var(--sev-high); } .badge.sev-high { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+  .sev-medium { --sev: var(--sev-medium); } .badge.sev-medium { background: var(--sev-medium-bg); color: var(--sev-medium-fg); }
+  .sev-low { --sev: var(--sev-low); } .badge.sev-low { background: var(--sev-low-bg); color: var(--sev-low-fg); }
+  .sev-normal { --sev: var(--sev-normal); } .badge.sev-normal { background: var(--sev-normal-bg); color: var(--sev-normal-fg); }
+
+  .btn { height: 36px; padding: 0 var(--space-4); border-radius: var(--radius-md); font: 600 var(--text-sm) var(--font-body); cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 6px; transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  .btn:active { transform: scale(.97); }
+  .btn svg { width: 16px; height: 16px; }
+  .btn-primary { background: var(--primary); color: var(--text-on-primary); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-ghost:hover, .btn-secondary:hover { background: var(--surface-sunken); }
+
+  .kpis { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+  .kpi-value { font-family: var(--font-display); font-size: var(--text-2xl); font-weight: 600; margin: var(--space-1) 0; display: inline-block; min-width: 4ch; }
+  .delta { font-size: var(--text-xs); color: var(--text-secondary); }
+  .delta.bad { color: var(--sev-high-fg); font-weight: 600; }
+  .spark { display: block; width: 100%; height: 36px; margin-top: var(--space-2); overflow: visible; }
+  .spark polyline { fill: none; stroke: var(--chart-series); stroke-width: 1.5; stroke-linejoin: round; } /* no vector-effect: it breaks pathLength draw */
+
+  .alerts { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .alert { display: grid; grid-template-columns: 28px 120px 200px 1fr 180px 70px 20px; gap: var(--space-3); align-items: center; padding: var(--space-3) var(--space-4); border-left: 3px solid var(--sev); border-bottom: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: background var(--dur-fast) var(--ease); }
+  .alert:hover { background: var(--surface-sunken); }
+  .alert:last-child { border-bottom: 0; }
+  .rank { font-family: var(--font-display); font-weight: 700; color: var(--text-muted); }
+  .type { display: flex; gap: 6px; align-items: center; }
+  .type svg { width: 16px; height: 16px; color: var(--text-secondary); }
+  .mer { font-family: var(--font-mono); font-size: 13px; }
+  .muted { color: var(--text-muted); font-size: var(--text-xs); }
+  .alert .num { text-align: right; }
+  .alert.sev-normal { opacity: .7; }
+
+  .explain { display: grid; grid-template-columns: 1fr 1.1fr; gap: var(--space-6); }
+  .explain h3 { font-size: var(--text-lg); margin: var(--space-2) 0; }
+  .explain p { font-size: var(--text-md); margin: 0 0 var(--space-3); }
+  .explain table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); margin-bottom: var(--space-3); }
+  .explain td, .explain th { padding: 6px 0; border-bottom: 1px solid var(--border); text-align: left; }
+  .explain .num { text-align: right; }
+  .explain th { font-weight: 600; color: var(--text-muted); font-size: var(--text-xs); }
+  .explain ul { margin: 0 0 var(--space-3); padding-left: 18px; }
+  details { color: var(--text-secondary); font-size: var(--text-sm); }
+  summary { cursor: pointer; color: var(--link); }
+  .action { background: var(--surface-sunken); border-radius: var(--radius-sm); padding: var(--space-3); font-size: var(--text-sm); margin-bottom: var(--space-3); }
+
+  .type-specimen > div { padding: var(--space-3) 0; border-bottom: 1px solid var(--border); display: flex; gap: var(--space-6); align-items: baseline; }
+  .type-specimen .muted { width: 200px; flex-shrink: 0; }
+
+
+  .logos { display: flex; gap: var(--space-8); align-items: center; flex-wrap: wrap; }
+  .logo-tile { background: #fff; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); display: inline-flex; }
+  .logo-tile img { height: 40px; }
+  .logos .tc { height: 48px; transition: transform 300ms steps(3); }
+  .logos .tc:hover { transform: translateY(-4px); }
+
+  .forbid td:first-child { color: var(--sev-critical-fg); text-decoration: line-through; }
+  .forbid td { padding: 4px 16px 4px 0; }
+  @media (max-width: 900px) { .alert { grid-template-columns: 24px 1fr 1fr; } .alert > :nth-child(n+5) { display: none; } .explain { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="brand-bar" id="brandBar"></div>
+  <header class="topbar">
+    <!-- logo-mark.svg inlined so it can animate: the line draws, then the red pixel pops -->
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" shape-rendering="crispEdges">
+      <rect width="32" height="32" rx="6" fill="#1d1d1b"/>
+      <path class="m-draw" pathLength="1" d="M4 19H9V15H12V21H15V10H19V19H28" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="square"/>
+      <rect class="m-pixel" style="--delay:700ms" x="14" y="6" width="6" height="6" fill="#e2211c"/>
+    </svg>
+    <span class="name">Payment Anomaly Intelligence</span>
+    <span class="muted">Style guide</span>
+    <span class="spacer"></span>
+    <span class="live"><span class="m-live"></span><span id="updated">Live · updated just now</span></span>
+    <a class="btn btn-ghost" href="animations.html" style="text-decoration:none"><i data-lucide="sparkles"></i>Motion catalogue</a>
+    <button class="btn btn-ghost" id="theme"><i data-lucide="sun-moon"></i>Theme</button>
+  </header>
+</div>
+
+<main>
+  <section class="m-reveal">
+    <h2>Brand sources</h2>
+    <p>Sampled from satim.dz and the SATIM logo. Red is a signature, not a UI color.</p>
+    <div class="grid">
+      <div class="swatch"><div style="background:var(--brand-red)"></div><span>SATIM red · signature only<br><code>#E2211C</code></span></div>
+      <div class="swatch"><div style="background:var(--brand-ink)"></div><span>SATIM ink · primary<br><code>#1D1D1B</code></span></div>
+      <div class="swatch"><div style="background:var(--gray-800)"></div><span>SATIM text gray<br><code>#323232</code></span></div>
+      <div class="swatch"><div style="background:var(--gray-50)"></div><span>SATIM section gray<br><code>#F8F8F8</code></span></div>
+      <div class="swatch"><div style="background:var(--brand-cib-blue)"></div><span>CIB blue · links &amp; data<br><code>#005B94</code></span></div>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Severity</h2>
+    <p>Icon + label + color, always. Only for anomalies. Unacknowledged critical icons beat; everything else is still.</p>
+    <div class="row">
+      <span class="badge sev-critical m-beat"><i data-lucide="octagon-alert"></i>Critical</span>
+      <span class="badge sev-high"><i data-lucide="triangle-alert"></i>High</span>
+      <span class="badge sev-medium"><i data-lucide="circle-alert"></i>Medium</span>
+      <span class="badge sev-low"><i data-lucide="info"></i>Low</span>
+      <span class="badge sev-normal"><i data-lucide="circle-check"></i>Recovered</span>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Data colors</h2>
+    <p>Payment channels keep the same color in every chart, legend and filter.</p>
+    <div class="grid">
+      <div class="swatch"><div style="background:var(--ch-ecommerce)"></div><span>E-commerce (CIB / Edahabia)</span></div>
+      <div class="swatch"><div style="background:var(--ch-pos)"></div><span>TPE / POS Terminal</span></div>
+      <div class="swatch"><div style="background:var(--ch-mobile)"></div><span>Mobile App</span></div>
+      <div class="swatch"><div style="background:var(--ch-contactless)"></div><span>Contactless / NFC</span></div>
+      <div class="swatch"><div style="background:var(--ch-transfer)"></div><span>Bank Transfer / Virement</span></div>
+      <div class="swatch"><div style="background:var(--ch-unknown)"></div><span>Not specified</span></div>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Typography</h2>
+    <div class="card type-specimen">
+      <div><span class="muted">Montserrat 600 · 24 · page title</span><h1 style="font-size:var(--text-xl)">Network overview</h1></div>
+      <div><span class="muted">Montserrat 600 · 32 · KPI</span><span class="kpi-value">1 284 503 DZD</span></div>
+      <div><span class="muted">Open Sans 400 · 16 · explanation</span><span style="font-size:var(--text-md)">Transactions fell to 12, against a usual 41 for a Tuesday.</span></div>
+      <div><span class="muted">Open Sans 400 · 14 · UI</span><span>Filter by merchant, period, category and channel</span></div>
+      <div><span class="muted">IBM Plex Sans Arabic · RTL</span><span lang="ar" dir="rtl" style="font-size:var(--text-md)">انخفاض مفاجئ في نشاط التاجر</span></div>
+      <div><span class="muted">JetBrains Mono · 13 · IDs</span><span class="mer">MER-7175</span></div>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Buttons</h2>
+    <div class="row">
+      <button class="btn btn-primary"><i data-lucide="check"></i>Acknowledge</button>
+      <button class="btn btn-secondary"><i data-lucide="list-filter"></i>Filters</button>
+      <button class="btn btn-ghost">Export CSV</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><h2>KPI cards</h2><p>Max four on the overview. The delta is colored only when it is an anomaly.</p></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><h2>Priority queue</h2><p>Ranked 1-2-3. Left border = severity. Whole row is clickable.</p></div>
+    </div>
+    <div class="alerts" id="queue"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <div><h2>Explanation card</h2><p>Plain language, observed vs reference, reasons, action. Technical detail is hidden in a disclosure.</p></div>
+    </div>
+    <div class="card explain">
+      <div>
+        <span class="badge sev-medium"><i data-lucide="circle-alert"></i>Medium · Activity drop</span>
+        <h3><span class="mer">MER-7175</span> · Tue 14 Oct 2026</h3>
+        <p>Transactions fell to <b>12</b>, against a usual <b>41</b> for a Tuesday (<b>−71 %</b>).</p>
+        <table>
+          <tr><th>Indicator</th><th class="num">Observed</th><th class="num">Usual</th></tr>
+          <tr><td>Transactions</td><td class="num">12</td><td class="num">41</td></tr>
+          <tr><td>Value</td><td class="num">54 180 DZD</td><td class="num">186 900 DZD</td></tr>
+          <tr><td>Rejection rate</td><td class="num">2 %</td><td class="num">3 %</td></tr>
+        </table>
+        <div class="eyebrow">Main reasons</div>
+        <ul><li>No TPE / POS activity after 11:00 (usually 60 % of volume)</li><li>Online payments stayed normal</li></ul>
+        <div class="action"><b>Suggested action:</b> the acquiring bank should check the merchant's POS terminal connectivity.</div>
+        <details><summary>How was this computed?</summary>“Usual” = median of the same weekday over the previous 4 weeks. Score 0.87 (higher = more unusual).</details>
+      </div>
+      <svg id="chart" class="sev-medium" viewBox="0 0 400 220" role="img" aria-label="Daily transactions for MER-7175: steady around 40, dropping to 12 on 14 October.">
+        <g stroke="var(--chart-grid)"><line x1="30" x2="390" y1="40" y2="40"/><line x1="30" x2="390" y1="100" y2="100"/><line x1="30" x2="390" y1="160" y2="160"/></g>
+        <g fill="var(--chart-axis)" font-size="11" font-family="var(--font-body)"><text x="0" y="44">60</text><text x="0" y="104">40</text><text x="0" y="164">20</text><text x="30" y="210">1 Oct</text><text x="190" y="210">7 Oct</text><text x="340" y="210">14 Oct</text></g>
+        <path class="m-band" d="M30 80 L390 80 L390 130 L30 130 Z" fill="var(--chart-band)"/>
+        <line class="m-fade" style="--delay:200ms" x1="30" x2="390" y1="103" y2="103" stroke="var(--chart-baseline)" stroke-dasharray="4 4"/>
+        <polyline class="m-draw" style="--delay:250ms" pathLength="1" fill="none" stroke="var(--chart-series)" stroke-width="2" stroke-linejoin="round" points="30,98 58,106 86,94 114,110 142,101 170,96 198,108 226,99 254,104 282,92 310,107 338,100 366,96 390,187"/>
+        <circle class="m-ring" style="--delay:1100ms" cx="390" cy="187" r="5"/>
+        <circle class="m-pop" style="--delay:1100ms" cx="390" cy="187" r="5" fill="var(--sev-medium)" stroke="var(--surface)" stroke-width="2"/>
+        <text class="m-fade" style="--delay:500ms" x="300" y="72" font-size="11" fill="var(--text-muted)" font-family="var(--font-body)">usual range</text>
+      </svg>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Motion</h2>
+    <p>Every user action and system event has its own animation, with a live demo, in the <a href="animations.html">motion catalogue</a>.</p>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Wording</h2>
+    <p>Operational anomalies, never fraud.</p>
+    <div class="card">
+      <table class="forbid">
+        <tr><td>Fraud alert</td><td>→ Anomaly alert</td></tr>
+        <tr><td>Suspicious merchant</td><td>→ Merchant with unusual activity</td></tr>
+        <tr><td>z-score = 4.2</td><td>→ About 4× more than usual</td></tr>
+        <tr><td>Isolation Forest outlier</td><td>→ Very different from this merchant's history</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="m-reveal">
+    <h2>Branding &amp; TechnoCraft touch</h2>
+    <p>Sidebar footer: SATIM logo, then the TechnoCraft badge. The badge's gold never enters the dashboard.</p>
+    <div class="card logos">
+      <span class="logo-tile"><img src="assets/sponsors/satim-logo.png" alt="SATIM"></span>
+      <img class="tc" src="assets/technocraft-badge.svg" alt="Built at TechnoCraft 2026">
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import { countUp, toggleTheme } from './motion.js';
+
+  const fr = (d = 0) => (n) => n.toLocaleString('fr-DZ', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const icons = () => lucide.createIcons();
+
+  /* ── KPIs ── */
+  const kpis = [
+    { label: 'Transactions today', value: 8412, fmt: fr(0), delta: '▲ +3 % vs usual Thursday', spark: [40, 42, 38, 45, 44, 47, 46, 49, 48, 50] },
+    { label: 'Value processed', value: 42.7, fmt: (n) => fr(1)(n) + ' M DZD', delta: '▼ −1 % vs usual', spark: [30, 34, 31, 36, 33, 35, 37, 34, 36, 35] },
+    { label: 'Rejection rate', value: 6.8, fmt: (n) => fr(1)(n) + ' %', delta: '▲ 2,4× usual (2,8 %)', bad: true, spark: [12, 11, 13, 12, 12, 14, 13, 20, 31, 40] },
+    { label: 'Open anomalies', value: 11, fmt: fr(0), delta: '3 critical · 4 high', spark: [3, 4, 3, 5, 4, 6, 5, 8, 9, 11] },
+  ];
+  const sparkPoints = (s) => { const lo = Math.min(...s), hi = Math.max(...s); return s.map((v, i) => `${(i / (s.length - 1)) * 120},${32 - ((v - lo) / (hi - lo || 1)) * 28}`).join(' '); };
+  function renderKpis() {
+    document.getElementById('kpis').innerHTML = kpis.map((k, i) => `
+      <div class="card m-lift m-rise" style="--i:${i}">
+        <div class="eyebrow">${k.label}</div>
+        <div class="kpi-value" data-i="${i}">${k.fmt(0)}</div>
+        <div class="delta ${k.bad ? 'bad' : ''}">${k.delta}</div>
+        <svg class="spark" viewBox="0 0 120 32" preserveAspectRatio="none"><polyline class="m-draw" style="--delay:${i * 45}ms" pathLength="1" points="${sparkPoints(k.spark)}"/></svg>
+      </div>`).join('');
+    document.querySelectorAll('#kpis .kpi-value').forEach((el) => { const k = kpis[el.dataset.i]; countUp(el, k.value, k.fmt); });
+  }
+
+  /* ── Priority queue ── */
+  const sevMeta = { critical: ['octagon-alert', 'Critical', 0], high: ['triangle-alert', 'High', 1], medium: ['circle-alert', 'Medium', 2], low: ['info', 'Low', 3], normal: ['circle-check', 'Recovered', 4] };
+  const queue = [
+    { id: 'a1', sev: 'critical', icon: 'network', type: 'Multi-merchant incident', mer: '7 merchants', ctx: 'TPE / POS Terminal', obs: '0 tx vs usual 312', t: '09:40' },
+    { id: 'a2', sev: 'high', icon: 'ban', type: 'Rejection spike', mer: 'MER-5199', ctx: 'Digital Services', obs: '31 % vs usual 3 %', t: '10:15' },
+    { id: 'a3', sev: 'medium', icon: 'trending-down', type: 'Activity drop', mer: 'MER-7175', ctx: 'Food & Dining', obs: '12 tx vs usual 41', t: 'Yesterday' },
+    { id: 'a4', sev: 'low', icon: 'banknote', type: 'Amount spike', mer: 'MER-2210', ctx: 'Electronics', obs: 'avg 18 900 vs 9 400 DZD', t: 'Yesterday' },
+  ];
+  function renderQueue() {
+    document.getElementById('queue').innerHTML = queue.map((a, i) => {
+      const [icon, label] = sevMeta[a.sev];
+      return `<div class="alert sev-${a.sev} m-rise" style="--i:${i}">
+        <span class="rank">${i + 1}</span>
+        <span class="badge sev-${a.sev} ${a.sev === 'critical' ? 'm-beat' : ''}"><i data-lucide="${icon}"></i>${label}</span>
+        <span class="type"><i data-lucide="${a.icon}"></i>${a.type}</span>
+        <span><span class="mer">${a.mer}</span> <span class="muted">· ${a.ctx}</span></span>
+        <span class="num">${a.obs}</span><span class="muted">${a.t}</span><i data-lucide="chevron-right"></i></div>`;
+    }).join('');
+    icons();
+  }
+  document.getElementById('theme').onclick = (e) => toggleTheme(e.currentTarget);
+
+  renderKpis();
+  renderQueue();
+  icons();
+</script>
+</body>
+</html>

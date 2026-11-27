@@ -1,0 +1,7 @@
+03:18:44 model-00006-of-00006.safetensors 0.9 GB (369s)
+03:28:20 model-00004-of-00006.safetensors 4.1 GB (945s)
+03:30:36 model-00005-of-00006.safetensors 5.0 GB (1081s)
+03:32:46 model-00003-of-00006.safetensors 5.0 GB (1211s)
+03:34:46 model-00001-of-00006.safetensors 5.0 GB (1331s)
+03:36:52 model-00002-of-00006.safetensors 5.0 GB (1457s)
+done cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit: 25.0 GB in 1457s -> /home/jovyan/models/Qwen3.6-35B-A3B-AWQ-4bit

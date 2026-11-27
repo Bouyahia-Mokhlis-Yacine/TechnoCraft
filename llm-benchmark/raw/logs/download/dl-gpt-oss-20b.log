@@ -1,0 +1,4 @@
+03:20:21 model-00002-of-00002.safetensors 4.2 GB (390s)
+03:23:42 model-00000-of-00002.safetensors 4.8 GB (591s)
+03:26:51 model-00001-of-00002.safetensors 4.8 GB (780s)
+done openai/gpt-oss-20b: 13.8 GB in 780s -> /home/jovyan/models/gpt-oss-20b

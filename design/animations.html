@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAI Motion Catalogue</title>
+<link rel="icon" href="assets/logo-mark.svg">
+<!-- preview only: the app self-hosts fonts and bundles icons -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Open+Sans:wght@400;600&family=IBM+Plex+Sans+Arabic:wght@400;600&family=JetBrains+Mono&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="motion.css">
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+<style>
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body { background: var(--bg); }
+  .chrome { position: sticky; top: 0; z-index: 20; }
+  .brand-bar { height: var(--brand-bar-h); background: var(--brand-accent); }
+  .topbar { height: var(--topbar-h); display: flex; align-items: center; gap: var(--space-3); padding: 0 var(--space-6); background: var(--surface); border-bottom: 1px solid var(--border); }
+  .topbar .name { font-family: var(--font-display); font-weight: 600; }
+  .spacer { flex: 1; }
+  .mark { width: 28px; height: 28px; flex-shrink: 0; }
+  main { max-width: 1280px; margin: 0 auto; padding: var(--space-8) var(--space-6) var(--space-12); }
+  .intro h1 { font-size: var(--text-xl); }
+  .intro p { color: var(--text-secondary); max-width: 760px; }
+  .index { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-4) 0 var(--space-8); }
+  a.btn { text-decoration: none; }
+  .index a { padding: 6px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-full); color: var(--text); text-decoration: none; font-size: var(--text-xs); font-weight: 600; transition: background var(--dur-fast) var(--ease); }
+  .index a:hover { background: var(--surface-sunken); }
+  .group { margin-bottom: var(--space-12); scroll-margin-top: 80px; }
+  .group > h2 { font-size: var(--text-lg); margin-bottom: var(--space-4); display: flex; gap: var(--space-2); align-items: center; }
+  .group > h2 svg { width: 20px; color: var(--text-muted); }
+  .demos { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
+  @media (max-width: 420px) { .demos { grid-template-columns: 1fr; } }
+
+  .demo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; min-width: 0; }
+  .demo > header { min-height: 46px; display: flex; align-items: center; justify-content: space-between; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--border); }
+  .demo h3 { font-size: var(--text-sm); }
+  .reset { border: 0; background: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: var(--radius-sm); display: inline-flex; }
+  .reset:hover { background: var(--surface-sunken); color: var(--text); }
+  .reset svg { width: 16px; height: 16px; }
+  .stage { position: relative; overflow: hidden; min-height: 190px; padding: var(--space-4); background: var(--surface-sunken); display: flex; flex-direction: column; gap: var(--space-3); justify-content: center; }
+  .spec { margin: 0; padding: var(--space-3) var(--space-4); font-size: var(--text-xs); color: var(--text-secondary); display: grid; grid-template-columns: 64px 1fr; gap: 2px var(--space-2); }
+  .spec dt { color: var(--text-muted); font-weight: 600; }
+  .spec dd { margin: 0; }
+  .spec code { font-family: var(--font-mono); font-size: 11px; color: var(--text); }
+
+  /* shared atoms */
+  .btn { height: 34px; padding: 0 var(--space-3); border-radius: var(--radius-md); font: 600 var(--text-sm) var(--font-body); cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; position: relative; overflow: hidden; transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  .btn:active { transform: scale(.97); }
+  .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .btn-primary { background: var(--primary); color: var(--text-on-primary); }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  .btn-ghost { background: transparent; color: var(--text-secondary); }
+  .btn-secondary:hover, .btn-ghost:hover { background: var(--surface-sunken); }
+  .btn[disabled] { opacity: .7; cursor: default; }
+  .row { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); }
+  .muted { color: var(--text-muted); font-size: var(--text-xs); }
+  .mono { font-family: var(--font-mono); font-size: 13px; }
+  .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+  .kpi { font-family: var(--font-display); font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: var(--radius-full); font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .badge svg { width: 13px; height: 13px; }
+  .sev-critical { --sev: var(--sev-critical); } .badge.sev-critical { background: var(--sev-critical-bg); color: var(--sev-critical-fg); }
+  .sev-high { --sev: var(--sev-high); } .badge.sev-high { background: var(--sev-high-bg); color: var(--sev-high-fg); }
+  .sev-medium { --sev: var(--sev-medium); } .badge.sev-medium { background: var(--sev-medium-bg); color: var(--sev-medium-fg); }
+  .sev-low { --sev: var(--sev-low); } .badge.sev-low { background: var(--sev-low-bg); color: var(--sev-low-fg); }
+  .sev-normal { --sev: var(--sev-normal); } .badge.sev-normal { background: var(--sev-normal-bg); color: var(--sev-normal-fg); }
+  .list { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .item { display: flex; align-items: center; gap: var(--space-2); padding: 8px var(--space-3); border-bottom: 1px solid var(--border); background: var(--surface); font-size: var(--text-xs); transition: background var(--dur-fast) var(--ease), opacity var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+  .item:last-child { border-bottom: 0; }
+  .item.bordered { border-left: 3px solid var(--sev); }
+  .item .grow { flex: 1; min-width: 0; }
+  .item .num { font-variant-numeric: tabular-nums; }
+  .toast-zone { position: absolute; right: var(--space-3); bottom: var(--space-3); display: grid; gap: var(--space-2); width: 260px; z-index: 5; }
+  .toast { background: var(--gray-900); color: #fff; border-radius: var(--radius-md); padding: 10px 12px; font-size: var(--text-xs); box-shadow: var(--shadow-lg); position: relative; overflow: hidden; display: flex; gap: 8px; align-items: center; }
+  [data-theme="dark"] .toast { background: #2a2a2a; }
+  .toast svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .toast .t-bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: currentColor; opacity: .5; }
+  .toast a, .toast button.link { color: #84caff; background: none; border: 0; font: inherit; font-weight: 600; cursor: pointer; margin-left: auto; }
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); z-index: 4; }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 62%; background: var(--surface); border-left: 1px solid var(--border); box-shadow: var(--shadow-lg); z-index: 5; padding: var(--space-4); display: grid; gap: var(--space-2); align-content: start; }
+  .modal { position: absolute; left: 50%; top: 50%; translate: -50% -50%; width: 78%; background: var(--surface); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); z-index: 5; padding: var(--space-4); display: grid; gap: var(--space-3); }
+  .menu { position: absolute; z-index: 6; margin-top: 4px; min-width: 200px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); padding: 4px; display: grid; }
+  .menu button { text-align: left; border: 0; background: none; padding: 7px 10px; border-radius: var(--radius-sm); font: inherit; font-size: var(--text-sm); color: var(--text); cursor: pointer; }
+  .menu button:hover { background: var(--surface-sunken); }
+  .rel { position: relative; }
+  input.field { height: 34px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); font: inherit; background: var(--surface); color: var(--text); transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+  input.field.invalid { border-color: var(--sev-critical); box-shadow: 0 0 0 3px var(--sev-critical-bg); }
+
+  /* nav */
+  .side { position: relative; display: grid; gap: 2px; width: 200px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px 0; overflow: hidden; }
+  .side-ind { position: absolute; left: 0; top: 0; width: 3px; height: 36px; background: var(--brand-accent); transition: transform var(--dur-slow) var(--ease-out); }
+  .side-item { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 14px; border: 0; background: none; font: inherit; color: var(--text-secondary); cursor: pointer; white-space: nowrap; transition: color var(--dur) var(--ease), background var(--dur-fast) var(--ease); }
+  .side-item:hover { background: var(--surface-sunken); }
+  .side-item.is-active { color: var(--text); font-weight: 600; }
+  .side-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .collapsible { transition: width var(--dur) var(--ease-out); }
+  .collapsible .lbl { transition: opacity var(--dur-fast) var(--ease); }
+  .collapsible.is-collapsed { width: 48px; }
+  .collapsible.is-collapsed .lbl { opacity: 0; }
+  .tabs { position: relative; display: flex; gap: var(--space-4); border-bottom: 1px solid var(--border); }
+  .tab { border: 0; background: none; padding: 8px 0; font: inherit; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: color var(--dur) var(--ease); }
+  .tab.is-active { color: var(--text); }
+  .tab-ind, .seg-ind { position: absolute; left: 0; transition: transform var(--dur-slow) var(--ease-out), width var(--dur-slow) var(--ease-out); }
+  .tab-ind { bottom: -1px; height: 2px; background: var(--brand-accent); }
+  .seg { position: relative; display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 2px; }
+  .seg button { position: relative; z-index: 1; border: 0; background: none; padding: 5px 12px; font: inherit; font-size: var(--text-xs); font-weight: 600; color: var(--text-secondary); cursor: pointer; transition: color var(--dur) var(--ease); }
+  .seg button.is-active { color: var(--text-on-primary); }
+  .seg-ind { top: 2px; bottom: 2px; background: var(--primary); border-radius: 3px; }
+  .scrollbox { position: relative; height: 130px; overflow: auto; display: grid; gap: var(--space-2); }
+  .scrollbox .card { min-height: 70px; }
+
+  /* filters */
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 6px 3px 10px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 600; }
+  .chip i, .chip .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .chip button { border: 0; background: none; cursor: pointer; color: var(--text-muted); display: inline-flex; padding: 2px; border-radius: 50%; }
+  .chip button:hover { background: var(--surface-sunken); color: var(--text); }
+  .chip button svg { width: 12px; height: 12px; }
+  .empty { text-align: center; color: var(--text-muted); padding: var(--space-4); font-size: var(--text-xs); }
+
+  /* table bits */
+  .th { display: flex; gap: var(--space-2); padding: 6px var(--space-3); font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--surface); border-bottom: 1px solid var(--border); }
+  .th button { border: 0; background: none; font: inherit; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 2px; padding: 0; }
+  .th svg { width: 12px; height: 12px; transition: transform var(--dur) var(--ease-out); }
+  .th .desc svg { transform: rotate(180deg); }
+  .c-mer { width: 90px; } .c-num { width: 80px; text-align: right; }
+  .check { position: relative; display: inline-flex; }
+  .check input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .check .box { width: 16px; height: 16px; border: 1.5px solid var(--border-strong); border-radius: 3px; display: grid; place-items: center; transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease); }
+  .check svg { width: 12px; height: 12px; }
+  .check polyline { fill: none; stroke: var(--text-on-primary); stroke-width: 3; stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset var(--dur) var(--ease-out); }
+  .check input:checked + .box { background: var(--primary); border-color: var(--primary); }
+  .check input:checked + .box polyline { stroke-dashoffset: 0; }
+  .check input:focus-visible + .box { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+  .bulkbar { position: absolute; left: var(--space-3); right: var(--space-3); bottom: var(--space-3); background: var(--gray-900); color: #fff; border-radius: var(--radius-md); padding: 8px 12px; display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); box-shadow: var(--shadow-lg); }
+  [data-theme="dark"] .bulkbar { background: #2a2a2a; }
+  .bulkbar .btn { height: 26px; font-size: var(--text-xs); color: #fff; }
+  .expand-body { padding: 0 var(--space-3); font-size: var(--text-xs); color: var(--text-secondary); background: var(--surface); }
+  .expand-body > div { padding-bottom: 8px; }
+
+  /* alerts */
+  .avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--primary); color: var(--text-on-primary); display: inline-grid; place-items: center; font-size: 10px; font-weight: 700; }
+  .bellbox { display: flex; align-items: center; gap: var(--space-3); background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 12px; }
+  .bell { position: relative; display: inline-flex; }
+  .bell svg { width: 22px; height: 22px; }
+  .bell .count { position: absolute; top: -6px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--sev-critical); color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+  .banner { position: absolute; top: 0; left: 0; right: 0; padding: 8px 12px; background: var(--sev-critical-bg); color: var(--sev-critical-fg); font-size: var(--text-xs); font-weight: 600; display: flex; gap: 6px; align-items: center; z-index: 3; }
+  .banner svg { width: 14px; height: 14px; }
+  .acked { opacity: .6; }
+  .dot-svg { width: 28px; height: 28px; overflow: visible; }
+
+  /* charts */
+  .chart { width: 100%; height: 130px; overflow: visible; display: block; }
+  .chart text { font: 10px var(--font-body); fill: var(--chart-axis); }
+  .series { fill: none; stroke-width: 2; stroke-linejoin: round; transition: opacity var(--dur) var(--ease); }
+  .series.off { opacity: 0; }
+  .legend { display: flex; gap: var(--space-3); font-size: var(--text-xs); }
+  .legend button { border: 0; background: none; font: inherit; color: var(--text); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; transition: opacity var(--dur) var(--ease); }
+  .legend button.off { opacity: .4; text-decoration: line-through; }
+  .legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+  .xhair { transition: transform 80ms var(--ease); }
+  .tip-box { position: absolute; top: 8px; left: 0; padding: 6px 8px; background: var(--gray-900); color: #fff; border-radius: var(--radius-sm); font-size: 11px; pointer-events: none; transition: transform 80ms var(--ease), opacity var(--dur-fast) var(--ease); white-space: nowrap; }
+  .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--text-xs); font-weight: 600; }
+  .switch input { position: absolute; opacity: 0; }
+  .switch .track { width: 32px; height: 18px; border-radius: 9px; background: var(--border-strong); position: relative; transition: background var(--dur) var(--ease); }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-sm); transition: transform var(--dur) var(--ease-spring); }
+  .switch input:checked + .track { background: var(--primary); }
+  .switch input:checked + .track::after { transform: translateX(14px); }
+  .switch input:focus-visible + .track { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+  /* tooltip */
+  .has-tip { position: relative; display: inline-flex; align-items: center; gap: 4px; cursor: help; border-bottom: 1px dashed var(--text-muted); font-size: var(--text-sm); }
+  .has-tip .tip { position: absolute; bottom: calc(100% + 8px); left: 50%; width: 220px; margin-left: -110px; padding: 8px 10px; background: var(--gray-900); color: #fff; border-radius: var(--radius-sm); font-size: 11px; line-height: 1.4; opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease); }
+  .has-tip:hover .tip, .has-tip:focus-visible .tip { opacity: 1; transform: none; transition-delay: 300ms; }
+  .acc-head { width: 100%; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 8px 0; font: inherit; font-weight: 600; color: var(--link); cursor: pointer; }
+  .acc-head svg { width: 16px; height: 16px; }
+
+  /* feedback */
+  .btn .fill { position: absolute; inset: 0; background: var(--sev-normal); opacity: .25; transform-origin: left; transform: scaleX(0); }
+  .err-msg { color: var(--sev-critical-fg); font-size: var(--text-xs); }
+  .skel-line { height: 12px; }
+  .lift-card { cursor: pointer; }
+
+  /* assistant */
+  .chat { display: grid; gap: var(--space-2); max-height: 230px; overflow: auto; align-content: end; }
+  .bubble { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: var(--text-xs); line-height: 1.5; }
+  .bubble.me { justify-self: end; background: var(--primary); color: var(--text-on-primary); border-bottom-right-radius: 4px; transform-origin: bottom right; }
+  .bubble.ai { justify-self: start; background: var(--surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .bubble.ai.refusal { background: var(--surface-sunken); color: var(--text-secondary); }
+  .evidence { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .evidence span { padding: 2px 8px; border-radius: var(--radius-full); background: var(--sev-low-bg); color: var(--sev-low-fg); font-size: 10px; font-weight: 600; }
+  .suggest { display: flex; gap: 6px; flex-wrap: wrap; }
+  .suggest button { border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-full); padding: 4px 10px; font: inherit; font-size: 11px; color: var(--text); cursor: pointer; }
+  .suggest button:hover { background: var(--surface-sunken); }
+
+  /* login + mini app */
+  .mini-app { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .mini-top { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-family: var(--font-display); font-weight: 600; font-size: var(--text-sm); }
+  .mini-body { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 12px 12px; }
+  .mini-body div { height: 40px; background: var(--surface-sunken); border-radius: var(--radius-sm); }
+  .lang-block[dir="rtl"] { text-align: right; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <div class="brand-bar" id="pageBar"></div>
+  <header class="topbar">
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" shape-rendering="crispEdges"><rect width="32" height="32" rx="6" fill="#1d1d1b"/><path class="m-draw" pathLength="1" d="M4 19H9V15H12V21H15V10H19V19H28" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="square"/><rect class="m-pixel" style="--delay:700ms" x="14" y="6" width="6" height="6" fill="#e2211c"/></svg>
+    <span class="name">Motion catalogue</span>
+    <span class="muted">Payment Anomaly Intelligence</span>
+    <span class="spacer"></span>
+    <a class="btn btn-ghost" href="styleguide.html"><i data-lucide="palette"></i>Style guide</a>
+    <button class="btn btn-ghost" id="pageTheme"><i data-lucide="sun-moon"></i>Theme</button>
+  </header>
+</div>
+
+<main>
+  <div class="intro">
+    <h1>One animation for every action</h1>
+    <p>Each card is live: click it, then hit <b>↻</b> to reset. The rules (budgets, what may loop, reduced motion) are in <code>DESIGN_RULES.md §11</code>. Classes come from <code>motion.css</code>, helpers from <code>motion.js</code>.</p>
+    <nav class="index">
+      <a href="#g-nav">Navigation</a><a href="#g-filters">Filters &amp; search</a><a href="#g-tables">Tables</a><a href="#g-alerts">Alerts &amp; triage</a><a href="#g-overlays">Detail &amp; overlays</a><a href="#g-charts">Charts</a><a href="#g-feedback">Feedback &amp; states</a><a href="#g-assistant">Assistant</a><a href="#g-prefs">Preferences</a>
+    </nav>
+  </div>
+
+  <!-- ═════════════ NAVIGATION ═════════════ -->
+  <section class="group" id="g-nav">
+    <h2><i data-lucide="compass"></i>Navigation</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="appLoad">
+        <header><h3>App load</h3><button class="reset" title="Replay"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="mini-app">
+            <div class="brand-bar"></div>
+            <div class="mini-top"><svg class="mark" viewBox="0 0 32 32" shape-rendering="crispEdges"><rect width="32" height="32" rx="6" fill="#1d1d1b"/><path class="m-draw" pathLength="1" d="M4 19H9V15H12V21H15V10H19V19H28" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="square"/><rect class="m-pixel" style="--delay:700ms" x="14" y="6" width="6" height="6" fill="#e2211c"/></svg><span class="m-fade" style="--delay:300ms">Payment Anomaly Intelligence</span></div>
+            <div class="mini-body"><div class="m-rise" style="--i:6"></div><div class="m-rise" style="--i:7"></div><div class="m-rise" style="--i:8"></div></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>First paint after sign-in</dd><dt>Motion</dt><dd>Logo line draws → red pixel pops (stepped) → brand bar sweep → content rises</dd><dt>Timing</dt><dd>900ms draw, pixel at 700ms, 45ms stagger</dd><dt>Use</dt><dd><code>.m-draw .m-pixel .brand-bar .m-rise</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="signIn">
+        <header><h3>Sign in</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="card login" style="display:grid;gap:8px">
+            <div class="eyebrow">SATIM operator access</div>
+            <input class="field" value="operator.demo" aria-label="Username">
+            <button class="btn btn-primary go"><i data-lucide="log-in"></i><span>Sign in</span></button>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Submit sign-in</dd><dt>Motion</dt><dd>Icon becomes a spinner, then the form fades and the app rises in</dd><dt>Timing</dt><dd>spinner while waiting, 450ms enter</dd><dt>Use</dt><dd><code>.m-spin → .m-backdrop-out → .m-rise</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="sideNav">
+        <header><h3>Sidebar navigation</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="align-items:center">
+          <nav class="side"><span class="side-ind"></span>
+            <button class="side-item is-active"><i data-lucide="layout-dashboard"></i>Overview</button>
+            <button class="side-item"><i data-lucide="bell"></i>Alerts</button>
+            <button class="side-item"><i data-lucide="store"></i>Merchants</button>
+            <button class="side-item"><i data-lucide="receipt"></i>Transactions</button>
+          </nav>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click a menu item</dd><dt>Motion</dt><dd>Red indicator glides to the new item; label color crossfades</dd><dt>Timing</dt><dd>450ms ease-out</dd><dt>Use</dt><dd><code>transform: translateY(item.offsetTop)</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="sideCollapse">
+        <header><h3>Collapse sidebar</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="align-items:flex-start">
+          <button class="btn btn-secondary toggle"><i data-lucide="panel-left"></i>Toggle</button>
+          <nav class="side collapsible">
+            <button class="side-item is-active"><i data-lucide="layout-dashboard"></i><span class="lbl">Overview</span></button>
+            <button class="side-item"><i data-lucide="bell"></i><span class="lbl">Alerts</span></button>
+            <button class="side-item"><i data-lucide="store"></i><span class="lbl">Merchants</span></button>
+          </nav>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Collapse button</dd><dt>Motion</dt><dd>Width 240→64px, labels fade first, icons stay put</dd><dt>Timing</dt><dd>200ms ease-out (labels 120ms)</dd><dt>Use</dt><dd><code>.collapsible.is-collapsed</code> (width: allowed exception)</dd></dl>
+      </article>
+
+      <article class="demo" data-demo="pageTransition">
+        <header><h3>Page change</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="muted crumbs">Overview</div>
+          <div class="card page"></div>
+          <div class="row"><button class="btn btn-secondary back"><i data-lucide="arrow-left"></i>Back</button><button class="btn btn-secondary fwd">Open merchant<i data-lucide="arrow-right"></i></button></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Route change (drill-down or breadcrumb back)</dd><dt>Motion</dt><dd>New page enters 24px from the direction of travel + fade</dd><dt>Timing</dt><dd>450ms ease-out</dd><dt>Use</dt><dd><code>.m-enter-fwd / .m-enter-back</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="tabs">
+        <header><h3>Tabs</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="tabs"><button class="tab is-active">Activity</button><button class="tab">Transactions</button><button class="tab">Anomalies</button><span class="tab-ind"></span></div>
+          <div class="panel muted"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click a tab</dd><dt>Motion</dt><dd>Red underline slides + resizes; panel fades in</dd><dt>Timing</dt><dd>450ms underline, 450ms panel</dd><dt>Use</dt><dd><code>.tab-ind · .m-fade</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="jump">
+        <header><h3>Jump to section</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <button class="btn btn-secondary go" style="align-self:flex-start"><i data-lucide="arrow-down"></i>Jump to explanation</button>
+          <div class="scrollbox">
+            <div class="card">Activity</div><div class="card">Channels</div><div class="card">Transactions</div><div class="card target"><b>Explanation</b><br><span class="muted">Target briefly highlights</span></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click an anchor / "View explanation"</dd><dt>Motion</dt><dd>Smooth scroll, then the target flashes once</dd><dt>Timing</dt><dd>browser smooth scroll + 1.4s flash</dd><dt>Use</dt><dd><code>scrollTo({behavior}) · .m-flash</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ FILTERS ═════════════ -->
+  <section class="group" id="g-filters">
+    <h2><i data-lucide="list-filter"></i>Filters &amp; search</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="dropdown">
+        <header><h3>Open / close a dropdown</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start;min-height:230px">
+          <div class="rel dd">
+            <button class="btn btn-secondary open"><span class="lbl">Channel: All</span><i class="m-chevron" data-lucide="chevron-right"></i></button>
+            <div class="menu" hidden>
+              <button>All channels</button><button>E-commerce (CIB / Edahabia)</button><button>TPE / POS Terminal</button><button>Mobile App</button><button>Contactless / NFC</button>
+            </div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click the trigger / Esc / click outside</dd><dt>Motion</dt><dd>Menu scales from 96% at its anchor + fade; chevron rotates 90°</dd><dt>Timing</dt><dd>200ms in, 150ms out</dd><dt>Use</dt><dd><code>.m-popover-in · animateOut(el,'m-popover-out')</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="chips">
+        <header><h3>Add / remove filter chips</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="row adders"></div>
+          <div class="row chips" style="min-height:28px"></div>
+          <button class="btn btn-ghost clear" style="align-self:flex-start">Clear all</button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Apply / remove / clear filters</dd><dt>Motion</dt><dd>New chip pops; removed chip slides out, the rest glide closed; clear-all staggers</dd><dt>Timing</dt><dd>380ms pop, 200ms out, 450ms glide</dd><dt>Use</dt><dd><code>.m-pop · .m-dismiss · transition(update, scope)</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="search">
+        <header><h3>Search merchants</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start">
+          <input class="field q" placeholder="Search MER- or category… (try “food” or “xyz”)" aria-label="Search merchants">
+          <div class="list results"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Typing in search</dd><dt>Motion</dt><dd>Results rise in with a short stagger; empty state fades in</dd><dt>Timing</dt><dd>450ms, 45ms stagger, max 8</dd><dt>Use</dt><dd><code>.m-rise --i · .m-fade</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="range">
+        <header><h3>Change period</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="seg"><span class="seg-ind"></span><button class="is-active" data-k="0">7 days</button><button data-k="1">30 days</button><button data-k="2">90 days</button></div>
+          <svg class="chart" viewBox="0 0 300 120" preserveAspectRatio="none"><polyline class="series line" stroke="var(--chart-series)"/></svg>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Period / granularity switch</dd><dt>Motion</dt><dd>Selector thumb slides; the line morphs to the new data (no redraw from zero)</dd><dt>Timing</dt><dd>450ms thumb, 600ms morph</dd><dt>Use</dt><dd><code>tween(ms, p =&gt; …)</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ TABLES ═════════════ -->
+  <section class="group" id="g-tables">
+    <h2><i data-lucide="table"></i>Tables</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="sort">
+        <header><h3>Sort a column</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list">
+            <div class="th"><span class="c-mer">Merchant</span><span style="flex:1">Category</span><button class="c-num sortbtn">Value<i data-lucide="arrow-up"></i></button></div>
+            <div class="rows"></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click a sortable header</dd><dt>Motion</dt><dd>Arrow flips 180°; rows glide to their new order</dd><dt>Timing</dt><dd>200ms arrow, 450ms rows</dd><dt>Use</dt><dd><code>transition(update, scope) + data-vt</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="paginate">
+        <header><h3>Paginate</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list rows"></div>
+          <div class="row"><button class="btn btn-secondary prev"><i data-lucide="chevron-left"></i></button><span class="muted pg"></span><button class="btn btn-secondary next"><i data-lucide="chevron-right"></i></button></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Next / previous page</dd><dt>Motion</dt><dd>Rows enter from the direction of travel, staggered; page number flips</dd><dt>Timing</dt><dd>450ms, 45ms stagger</dd><dt>Use</dt><dd><code>.m-enter-fwd / .m-enter-back · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="expand">
+        <header><h3>Expand a row</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list">
+            <div class="xrow"><div class="item" style="cursor:pointer"><i class="m-chevron" data-lucide="chevron-right" style="width:14px"></i><span class="mono">MER-7175</span><span class="grow muted">Food &amp; Dining</span><span class="num">54 180 DZD</span></div><div class="m-collapse"><div class="expand-body"><div>12 transactions · 0 rejected · last at 10:52 · TPE / POS stopped after 11:00</div></div></div></div>
+            <div class="xrow"><div class="item" style="cursor:pointer"><i class="m-chevron" data-lucide="chevron-right" style="width:14px"></i><span class="mono">MER-5199</span><span class="grow muted">Digital Services</span><span class="num">312 400 DZD</span></div><div class="m-collapse"><div class="expand-body"><div>148 transactions · 46 rejected (31 %) · mostly Mobile App</div></div></div></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click a row / Enter</dd><dt>Motion</dt><dd>Chevron rotates; details open with a height reveal + fade</dd><dt>Timing</dt><dd>450ms reveal, 200ms chevron</dd><dt>Use</dt><dd><code>.is-open · .m-chevron · .m-collapse</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="select">
+        <header><h3>Select rows → bulk actions</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start;min-height:230px">
+          <div class="list rows"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Tick a checkbox</dd><dt>Motion</dt><dd>Checkmark draws; bulk bar slides up; the count flips</dd><dt>Timing</dt><dd>200ms check, 450ms bar</dd><dt>Use</dt><dd><code>.check · .m-slide-up · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="liveRow">
+        <header><h3>Live data arrives</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <button class="btn btn-secondary add" style="align-self:flex-start"><i data-lucide="radio"></i>Simulate a new transaction batch</button>
+          <div class="list rows"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Backend pushes new rows</dd><dt>Motion</dt><dd>New row slides in on top with a soft blue flash; others glide down</dd><dt>Timing</dt><dd>450ms glide, 1.4s flash</dd><dt>Use</dt><dd><code>transition() · .m-flash (--flash)</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ ALERTS ═════════════ -->
+  <section class="group" id="g-alerts">
+    <h2><i data-lucide="siren"></i>Alerts &amp; triage</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="ack">
+        <header><h3>Acknowledge</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list"><div class="item bordered sev-critical row-ack">
+            <svg class="dot-svg" viewBox="0 0 28 28"><circle class="m-ring is-critical" cx="14" cy="14" r="5"/><circle cx="14" cy="14" r="5" fill="var(--sev-critical)"/></svg>
+            <span class="badge sev-critical m-beat"><i data-lucide="octagon-alert"></i>Critical</span>
+            <span class="grow">Activity interruption · <span class="mono">MER-3318</span></span>
+          </div></div>
+          <button class="btn btn-primary ackbtn" style="align-self:flex-start"><i data-lucide="check"></i><span>Acknowledge</span></button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Acknowledge button / <code>A</code></dd><dt>Motion</dt><dd>Heartbeat and ripple stop, row dims, button flips to "Acknowledged"</dd><dt>Timing</dt><dd>200ms dim, 300ms flip</dd><dt>Use</dt><dd><code>remove .m-beat / .is-critical · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="assign">
+        <header><h3>Assign an owner</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start;min-height:210px">
+          <div class="list"><div class="item bordered sev-high"><span class="badge sev-high"><i data-lucide="triangle-alert"></i>High</span><span class="grow">Rejection spike · <span class="mono">MER-5199</span></span><span class="owner"></span></div></div>
+          <div class="rel">
+            <button class="btn btn-secondary open"><i data-lucide="user-round"></i><span class="lbl">Assign</span></button>
+            <div class="menu" hidden><button data-i="L1">L1 operations</button><button data-i="BK">Acquiring bank liaison</button><button data-i="NW">Network team</button></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Pick an owner</dd><dt>Motion</dt><dd>Menu pops; owner avatar pops into the row</dd><dt>Timing</dt><dd>200ms menu, 380ms spring pop</dd><dt>Use</dt><dd><code>.m-popover-in · .m-pop</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="snooze">
+        <header><h3>Snooze with undo</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start;min-height:230px">
+          <div class="list rows"></div>
+          <div class="toast-zone"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Snooze button</dd><dt>Motion</dt><dd>Row slides out right, gap closes; undo toast with countdown bar; Undo slides it back</dd><dt>Timing</dt><dd>200ms out, 450ms glide, 5s toast</dd><dt>Use</dt><dd><code>.m-dismiss · transition() · .m-timer</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="resolve">
+        <header><h3>Resolve → re-rank</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage"><div class="list rows"></div></div>
+        <dl class="spec"><dt>Trigger</dt><dd>Resolve, or backend detects recovery</dd><dt>Motion</dt><dd>Badge flips to Recovered; row glides to the bottom; ranks renumber</dd><dt>Timing</dt><dd>300ms flip, 450ms glide</dd><dt>Use</dt><dd><code>transition() · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="escalate">
+        <header><h3>Escalate / de-escalate</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list"><div class="item bordered row-esc"><span class="sevslot"></span><span class="grow">Activity drop · <span class="mono">MER-7175</span></span></div></div>
+          <div class="row"><button class="btn btn-secondary up"><i data-lucide="chevrons-up"></i>Escalate</button><button class="btn btn-secondary down"><i data-lucide="chevrons-down"></i>De-escalate</button></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Manual severity change</dd><dt>Motion</dt><dd>Badge flips to the new level; row border recolors</dd><dt>Timing</dt><dd>300ms flip, 200ms border</dd><dt>Use</dt><dd><code>.m-flip · border-color transition</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="incoming">
+        <header><h3>New critical alert</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="bellbox"><span class="bell"><i data-lucide="bell"></i><span class="count">2</span></span><span class="muted grow">Notifications</span></div>
+          <button class="btn btn-secondary add" style="align-self:flex-start"><i data-lucide="radio"></i>Simulate incoming alert</button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Backend raises a critical alert</dd><dt>Motion</dt><dd>Banner slides down, bell rings, counter flips +1; banner leaves after 4s</dd><dt>Timing</dt><dd>450ms banner, 700ms bell</dd><dt>Use</dt><dd><code>.m-slide-down · .m-ring-bell · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="incident">
+        <header><h3>Group into an incident</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="list rows"></div>
+          <button class="btn btn-secondary go" style="align-self:flex-start"><i data-lucide="network"></i><span>Group as incident</span></button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Group (manual or automatic root-cause match)</dd><dt>Motion</dt><dd>Rows merge into one incident card, which grows out of the first row</dd><dt>Timing</dt><dd>450ms</dd><dt>Use</dt><dd><code>transition() with shared data-vt</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ OVERLAYS ═════════════ -->
+  <section class="group" id="g-overlays">
+    <h2><i data-lucide="panel-right"></i>Detail &amp; overlays</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="drawer">
+        <header><h3>Anomaly detail drawer</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="min-height:230px">
+          <button class="btn btn-secondary open" style="align-self:flex-start"><i data-lucide="panel-right-open"></i>Open anomaly detail</button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click an alert row</dd><dt>Motion</dt><dd>Backdrop fades, drawer slides from the right; reverse on close/Esc</dd><dt>Timing</dt><dd>450ms in, 200ms out</dd><dt>Use</dt><dd><code>.m-drawer-in/out · .m-backdrop-in/out</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="modal">
+        <header><h3>Confirm dialog</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="min-height:230px">
+          <button class="btn btn-secondary open" style="align-self:flex-start"><i data-lucide="check-check"></i>Resolve 4 alerts…</button>
+          <div class="toast-zone"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Bulk / irreversible action</dd><dt>Motion</dt><dd>Dialog scales from 96% + fade; backdrop fades; success toast after confirm</dd><dt>Timing</dt><dd>200ms in, 150ms out</dd><dt>Use</dt><dd><code>.m-modal-in/out</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="accordion">
+        <header><h3>"How was this computed?"</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="card acc">
+            <button class="acc-head"><i class="m-chevron" data-lucide="chevron-right"></i>How was this computed?</button>
+            <div class="m-collapse"><div class="muted">“Usual” = median of the same weekday over the previous 4 weeks. Expected range = usual ± typical day-to-day variation. Score 0.87 (higher = more unusual).</div></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click the disclosure</dd><dt>Motion</dt><dd>Chevron rotates; text reveals with height + fade</dd><dt>Timing</dt><dd>450ms</dd><dt>Use</dt><dd><code>.m-collapse.is-open</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="tooltip">
+        <header><h3>Tooltip</h3><span></span></header>
+        <div class="stage" style="align-items:center;justify-content:flex-end;padding-bottom:40px">
+          <span class="has-tip" tabindex="0">Usual: 41 tx<i data-lucide="info" style="width:14px"></i><span class="tip">Median of the last 4 Tuesdays for this merchant. Hover or focus to see this.</span></span>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Hover / keyboard focus</dd><dt>Motion</dt><dd>Fades in and rises 4px after a 300ms intent delay; leaves instantly</dd><dt>Timing</dt><dd>120ms</dd><dt>Use</dt><dd><code>.has-tip .tip</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ CHARTS ═════════════ -->
+  <section class="group" id="g-charts">
+    <h2><i data-lucide="chart-line"></i>Charts</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="chartDraw">
+        <header><h3>Chart first draw</h3><button class="reset" title="Replay"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <svg class="chart sev-medium" viewBox="0 0 300 120">
+            <path class="m-band" d="M0 30 H300 V64 H0Z" fill="var(--chart-band)"/>
+            <line class="m-fade" style="--delay:200ms" x1="0" x2="300" y1="47" y2="47" stroke="var(--chart-baseline)" stroke-dasharray="4 4"/>
+            <polyline class="m-draw series" style="--delay:250ms" pathLength="1" stroke="var(--chart-series)" points="0,44 25,52 50,40 75,55 100,46 125,42 150,53 175,45 200,49 225,38 250,51 275,46 300,104"/>
+            <circle class="m-ring" style="--delay:1100ms" cx="300" cy="104" r="5"/>
+            <circle class="m-pop" style="--delay:1100ms" cx="300" cy="104" r="5" fill="var(--sev-medium)" stroke="var(--surface)" stroke-width="2"/>
+          </svg>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Chart first enters the screen</dd><dt>Motion</dt><dd>Band grows → usual line fades → series draws → anomaly pops + ripples ×2</dd><dt>Timing</dt><dd>≈1.5s total, once</dd><dt>Use</dt><dd><code>.m-band .m-fade .m-draw .m-pop .m-ring</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="crosshair">
+        <header><h3>Hover crosshair</h3><span></span></header>
+        <div class="stage">
+          <div class="rel">
+            <svg class="chart area" viewBox="0 0 300 120">
+              <polyline class="series" stroke="var(--chart-series)" points="0,60 30,52 60,64 90,40 120,48 150,30 180,44 210,56 240,38 270,46 300,34"/>
+              <g class="xhair" style="opacity:0"><line x1="0" x2="0" y1="0" y2="120" stroke="var(--chart-axis)" stroke-dasharray="2 3"/><circle r="4" fill="var(--chart-series)" stroke="var(--surface)" stroke-width="2"/></g>
+            </svg>
+            <div class="tip-box" style="opacity:0"></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Pointer moves over a chart</dd><dt>Motion</dt><dd>Crosshair and tooltip snap to the nearest point with a short glide</dd><dt>Timing</dt><dd>80ms; fade 120ms on enter/leave</dd><dt>Use</dt><dd><code>.xhair · .tip-box</code> transitions</dd></dl>
+      </article>
+
+      <article class="demo" data-demo="legend">
+        <header><h3>Toggle a series</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="legend"><button data-s="a"><i style="background:var(--ch-ecommerce)"></i>E-commerce</button><button data-s="b"><i style="background:var(--ch-pos)"></i>TPE / POS</button><button data-s="c"><i style="background:var(--ch-mobile)"></i>Mobile App</button></div>
+          <svg class="chart" viewBox="0 0 300 120">
+            <polyline class="series s-a" stroke="var(--ch-ecommerce)" points="0,40 50,36 100,44 150,30 200,38 250,28 300,34"/>
+            <polyline class="series s-b" stroke="var(--ch-pos)" points="0,70 50,64 100,72 150,60 200,90 250,104 300,108"/>
+            <polyline class="series s-c" stroke="var(--ch-mobile)" points="0,90 50,86 100,84 150,88 200,80 250,82 300,78"/>
+          </svg>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click a legend item</dd><dt>Motion</dt><dd>Series fades out/in; legend item dims + strikes through</dd><dt>Timing</dt><dd>200ms</dd><dt>Use</dt><dd><code>.series.off · .legend .off</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="forecast">
+        <header><h3>Show forecast (Look Ahead)</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <label class="switch"><input type="checkbox" class="tg"><span class="track"></span>Show 7-day forecast</label>
+          <svg class="chart" viewBox="0 0 300 120">
+            <polyline class="series" stroke="var(--chart-series)" points="0,60 25,54 50,62 75,48 100,56 125,44 150,52 175,46"/>
+            <g class="fc"></g>
+          </svg>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Toggle forecast</dd><dt>Motion</dt><dd>"Today" rule fades, uncertainty band grows, dashed forecast wipes left→right</dd><dt>Timing</dt><dd>450ms band, 900ms wipe; 200ms fade out</dd><dt>Use</dt><dd><code>.m-band · .m-wipe · .m-backdrop-out</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ FEEDBACK ═════════════ -->
+  <section class="group" id="g-feedback">
+    <h2><i data-lucide="message-square-more"></i>Feedback &amp; states</h2>
+    <div class="demos">
+
+      <article class="demo" data-demo="toasts">
+        <header><h3>Toasts</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="justify-content:flex-start;min-height:230px">
+          <div class="row"><button class="btn btn-secondary" data-t="ok">Success</button><button class="btn btn-secondary" data-t="info">Info</button><button class="btn btn-secondary" data-t="err">Error</button></div>
+          <div class="toast-zone"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Any action result</dd><dt>Motion</dt><dd>Slides in from the right; countdown bar; slides out and the stack glides. Errors stay until closed</dd><dt>Timing</dt><dd>450ms in, 4s life, 200ms out</dd><dt>Use</dt><dd><code>.m-enter-fwd · .m-timer · .m-dismiss</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="copy">
+        <header><h3>Copy merchant ID</h3><span></span></header>
+        <div class="stage" style="align-items:center">
+          <button class="btn btn-secondary cp"><span class="mono">MER-7175</span><span class="ic"><i data-lucide="copy"></i></span></button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Click the copy icon</dd><dt>Motion</dt><dd>Icon swaps to a popping check + "Copied", reverts after 1.5s</dd><dt>Timing</dt><dd>380ms pop</dd><dt>Use</dt><dd><code>.m-pop</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="export">
+        <header><h3>Export CSV</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="align-items:center">
+          <button class="btn btn-secondary ex" style="min-width:190px;justify-content:center"><span class="fill"></span><i data-lucide="file-down"></i><span class="lbl">Export CSV</span></button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Export / generate report</dd><dt>Motion</dt><dd>Button fills with progress + percentage, then a check pops</dd><dt>Timing</dt><dd>real progress (demo 1.2s)</dd><dt>Use</dt><dd><code>tween() · .m-pop</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="validate">
+        <header><h3>Form validation</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <label class="muted">Alert threshold (score 0–1)</label>
+          <div class="row"><input class="field v" value="1.7" style="width:120px" aria-label="Alert threshold"><button class="btn btn-primary save"><span>Save</span></button></div>
+          <div class="msg"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Submit with an invalid value</dd><dt>Motion</dt><dd>Field shakes and outlines red; message rises in. Valid → button flips to "Saved"</dd><dt>Timing</dt><dd>320ms shake</dd><dt>Use</dt><dd><code>.m-shake · .invalid · .m-rise · .m-flip</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="loading">
+        <header><h3>Loading → content</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <button class="btn btn-secondary go" style="align-self:flex-start"><i data-lucide="database"></i>Load merchant KPIs</button>
+          <div class="card slot" style="display:grid;gap:8px;min-height:84px"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Any fetch longer than 200ms</dd><dt>Motion</dt><dd>Skeleton shimmer in the final layout, then real content rises and counts up</dd><dt>Timing</dt><dd>shimmer 1.2s loop, 450ms enter</dd><dt>Use</dt><dd><code>.skeleton · .m-rise · countUp()</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="retry">
+        <header><h3>Error → retry</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="card slot" style="display:grid;gap:8px;justify-items:start">
+            <div style="display:flex;gap:6px;align-items:center;color:var(--sev-critical-fg);font-weight:600;font-size:var(--text-xs)"><i data-lucide="cloud-off" style="width:16px"></i>Couldn't load merchants</div>
+            <div class="muted">The backend did not answer. Your filters are kept.</div>
+            <button class="btn btn-secondary go"><i data-lucide="refresh-cw"></i><span>Retry</span></button>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Retry after a failed request</dd><dt>Motion</dt><dd>Retry icon spins while waiting; content fades in on success</dd><dt>Timing</dt><dd>800ms per spin</dd><dt>Use</dt><dd><code>.m-spin · .m-fade</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="refresh">
+        <header><h3>Refresh data</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="mini-app">
+            <div class="brand-bar bar"></div>
+            <div class="mini-top" style="justify-content:space-between"><span class="eyebrow">Transactions today</span><button class="btn btn-ghost go"><i data-lucide="refresh-cw"></i></button></div>
+            <div style="padding:0 12px 12px"><span class="kpi k">8 412</span><div class="muted up">Updated 5 min ago</div></div>
+          </div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Refresh button or auto-refresh</dd><dt>Motion</dt><dd>Icon spins, brand bar sweeps, then KPI counts up and "Updated" flips</dd><dt>Timing</dt><dd>until data lands, 900ms count</dd><dt>Use</dt><dd><code>.brand-bar.is-refreshing · countUp()</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="hover">
+        <header><h3>Hover &amp; press</h3><span></span></header>
+        <div class="stage" style="align-items:center">
+          <div class="card m-lift lift-card" style="width:220px"><div class="eyebrow">Rejection rate</div><div class="kpi">6,8 %</div><div class="muted">Hover me: the card lifts</div></div>
+          <button class="btn btn-primary">Press me</button>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Pointer over / press a clickable element</dd><dt>Motion</dt><dd>Card lifts 2px + shadow; button presses to 97%; rows tint</dd><dt>Timing</dt><dd>120–200ms</dd><dt>Use</dt><dd><code>.m-lift · .btn:active</code></dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ ASSISTANT ═════════════ -->
+  <section class="group" id="g-assistant">
+    <h2><i data-lucide="sparkles"></i>Assistant ("Ask the Dashboard")</h2>
+    <div class="demos">
+      <article class="demo" data-demo="chat" style="grid-column:1/-1">
+        <header><h3>Ask → think → stream → evidence (and polite refusal)</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage" style="min-height:300px;justify-content:flex-end">
+          <div class="chat"></div>
+          <div class="suggest"><button data-q="0">Why did MER-7175 drop on 14 Oct?</button><button data-q="1">Is this merchant doing something illegal?</button></div>
+        </div>
+        <dl class="spec"><dt>Send</dt><dd>Question bubble rises from the input (<code>.m-rise</code>, 450ms)</dd><dt>Think</dt><dd>Three bouncing dots while the backend computes (<code>.m-typing</code>)</dd><dt>Stream</dt><dd>Answer appears word by word with a blinking caret (<code>.m-caret</code>, ~35ms/word)</dd><dt>Evidence</dt><dd>Source chips pop in, staggered (<code>.m-pop</code>)</dd><dt>Refusal</dt><dd>Same flow, neutral gray bubble, no evidence chips: never alarming</dd></dl>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═════════════ PREFERENCES ═════════════ -->
+  <section class="group" id="g-prefs">
+    <h2><i data-lucide="settings-2"></i>Preferences</h2>
+    <div class="demos">
+      <article class="demo" data-demo="theme">
+        <header><h3>Theme switch</h3><span></span></header>
+        <div class="stage" style="align-items:center"><button class="btn btn-primary go"><i data-lucide="sun-moon"></i>Switch theme</button></div>
+        <dl class="spec"><dt>Trigger</dt><dd>Theme toggle</dd><dt>Motion</dt><dd>New theme spreads as a circle from the button over the whole app</dd><dt>Timing</dt><dd>550ms ease-out</dd><dt>Use</dt><dd><code>toggleTheme(button)</code></dd></dl>
+      </article>
+
+      <article class="demo" data-demo="lang">
+        <header><h3>Language switch (EN · FR · AR)</h3><button class="reset" title="Reset"><i data-lucide="rotate-ccw"></i></button></header>
+        <div class="stage">
+          <div class="seg"><span class="seg-ind"></span><button class="is-active" data-l="en">EN</button><button data-l="fr">FR</button><button data-l="ar">العربية</button></div>
+          <div class="card lang-block"></div>
+        </div>
+        <dl class="spec"><dt>Trigger</dt><dd>Change language</dd><dt>Motion</dt><dd>Text crossfades in place; switching to/from Arabic slides in from the new reading direction</dd><dt>Timing</dt><dd>450ms</dd><dt>Use</dt><dd><code>.m-enter-fwd / .m-enter-back · dir="rtl"</code></dd></dl>
+      </article>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import { countUp, tween, animateOut, transition, toggleTheme, reducedMotion } from './motion.js';
+
+  const icons = () => lucide.createIcons();
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  // restart a CSS animation class on an element
+  const play = (el, cls) => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+  const fr = (d = 0) => (n) => n.toLocaleString('fr-DZ', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const SEV = { critical: ['octagon-alert', 'Critical'], high: ['triangle-alert', 'High'], medium: ['circle-alert', 'Medium'], low: ['info', 'Low'], normal: ['circle-check', 'Recovered'] };
+  const badge = (s, extra = '') => `<span class="badge sev-${s} ${extra}"><i data-lucide="${SEV[s][0]}"></i>${SEV[s][1]}</span>`;
+  const toast = (zone, { icon = 'circle-check', text, action, sticky = false, ms = 4000 }) => {
+    const t = document.createElement('div');
+    t.className = 'toast m-enter-fwd';
+    t.dataset.vt = 'toast-' + Math.random().toString(36).slice(2, 8);
+    t.innerHTML = `<i data-lucide="${icon}"></i><span>${text}</span>${action ? `<button class="link">${action}</button>` : ''}<button class="link x" aria-label="Close" style="margin-left:${action ? '4px' : 'auto'}"><i data-lucide="x"></i></button>${sticky ? '' : `<span class="t-bar m-timer" style="--timer:${ms}ms"></span>`}`;
+    zone.append(t); icons();
+    const close = async () => { if (!t.isConnected) return; await animateOut(t, 'm-dismiss'); transition(() => t.remove(), zone); };
+    t.querySelector('.x').onclick = close;
+    if (!sticky) {
+      const bar = t.querySelector('.t-bar');
+      if (reducedMotion()) setTimeout(close, ms); else bar.addEventListener('animationend', close);
+    }
+    return { el: t, close };
+  };
+
+  /* Each demo: bind(stage) wires it up; ↻ restores the original markup and binds again (replaying entrances). */
+  const demos = {};
+  const demo = (name, bind) => { demos[name] = bind; };
+  function mount(article) {
+    const stage = article.querySelector('.stage');
+    const html = stage.innerHTML;
+    const run = () => { const b = demos[article.dataset.demo]; if (b) b(stage, (s) => stage.querySelector(s), (s) => [...stage.querySelectorAll(s)]); };
+    article.querySelector('.reset')?.addEventListener('click', () => { stage.innerHTML = html; icons(); run(); });
+    run();
+  }
+
+  /* ── Navigation ── */
+  demo('signIn', ($, q) => {
+    q('.go').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      b.innerHTML = '<i data-lucide="loader-circle" class="m-spin"></i><span>Signing in…</span>'; icons();
+      await wait(1000);
+      await animateOut(q('.login'), 'm-backdrop-out');
+      $.innerHTML = '<div class="mini-app m-rise"><div class="brand-bar"></div><div class="mini-top">Overview</div><div class="mini-body"><div class="m-rise" style="--i:2"></div><div class="m-rise" style="--i:3"></div><div class="m-rise" style="--i:4"></div></div></div>';
+    };
+  });
+  demo('sideNav', ($, q, qa) => {
+    qa('.side-item').forEach((b) => b.onclick = () => {
+      qa('.side-item').forEach((x) => x.classList.toggle('is-active', x === b));
+      q('.side-ind').style.transform = `translateY(${b.offsetTop}px)`;
+    });
+    q('.side-ind').style.transform = `translateY(${q('.side-item').offsetTop}px)`;
+  });
+  demo('sideCollapse', ($, q) => { q('.toggle').onclick = () => q('.collapsible').classList.toggle('is-collapsed'); });
+  demo('pageTransition', ($, q) => {
+    const pages = [
+      ['Overview', '<b>Network overview</b><div class="muted">35 merchants · 3 open incidents</div>'],
+      ['Overview › Merchants', '<b>Merchants</b><div class="muted">Sorted by open anomalies</div>'],
+      ['Overview › Merchants › MER-7175', '<b><span class="mono">MER-7175</span> · Food &amp; Dining</b><div class="muted">1 open anomaly · Activity drop</div>'],
+    ];
+    let i = 0;
+    const show = (dir) => { q('.crumbs').textContent = pages[i][0]; const p = q('.page'); p.innerHTML = pages[i][1]; if (dir) play(p, dir > 0 ? 'm-enter-fwd' : 'm-enter-back'); };
+    q('.fwd').onclick = () => { if (i < 2) { i++; show(1); } };
+    q('.back').onclick = () => { if (i > 0) { i--; show(-1); } };
+    show(0);
+  });
+  demo('tabs', ($, q, qa) => {
+    const text = ['Daily activity vs usual, last 30 days.', '1 248 transactions in the selected period.', '3 anomalies: 1 high, 2 medium.'];
+    const sel = (b, i, anim) => {
+      qa('.tab').forEach((x) => x.classList.toggle('is-active', x === b));
+      Object.assign(q('.tab-ind').style, { width: b.offsetWidth + 'px', transform: `translateX(${b.offsetLeft}px)` });
+      q('.panel').textContent = text[i]; if (anim) play(q('.panel'), 'm-fade');
+    };
+    qa('.tab').forEach((b, i) => b.onclick = () => sel(b, i, true));
+    sel(q('.tab'), 0, false);
+  });
+  demo('jump', ($, q) => {
+    q('.go').onclick = () => {
+      const box = q('.scrollbox'), t = q('.target');
+      box.scrollTo({ top: t.offsetTop, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      t.style.setProperty('--flash', 'var(--sev-low-bg)');
+      setTimeout(() => play(t, 'm-flash'), reducedMotion() ? 0 : 350);
+    };
+  });
+
+  /* ── Filters ── */
+  function popover($, q, onPick) {
+    const menu = q('.menu'), wrap = menu.parentElement;
+    const close = async () => { if (menu.hidden) return; wrap.classList.remove('is-open'); await animateOut(menu, 'm-popover-out'); menu.hidden = true; menu.classList.remove('m-popover-out'); };
+    q('.open').onclick = (e) => { e.stopPropagation(); if (!menu.hidden) return close(); menu.hidden = false; wrap.classList.add('is-open'); play(menu, 'm-popover-in'); };
+    menu.querySelectorAll('button').forEach((b) => b.onclick = (e) => { e.stopPropagation(); onPick(b); close(); });
+    $.onclick = close;
+    $.onkeydown = (e) => { if (e.key === 'Escape') close(); };
+  }
+  demo('dropdown', ($, q) => popover($, q, (b) => { q('.lbl').textContent = 'Channel: ' + (b.textContent.startsWith('All') ? 'All' : b.textContent.split(' (')[0]); }));
+  demo('chips', ($, q, qa) => {
+    const CH = { ecommerce: 'E-commerce', pos: 'TPE / POS', mobile: 'Mobile App', contactless: 'Contactless', transfer: 'Transfer' };
+    q('.adders').innerHTML = Object.entries(CH).map(([k, v]) => `<button class="btn btn-ghost" data-k="${k}" style="height:26px;font-size:11px"><i data-lucide="plus"></i>${v}</button>`).join(''); icons();
+    const chips = q('.chips');
+    const remove = async (c) => { await animateOut(c, 'm-dismiss'); transition(() => c.remove(), chips); };
+    qa('.adders button').forEach((b) => b.onclick = () => {
+      const k = b.dataset.k; if (chips.querySelector(`[data-k="${k}"]`)) return;
+      const c = document.createElement('span');
+      c.className = 'chip m-pop'; c.dataset.k = k; c.dataset.vt = 'chip-' + k;
+      c.innerHTML = `<span class="dot" style="background:var(--ch-${k})"></span>${CH[k]}<button aria-label="Remove"><i data-lucide="x"></i></button>`;
+      chips.append(c); icons();
+      c.querySelector('button').onclick = () => remove(c);
+    });
+    q('.clear').onclick = async () => {
+      const all = [...chips.children]; all.forEach((c, i) => c.style.setProperty('--i', i));
+      await Promise.all(all.map((c) => animateOut(c, 'm-dismiss'))); all.forEach((c) => c.remove());
+    };
+  });
+  demo('search', ($, q) => {
+    const M = [['MER-7175', 'Food & Dining'], ['MER-5199', 'Digital Services & Telecom'], ['MER-2210', 'Electronics & Tech'], ['MER-3318', 'Groceries & Supermarkets'], ['MER-6042', 'Travel & Hospitality'], ['MER-1102', 'Retail & Apparel'], ['MER-4410', 'Healthcare & Pharmacy'], ['MER-8023', 'Food & Dining']];
+    const render = (v) => {
+      const hits = M.filter(([id, c]) => (id + c).toLowerCase().includes(v.toLowerCase())).slice(0, 4);
+      q('.results').innerHTML = hits.length
+        ? hits.map(([id, c], i) => `<div class="item m-rise" style="--i:${i}"><span class="mono">${id}</span><span class="muted">${c}</span></div>`).join('')
+        : `<div class="empty m-fade"><i data-lucide="search-x" style="width:18px"></i><br>No merchant matches “${v.replace(/</g, '&lt;')}”</div>`;
+      icons();
+    };
+    q('.q').oninput = (e) => render(e.target.value.trim());
+    render('');
+  });
+  demo('range', ($, q, qa) => {
+    const sets = [[60, 52, 64, 40, 48, 30, 44, 56, 38, 46, 34, 42], [70, 40, 80, 30, 66, 50, 20, 60, 44, 76, 36, 52], [90, 84, 70, 72, 60, 58, 50, 46, 40, 36, 30, 24]];
+    const line = q('.line'); let cur = sets[0].slice();
+    const draw = (ys) => line.setAttribute('points', ys.map((y, i) => `${(i / 11) * 300},${y}`).join(' '));
+    const thumb = (b) => Object.assign(q('.seg-ind').style, { width: b.offsetWidth + 'px', transform: `translateX(${b.offsetLeft - 2}px)` });
+    qa('.seg button').forEach((b) => b.onclick = () => {
+      qa('.seg button').forEach((x) => x.classList.toggle('is-active', x === b)); thumb(b);
+      const from = cur.slice(), to = sets[b.dataset.k];
+      tween(600, (p) => { cur = from.map((y, i) => y + (to[i] - y) * p); draw(cur); });
+    });
+    draw(cur); thumb(q('.seg button'));
+  });
+
+  /* ── Tables ── */
+  demo('sort', ($, q) => {
+    let data = [['MER-7175', 'Food & Dining', 54180], ['MER-5199', 'Digital Services', 312400], ['MER-2210', 'Electronics', 98700], ['MER-6042', 'Travel', 187300]];
+    let asc = true;
+    const rows = q('.rows');
+    const render = () => { rows.innerHTML = data.map((r) => `<div class="item" data-vt="sort-${r[0]}"><span class="mono c-mer">${r[0]}</span><span class="grow muted">${r[1]}</span><span class="num c-num">${fr()(r[2])}</span></div>`).join(''); };
+    q('.sortbtn').onclick = (e) => {
+      asc = !asc; e.currentTarget.classList.toggle('desc', !asc);
+      transition(() => { data.sort((a, b) => (asc ? a[2] - b[2] : b[2] - a[2])); render(); }, rows);
+    };
+    data.sort((a, b) => a[2] - b[2]); render();
+  });
+  demo('paginate', ($, q) => {
+    const all = Array.from({ length: 12 }, (_, i) => [`MER-${(1000 + i * 731) % 9000 + 1000}`, `${fr()(20 + ((i * 37) % 90))} tx`]);
+    let p = 0;
+    const render = (dir) => {
+      q('.rows').innerHTML = all.slice(p * 4, p * 4 + 4).map((r, i) => `<div class="item ${dir ? (dir > 0 ? 'm-enter-fwd' : 'm-enter-back') : ''}" style="--i:${i}"><span class="mono grow">${r[0]}</span><span class="num">${r[1]}</span></div>`).join('');
+      q('.pg').innerHTML = `<span class="${dir ? 'm-flip' : ''}">Page ${p + 1}</span> / 3`;
+    };
+    q('.next').onclick = () => { if (p < 2) { p++; render(1); } };
+    q('.prev').onclick = () => { if (p > 0) { p--; render(-1); } };
+    render(0);
+  });
+  demo('expand', ($, q, qa) => {
+    qa('.xrow').forEach((r) => { const head = r.querySelector('.item'); head.tabIndex = 0;
+      const tog = () => { r.classList.toggle('is-open'); r.querySelector('.m-collapse').classList.toggle('is-open'); };
+      head.onclick = tog; head.onkeydown = (e) => { if (e.key === 'Enter') tog(); }; });
+  });
+  demo('select', ($, q, qa) => {
+    const ids = ['MER-7175', 'MER-5199', 'MER-2210', 'MER-3318'];
+    q('.rows').innerHTML = ids.map((id) => `<label class="item" style="cursor:pointer"><span class="check"><input type="checkbox"><span class="box"><svg viewBox="0 0 12 12"><polyline pathLength="1" points="2,6.5 5,9 10,3"/></svg></span></span><span class="mono grow">${id}</span><span class="muted">1 open alert</span></label>`).join('');
+    let bar = null;
+    qa('input[type=checkbox]').forEach((c) => c.onchange = async () => {
+      const n = qa('input:checked').length;
+      if (n && !bar) {
+        bar = document.createElement('div'); bar.className = 'bulkbar m-slide-up';
+        bar.innerHTML = '<span class="n"></span><span style="flex:1"></span><button class="btn btn-ghost">Acknowledge</button><button class="btn btn-ghost">Assign</button>';
+        $.append(bar);
+      }
+      if (bar) bar.querySelector('.n').innerHTML = `<span class="m-flip">${n}</span> selected`;
+      if (!n && bar) { const b = bar; bar = null; await animateOut(b, 'm-backdrop-out'); b.remove(); }
+    });
+  });
+  demo('liveRow', ($, q) => {
+    let n = 0;
+    const mk = (id, txt, fresh) => `<div class="item ${fresh ? 'm-flash' : ''}" style="--flash:var(--sev-low-bg)" data-vt="live-${id}"><span class="mono grow">${id}</span><span class="num">${txt}</span><span class="muted">${fresh ? 'just now' : 'earlier'}</span></div>`;
+    q('.rows').innerHTML = [['MER-7175', '4 515,91 DZD'], ['MER-5199', '2 228,88 DZD'], ['MER-2210', '12 040,00 DZD']].map((r) => mk(...r)).join('');
+    q('.add').onclick = () => {
+      const rows = q('.rows');
+      transition(() => {
+        rows.querySelector('.m-flash')?.classList.remove('m-flash');
+        rows.insertAdjacentHTML('afterbegin', mk(`MER-${9100 + n++}`, `${fr(2)(1000 + Math.random() * 9000)} DZD`, true));
+        if (rows.children.length > 4) rows.lastElementChild.remove();
+      }, rows);
+    };
+  });
+
+  /* ── Alerts ── */
+  demo('ack', ($, q) => {
+    q('.ackbtn').onclick = (e) => {
+      const b = e.currentTarget; b.disabled = true;
+      q('.m-beat')?.classList.remove('m-beat'); q('.m-ring')?.classList.remove('is-critical');
+      q('.row-ack').classList.add('acked');
+      b.innerHTML = '<span class="m-flip" style="display:inline-flex;gap:6px;align-items:center"><i data-lucide="check-check"></i>Acknowledged</span>'; icons();
+    };
+  });
+  demo('assign', ($, q) => popover($, q, (b) => {
+    q('.owner').innerHTML = `<span class="avatar m-pop" title="${b.textContent}">${b.dataset.i}</span>`;
+    q('.lbl').textContent = 'Reassign';
+  }));
+  demo('snooze', ($, q) => {
+    const list = q('.rows'), zone = q('.toast-zone');
+    const A = [['high', 'Rejection spike', 'MER-5199'], ['medium', 'Activity drop', 'MER-7175'], ['low', 'Amount spike', 'MER-2210']];
+    list.innerHTML = A.map(([s, t, m], i) => `<div class="item bordered sev-${s}" data-vt="snz-${i}">${badge(s)}<span class="grow">${t} · <span class="mono">${m}</span></span><button class="btn btn-ghost zz" style="height:26px;font-size:11px"><i data-lucide="alarm-clock"></i>1 h</button></div>`).join(''); icons();
+    list.querySelectorAll('.zz').forEach((b) => b.onclick = async () => {
+      const row = b.closest('.item'), next = row.nextElementSibling;
+      await animateOut(row, 'm-dismiss');
+      transition(() => row.remove(), list);
+      const t = toast(zone, { icon: 'alarm-clock', text: 'Alert snoozed for 1 h', action: 'Undo', ms: 5000 });
+      t.el.querySelector('.link').onclick = () => {
+        t.close();
+        transition(() => { row.classList.remove('m-dismiss'); list.insertBefore(row, next && next.isConnected ? next : null); }, list);
+      };
+    });
+  });
+  demo('resolve', ($, q) => {
+    const order = { critical: 0, high: 1, medium: 2, low: 3, normal: 4 };
+    let A = [{ id: 'r1', s: 'critical', t: 'Multi-merchant incident' }, { id: 'r2', s: 'high', t: 'Rejection spike' }, { id: 'r3', s: 'medium', t: 'Activity drop' }];
+    const list = q('.rows');
+    const render = (flipId) => {
+      A.sort((a, b) => order[a.s] - order[b.s]);
+      list.innerHTML = A.map((a, i) => `<div class="item bordered sev-${a.s}" data-vt="res-${a.id}"><b style="width:14px">${i + 1}</b><span class="${a.id === flipId ? 'm-flip' : ''}">${badge(a.s)}</span><span class="grow">${a.t}</span>${a.s === 'normal' ? '' : `<button class="btn btn-ghost rs" data-id="${a.id}" style="height:26px;font-size:11px"><i data-lucide="check"></i>Resolve</button>`}</div>`).join('');
+      icons();
+      list.querySelectorAll('.rs').forEach((b) => b.onclick = () => transition(() => { A.find((a) => a.id === b.dataset.id).s = 'normal'; render(b.dataset.id); }, list));
+    };
+    render();
+  });
+  demo('escalate', ($, q) => {
+    const L = ['low', 'medium', 'high', 'critical']; let i = 1;
+    const render = (anim) => { const r = q('.row-esc'); r.className = `item bordered row-esc sev-${L[i]}`; q('.sevslot').innerHTML = `<span class="${anim ? 'm-flip' : ''}">${badge(L[i])}</span>`; icons(); };
+    q('.up').onclick = () => { if (i < 3) { i++; render(true); } };
+    q('.down').onclick = () => { if (i > 0) { i--; render(true); } };
+    render(false);
+  });
+  demo('incoming', ($, q) => {
+    let n = 2, timer;
+    q('.add').onclick = () => {
+      n++;
+      play(q('.bell'), 'm-ring-bell');
+      q('.count').innerHTML = `<span class="m-flip">${n}</span>`;
+      q('.banner')?.remove(); clearTimeout(timer);
+      const b = document.createElement('div'); b.className = 'banner m-slide-down';
+      b.innerHTML = '<i data-lucide="octagon-alert"></i>New critical alert: activity interruption at MER-3318'; $.prepend(b); icons();
+      timer = setTimeout(async () => { await animateOut(b, 'm-backdrop-out'); b.remove(); }, 4000);
+    };
+  });
+  demo('incident', ($, q) => {
+    const R = [['MER-1102', 'Retail & Apparel'], ['MER-2287', 'Food & Dining'], ['MER-4410', 'Healthcare & Pharmacy']];
+    const list = q('.rows'); let grouped = false;
+    const rows = () => R.map(([m, c], i) => `<div class="item bordered sev-critical" data-vt="inc-${i}">${badge('critical')}<span class="grow">Interruption · <span class="mono">${m}</span> <span class="muted">· ${c}</span></span><span class="muted">TPE / POS</span></div>`).join('');
+    const card = `<div class="item bordered sev-critical" data-vt="inc-0" style="align-items:flex-start;padding:12px">${badge('critical')}<span class="grow"><b>Multi-merchant incident</b><br><span class="muted">3 merchants · TPE / POS Terminal · since 09:40 · likely shared terminal network issue</span></span><i data-lucide="network" style="width:18px"></i></div>`;
+    q('.go').onclick = () => {
+      grouped = !grouped;
+      transition(() => { list.innerHTML = grouped ? card : rows(); icons(); q('.go span').textContent = grouped ? 'Ungroup' : 'Group as incident'; }, list);
+    };
+    list.innerHTML = rows(); icons();
+  });
+
+  /* ── Overlays ── */
+  demo('drawer', ($, q) => {
+    q('.open').onclick = () => {
+      const bd = document.createElement('div'); bd.className = 'backdrop m-backdrop-in';
+      const d = document.createElement('aside'); d.className = 'drawer m-drawer-in';
+      d.innerHTML = `<div class="row" style="justify-content:space-between"><span class="badge sev-medium"><i data-lucide="circle-alert"></i>Medium · Activity drop</span><button class="btn btn-ghost x" aria-label="Close" style="height:26px;padding:0 6px"><i data-lucide="x"></i></button></div><b><span class="mono">MER-7175</span> · Tue 14 Oct</b><span class="muted">Transactions fell to 12, against a usual 41 for a Tuesday (−71 %).</span>`;
+      $.append(bd, d); icons();
+      const close = async () => { await Promise.all([animateOut(d, 'm-drawer-out'), animateOut(bd, 'm-backdrop-out')]); d.remove(); bd.remove(); };
+      bd.onclick = close; d.querySelector('.x').onclick = close;
+    };
+  });
+  demo('modal', ($, q) => {
+    q('.open').onclick = () => {
+      const bd = document.createElement('div'); bd.className = 'backdrop m-backdrop-in';
+      const m = document.createElement('div'); m.className = 'modal m-modal-in'; m.setAttribute('role', 'dialog');
+      m.innerHTML = '<b>Resolve 4 alerts?</b><span class="muted">They move to “Recovered”. You can reopen them from history.</span><div class="row" style="justify-content:flex-end"><button class="btn btn-ghost no">Cancel</button><button class="btn btn-primary yes">Resolve</button></div>';
+      $.append(bd, m);
+      const close = async () => { await Promise.all([animateOut(m, 'm-modal-out'), animateOut(bd, 'm-backdrop-out')]); m.remove(); bd.remove(); };
+      bd.onclick = close; m.querySelector('.no').onclick = close;
+      m.querySelector('.yes').onclick = async () => { await close(); toast(q('.toast-zone'), { text: '4 alerts resolved' }); };
+    };
+  });
+  demo('accordion', ($, q) => { q('.acc-head').onclick = () => { q('.acc').classList.toggle('is-open'); q('.m-collapse').classList.toggle('is-open'); }; });
+
+  /* ── Charts ── */
+  demo('crosshair', ($, q) => {
+    const pts = q('polyline').getAttribute('points').split(' ').map((p) => p.split(',').map(Number));
+    const svg = q('.area'), g = q('.xhair'), tip = q('.tip-box'), dot = g.querySelector('circle');
+    svg.onpointermove = (e) => {
+      const r = svg.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * 300;
+      const i = Math.round(x / 30), [px, py] = pts[Math.max(0, Math.min(10, i))];
+      g.style.opacity = 1; g.style.transform = `translateX(${px}px)`; dot.setAttribute('cy', py);
+      tip.style.opacity = 1; tip.style.transform = `translateX(${Math.min((px / 300) * r.width + 10, r.width - 110)}px)`;
+      tip.textContent = `${3 + i} Oct · ${fr()(Math.round(120 - py))} tx (usual 72)`;
+    };
+    svg.onpointerleave = () => { g.style.opacity = 0; tip.style.opacity = 0; };
+  });
+  demo('legend', ($, q, qa) => { qa('.legend button').forEach((b) => b.onclick = () => { b.classList.toggle('off'); q('.s-' + b.dataset.s).classList.toggle('off'); }); });
+  demo('forecast', ($, q) => {
+    q('.tg').onchange = async (e) => {
+      const fc = q('.fc');
+      if (e.target.checked) {
+        fc.innerHTML = `<line class="m-fade" x1="175" x2="175" y1="0" y2="120" stroke="var(--chart-axis)" stroke-dasharray="2 3"/><text class="m-fade" x="179" y="10">today</text>
+          <path class="m-band" style="--delay:150ms" d="M175 46 L300 30 L300 78 L175 46Z" fill="var(--chart-band)"/>
+          <polyline class="series m-wipe" style="--delay:300ms" stroke="var(--chart-series)" stroke-dasharray="5 4" points="175,46 200,50 225,44 250,52 275,48 300,54"/>`;
+        fc.classList.remove('m-backdrop-out');
+      } else { await animateOut(fc, 'm-backdrop-out'); fc.innerHTML = ''; fc.classList.remove('m-backdrop-out'); }
+    };
+  });
+
+  /* ── Feedback ── */
+  demo('toasts', ($, q, qa) => {
+    const T = { ok: { icon: 'circle-check', text: 'Report exported' }, info: { icon: 'info', text: 'Data refreshed 2 s ago' }, err: { icon: 'cloud-off', text: "Couldn't reach the server", sticky: true } };
+    const zone = q('.toast-zone');
+    qa('[data-t]').forEach((b) => b.onclick = () => { if (zone.children.length >= 3) zone.firstElementChild.querySelector('.x').click(); toast(zone, T[b.dataset.t]); });
+  });
+  demo('copy', ($, q) => {
+    q('.cp').onclick = async () => {
+      try { await navigator.clipboard.writeText('MER-7175'); } catch { /* clipboard blocked: still show feedback */ }
+      q('.ic').innerHTML = '<span class="m-pop" style="display:inline-flex;gap:4px;align-items:center;color:var(--sev-normal-fg)"><i data-lucide="check"></i>Copied</span>'; icons();
+      setTimeout(() => { q('.ic').innerHTML = '<i data-lucide="copy" class="m-fade"></i>'; icons(); }, 1500);
+    };
+  });
+  demo('export', ($, q) => {
+    q('.ex').onclick = (e) => {
+      const b = e.currentTarget; if (b.disabled) return; b.disabled = true;
+      const fill = q('.fill'), lbl = q('.lbl');
+      tween(1200, (p) => { fill.style.transform = `scaleX(${p})`; lbl.textContent = `Exporting… ${Math.round(p * 100)} %`; });
+      setTimeout(() => { b.querySelector('svg').outerHTML = '<i data-lucide="check" class="m-pop"></i>'; lbl.textContent = 'Downloaded'; icons(); }, reducedMotion() ? 0 : 1250);
+    };
+  });
+  demo('validate', ($, q) => {
+    q('.save').onclick = (e) => {
+      const v = Number(q('.v').value.replace(',', '.')), ok = q('.v').value.trim() !== '' && v >= 0 && v <= 1;
+      q('.v').classList.toggle('invalid', !ok);
+      if (!ok) { play(q('.v'), 'm-shake'); q('.msg').innerHTML = '<div class="err-msg m-rise">Enter a score between 0 and 1, for example 0.75.</div>'; return; }
+      q('.msg').innerHTML = '';
+      e.currentTarget.innerHTML = '<span class="m-flip" style="display:inline-flex;gap:6px;align-items:center"><i data-lucide="check"></i>Saved</span>'; icons();
+    };
+  });
+  demo('loading', ($, q) => {
+    q('.go').onclick = async () => {
+      const s = q('.slot');
+      s.innerHTML = '<div class="skeleton skel-line" style="width:40%"></div><div class="skeleton" style="height:28px;width:60%"></div><div class="skeleton skel-line" style="width:80%"></div>';
+      await wait(1100);
+      s.innerHTML = '<div class="eyebrow m-rise">MER-7175 · value this week</div><div class="kpi m-rise" style="--i:1">0</div><div class="muted m-rise" style="--i:2">▼ −18 % vs usual week</div>';
+      countUp(s.querySelector('.kpi'), 1284503, (n) => fr()(Math.round(n)) + ' DZD');
+    };
+  });
+  demo('retry', ($, q) => {
+    q('.go').onclick = async (e) => {
+      const b = e.currentTarget; b.disabled = true; b.querySelector('svg').classList.add('m-spin'); b.querySelector('span').textContent = 'Retrying…';
+      await wait(1200);
+      q('.slot').innerHTML = '<div class="m-fade"><b>35 merchants loaded</b><div class="muted">3 with open anomalies</div></div>';
+    };
+  });
+  demo('refresh', ($, q) => {
+    q('.go').onclick = async (e) => {
+      const b = e.currentTarget; if (b.disabled) return; b.disabled = true;
+      b.querySelector('svg').classList.add('m-spin'); q('.bar').classList.add('is-refreshing');
+      await wait(1000);
+      b.querySelector('svg').classList.remove('m-spin'); q('.bar').classList.remove('is-refreshing'); b.disabled = false;
+      countUp(q('.k'), 8400 + Math.round(Math.random() * 400));
+      q('.up').innerHTML = '<span class="m-flip">Updated just now</span>';
+    };
+  });
+
+  /* ── Assistant ── */
+  demo('chat', ($, q, qa) => {
+    const chat = q('.chat');
+    const A = [
+      { q: 'Why did MER-7175 drop on 14 Oct?', a: 'On Tue 14 Oct, MER-7175 processed 12 transactions against a usual 41 for a Tuesday (−71 %). The drop comes from TPE / POS: no POS payments after 11:00, while online payments stayed normal. Suggested action: check the merchant’s POS terminal connectivity.', ev: ['Daily transactions · 14 Oct', 'Channel split · MER-7175', 'Usual = median of 4 Tuesdays'] },
+      { q: 'Is this merchant doing something illegal?', a: 'I can only explain operational activity: volumes, amounts, rejections and interruptions. I can’t judge intent or legality. Try “What changed for MER-7175 this week?”', refusal: true },
+    ];
+    qa('.suggest button').forEach((b) => b.onclick = async () => {
+      qa('.suggest button').forEach((x) => x.disabled = true);
+      const item = A[b.dataset.q];
+      chat.insertAdjacentHTML('beforeend', `<div class="bubble me m-rise">${item.q}</div>`);
+      chat.insertAdjacentHTML('beforeend', '<div class="bubble ai typing m-fade"><span class="m-typing"><span></span><span></span><span></span></span></div>');
+      chat.scrollTop = chat.scrollHeight;
+      await wait(900);
+      chat.querySelector('.typing').remove();
+      const bub = document.createElement('div'); bub.className = `bubble ai m-fade ${item.refusal ? 'refusal' : ''}`;
+      const txt = document.createElement('span'); txt.className = 'm-caret'; bub.append(txt); chat.append(bub);
+      const words = item.a.split(' ');
+      for (let i = 0; i < words.length; i++) { txt.textContent = words.slice(0, i + 1).join(' '); chat.scrollTop = chat.scrollHeight; if (!reducedMotion()) await wait(35); }
+      txt.classList.remove('m-caret');
+      if (item.ev) bub.insertAdjacentHTML('beforeend', `<div class="evidence">${item.ev.map((e, i) => `<span class="m-pop" style="--delay:${i * 90}ms">${e}</span>`).join('')}</div>`);
+      chat.scrollTop = chat.scrollHeight;
+      qa('.suggest button').forEach((x) => x.disabled = false);
+    });
+  });
+
+  /* ── Preferences ── */
+  demo('theme', ($, q) => { q('.go').onclick = (e) => toggleTheme(e.currentTarget); });
+  demo('lang', ($, q, qa) => {
+    const L = { en: ['Activity drop', 'Transactions fell to 12, against a usual 41 for a Tuesday.'], fr: ["Chute d'activité", 'Les transactions sont tombées à 12, contre 41 habituellement le mardi.'], ar: ['انخفاض في النشاط', 'انخفضت المعاملات إلى 12، مقابل 41 عادةً يوم الثلاثاء.'] };
+    const block = q('.lang-block'); let cur = 'en';
+    const thumb = (b) => Object.assign(q('.seg-ind').style, { width: b.offsetWidth + 'px', transform: `translateX(${b.offsetLeft - 2}px)` });
+    const show = (l, anim) => {
+      const rtl = l === 'ar', wasRtl = cur === 'ar';
+      block.dir = rtl ? 'rtl' : 'ltr'; block.lang = l;
+      block.innerHTML = `<b>${L[l][0]}</b><div class="muted">${L[l][1]}</div>`;
+      if (anim) play(block, rtl !== wasRtl ? (rtl ? 'm-enter-back' : 'm-enter-fwd') : 'm-fade');
+      cur = l;
+    };
+    qa('.seg button').forEach((b) => b.onclick = () => { qa('.seg button').forEach((x) => x.classList.toggle('is-active', x === b)); thumb(b); show(b.dataset.l, true); });
+    show('en', false); thumb(q('.seg button'));
+  });
+
+  document.getElementById('pageTheme').onclick = (e) => toggleTheme(e.currentTarget);
+  icons();
+  document.querySelectorAll('.demo').forEach(mount);
+</script>
+</body>
+</html>

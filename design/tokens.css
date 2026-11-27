@@ -1,0 +1,216 @@
+/*
+ * Payment Anomaly Intelligence: design tokens (v3, burgundy "soft card" world).
+ * Layout direction pinned from two reference dashboards (2026-11-26); brand colour navy #0B2545 (2026-11-27: blue replaced burgundy so red only appears when something is off)
+ * by the user (2026-11-27). Warm canvas, floating white panels, one burgundy hero surface per screen.
+ * Theme: light by default, dark via <html data-theme="dark">.
+ */
+
+:root {
+  /* ── Brand: navy scale around #0B2545; red is reserved for critical severity ─────────────────────────────── */
+  --brand-950: #06121f;
+  --brand-900: #0b2545;   /* hero surface, active nav, primary actions */
+  --brand-800: #13315c;
+  --brand-700: #1d4a80;
+  --brand-500: #3b6fb0;   /* secondary series, focus */
+  --brand-300: #93b4dc;
+  --brand-100: #e1ebf6;
+  --brand-50:  #f2f6fb;
+  --brand-satim-red: #e2211c; /* client logo only */
+
+  /* ── Neutrals (warm grey with a hint of rose) ──────────────────────── */
+  --gray-25: #fafbfc;
+  --gray-50: #f3f5f8;
+  --gray-100: #e9edf2;
+  --gray-200: #dde3ea;
+  --gray-300: #cbd3dc;
+  --gray-400: #9aa5b2;
+  --gray-500: #6f7a88;
+  --gray-600: #525c69;
+  --gray-700: #374049;
+  --gray-800: #222830;
+  --gray-900: #0f141a;
+
+  /* ── Semantic (light) ─────────────────────────────────────────────── */
+  --bg: #e8ecf1;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: var(--gray-50);
+  --surface-hero: var(--brand-900);
+  --on-hero: #ffffff;
+  --on-hero-muted: #b9cbe3;
+  --border: var(--gray-100);
+  --border-strong: var(--gray-200);
+  --text: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-500);
+  --text-on-primary: #ffffff;
+  --primary: var(--brand-900);
+  --primary-hover: var(--brand-700);
+  --primary-glow: transparent;
+  --link: var(--brand-700);
+  --focus-ring: var(--brand-500);
+  --brand-accent: var(--brand-900);
+  --selection: rgba(59, 111, 176, 0.2);
+  --tint-card: linear-gradient(165deg, #f2f6fb 0%, #cfdcee 100%);
+
+  --good-bg: #e3eee6;  --good-fg: #2f6447;   /* calm sage, not neon */
+  --bad-bg: #f4e0e2;   --bad-fg: #8a2433;    /* soft rose, not alarm red */
+  --flat-bg: var(--gray-100); --flat-fg: var(--gray-700);
+
+  /* ── Severity: always icon + label + colour ───────────────────────── */
+  /* muted, earthy tones: severity reads clearly without shouting */
+  --sev-critical: #b23a45;  --sev-critical-fg: #8a2433;  --sev-critical-bg: #f5e3e5;
+  --sev-high:     #c27a4a;  --sev-high-fg:     #8a4f28;  --sev-high-bg:     #f6ebe2;
+  --sev-medium:   #c4a257;  --sev-medium-fg:   #6f5a24;  --sev-medium-bg:   #f5efdf;
+  --sev-low:      #6f8a8f;  --sev-low-fg:      #4a6266;  --sev-low-bg:      #e6eeef;
+  --sev-normal:   #5b8c6c;  --sev-normal-fg:   #3c6a4d;  --sev-normal-bg:   #e4eee7;
+
+  /* ── Data: payment channels (fixed) ───────────────────────────────── */
+  --ch-ecommerce: #0b2545;
+  --ch-pos: #3b6fb0;
+  --ch-mobile: #93b4dc;
+  --ch-contactless: #5d8f97;
+  --ch-transfer: #8a94a3;
+  --ch-unknown: #cbd3dc;
+
+  --st-accepted: #0b2545;
+  --st-declined: #c28d4a;
+  --st-cancelled: #9aa5b2;
+  --st-refunded: #5d8f97;
+
+  --chart-series: var(--brand-900);
+  --chart-series-2: #6f9bd1;
+  --chart-baseline: var(--gray-500);
+  --chart-band: rgba(59, 111, 176, 0.1);
+  --chart-area-top: rgba(59, 111, 176, 0.26);
+  --chart-grid: var(--gray-100);
+  --chart-axis: var(--gray-500);
+
+  /* ── Type ─────────────────────────────────────────────────────────── */
+  --font-display: "Manrope Variable", "Manrope", system-ui, sans-serif;
+  --font-body: "Manrope Variable", "Manrope", system-ui, sans-serif;
+  --font-arabic: "IBM Plex Sans Arabic", "Noto Sans Arabic", system-ui, sans-serif;
+  --font-mono: "Manrope Variable", "Manrope", system-ui, sans-serif; /* IDs use tabular figures, not a mono costume */
+  --font-tc: "Courier New", Courier, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.875rem;
+  --text-2xl: 2.25rem;
+  --leading-tight: 1.15;
+  --leading-normal: 1.5;
+
+  /* ── Space, radius, depth, motion. Apple-like moderate corners: 10px controls, 14px cards (user, 2026-11-27) ── */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+  --space-16: 64px; --space-24: 96px;
+
+  /* Semantic spacing: what the scale is used for. Breakpoints retune these, not each component. */
+  --page-pad: var(--space-5);      /* outer page margin */
+  --gutter: var(--space-6);        /* between cards, columns and page sections */
+  --card-pad: var(--space-6);      /* inside a card: every card's content shares this left edge */
+  --card-pad-lg: var(--space-8);   /* documents and hero blocks: vertical padding only */
+  --head-gap: var(--space-5);      /* card title block → card content */
+  --item-gap: var(--space-2);      /* between rows of one list (queue, steps, chips) */
+  --tile-gap: var(--space-3);      /* between tiles inside a card (KPIs, hypotheses, health) */
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-full: 999px;
+
+  /* flat: no drop shadows or glows; surfaces separate by tone and a hairline border */
+  --shadow-sm: none;
+  --shadow-md: none;
+  --shadow-lg: none;
+  --shadow-primary: none;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1); /* ease-out-quint: pops settle without bouncing */
+  --dur-fast: 120ms;
+  --dur: 200ms;
+  --dur-slow: 450ms;
+  --dur-draw: 900ms;
+  --stagger: 45ms;
+
+  --sidebar-w: 256px;
+  --sidebar-w-collapsed: 76px;
+  --topbar-h: 0px;
+  --brand-bar-h: 0px;
+  --content-max: 1680px;
+
+  color-scheme: light;
+}
+
+/* ── Dark (ops room) ──────────────────────────────────────────────────── */
+:root[data-theme="dark"] {
+  --bg: #0a0d12;
+  --surface: #121821;
+  --surface-raised: #18202b;
+  --surface-sunken: #0d1218;
+  --surface-hero: #13315c;
+  --on-hero: #ffffff;
+  --on-hero-muted: #b3c7e2;
+  --border: #1f2833;
+  --border-strong: #2c3745;
+  --text: #eef2f6;
+  --text-secondary: #b4bfcc;
+  --text-muted: #8693a3;
+  --text-on-primary: #ffffff;
+  --primary: #1d4a80;        /* nav pill and primary on dark: calm navy */
+  --primary-hover: #255791;
+  --primary-glow: transparent;
+  --link: #8fb6e8;
+  --focus-ring: #8fb6e8;
+  --selection: rgba(143, 182, 232, 0.25);
+  --tint-card: linear-gradient(165deg, #141b25 0%, #162c4a 100%);
+
+  --flat-bg: #1f2833; --flat-fg: #cfd7e0;
+  --good-bg: #1f3027; --good-fg: #a9cdb6;
+  --bad-bg: #3a1d22;  --bad-fg: #e8b2bb;
+
+  --sev-critical: #d27b84; --sev-critical-fg: #ecb6bd; --sev-critical-bg: #36191d;
+  --sev-high:     #d39a72; --sev-high-fg:     #ecc6aa; --sev-high-bg:     #33231a;
+  --sev-medium:   #cdb67c; --sev-medium-fg:   #e6d6aa; --sev-medium-bg:   #2f291a;
+  --sev-low:      #93aeb3; --sev-low-fg:      #c0d3d6; --sev-low-bg:      #1a2628;
+  --sev-normal:   #8bb398; --sev-normal-fg:   #bcd6c4; --sev-normal-bg:   #1c2a21;
+
+  --ch-ecommerce: #8fb6e8;
+  --ch-pos: #3f74b8;
+  --ch-mobile: #c9dbf2;
+  --ch-contactless: #8bb3ba;
+  --ch-transfer: #95a0ad;
+  --ch-unknown: #3e4856;
+  --st-accepted: #8fb6e8;
+  --st-declined: #d3a46f;
+  --st-refunded: #8bb3ba;
+
+  --chart-series: #8fb6e8;
+  --chart-series-2: #2b4f7e;
+  --chart-baseline: #8693a3;
+  --chart-band: rgba(143, 182, 232, 0.12);
+  --chart-area-top: rgba(143, 182, 232, 0.3);
+  --chart-grid: #1f2833;
+  --chart-axis: #8693a3;
+
+
+  color-scheme: dark;
+}
+
+/* ── Base and browser surfaces ────────────────────────────────────────── */
+html { font-family: var(--font-body); font-size: 16px; color: var(--text); background: var(--bg); -webkit-font-smoothing: antialiased; }
+body { margin: 0; font-size: var(--text-sm); line-height: var(--leading-normal); font-feature-settings: "tnum" 1, "cv11" 1; }
+h1, h2, h3, h4 { font-family: var(--font-display); line-height: var(--leading-tight); font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+[lang="ar"], [dir="rtl"] { font-family: var(--font-arabic); }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
+::selection { background: var(--selection); }
+* { scrollbar-width: thin; scrollbar-color: var(--gray-300) transparent; }
+:root[data-theme="dark"] * { scrollbar-color: #2c3745 transparent; }
+input, select, button, textarea { caret-color: var(--primary); accent-color: var(--primary); }
+.num, td.num, .kpi-value { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

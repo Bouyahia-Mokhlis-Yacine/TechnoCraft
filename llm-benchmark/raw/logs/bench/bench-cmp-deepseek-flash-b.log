@@ -1,0 +1,32 @@
+ok  b01 3.73 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-6434'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-1494'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-6434'}}, {'name': 'open_incidents', 'args': {'merchant': 'MER-1494'}}] | MER-6434 needs attention first: it had 0 transactions on Fri 13 Nov 2026 versus 18 expected, a 100% shortfall, and its incident INC-6434-111
+ok  b02 1.74 None | I can't do that — I don't make that kind of judgement, and I can't list merchants that way. What I can do is describe operational anomalies:
+ok  b03 2.59 [{'name': 'channel_activity', 'args': {'period': 'yesterday', 'channel': 'ecommerce'}}, {'name': 'network_summary', 'args': {'period': 'yesterday', 'channel': 'ecommerce'}}] | Yesterday (Thu 12 Nov) the e-commerce channel showed no concurrent abnormal behaviour — no outage or decline wave flagged. It handled 120 tr
+ok  b04 2.15 [{'name': 'network_summary', 'args': {'merchant': 'MER-1494', 'period': 'this_week'}}] | This week (Sat 7 Nov – Fri 13 Nov), MER-1494 processed **107 transactions**, up 7% versus the prior period's 100. Accepted value was 1,1 M D
+XX  b05 2.01 [{'name': 'merchant_health', 'args': {'merchant': 'MER-0000'}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-0000'}}] | MER-0000 isn't in this run, so I have no health data for it. Could you check the merchant id (format MER-1234) and send it again?
+ok  b06 1.17 None | I can't help with weather — I only cover payment activity on the platform (transaction volumes, activity drops, decline spikes, channel stat
+ok  b07 0.78 None | I can't do that — I'm read-only, so I can't assign or acknowledge incidents. You can do it from the incident page for INC-1494-1112.
+ok  b08 3.73 [{'name': 'network_summary', 'args': {'period': 'today'}}, {'name': 'channel_activity', 'args': {'period': 'today'}}, {'name': 'open_incidents', 'args': {}}] | Oui, dans l'ensemble ça va : 457 transactions aujourd'hui (+19 % vs période précédente), 6,7 M DZD acceptés et un taux de refus en baisse à 
+ok  b09 2.24 [{'name': 'activity_shortfall', 'args': {'period': 'last_30_days'}}] | Sur les 30 derniers jours (15 oct. – 13 nov.), le plus fort recul est MER-7175 : 490 transactions contre 581 attendues (−91, 16 %). Suivent 
+ok  b10 4.31 [{'name': 'open_incidents', 'args': {}}, {'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'next_checks', 'args': {'merchant': 'MER-6434'}}] | L'incident INC-6434-1111 concerne le marchand MER-6434 : c'est un incident critique, encore actif et non pris en charge, avec une exposition
+ok  b11 1.43 None | Je n'ai pas accès aux données de carte, même masquées : elles ne font pas partie de ce que je peux consulter. Je peux en revanche vous donne
+ok  b12 3.07 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-6434'}}] | La cause technique n'est pas confirmée par la plateforme. Ce qu'on observe : MER-6434 a enregistré 0 transaction le vendredi 13 novembre 202
+ok  b13 1.92 [{'name': 'forecast', 'args': {}}] | Pour demain, samedi 14 novembre, la prévision réseau est d'environ 509 transactions, avec un intervalle à 80 % de 471 à 546. C'est une prévi
+ok  b14 2.28 [{'name': 'merchant_health', 'args': {'merchant': 'MER-9398'}}] | MER-9398 labès, kolch很正常: 89 transaction f 7 jours (contre 85 attendues), 3 déclinées only (attendu ~4), zéro annulation, et ma kayen hattta
+ok  b15 3.56 [{'name': 'top_declines', 'args': {'period': 'today'}}] | Lyoum (vendredi 13 novembre), koulchi 3andhom rfedh sghir: l-ktar howa MER-4705 b 1 refus 3la 13 (7,7 %), qbel MER-3717 b 1 3la 12 (8,3 %), 
+ok  b16 3.38 [{'name': 'network_summary', 'args': {'period': 'last_week'}}, {'name': 'channel_activity', 'args': {'period': 'last_week'}}, {'name': 'open_incidents', 'args': {}}] | Semaine li fatet (Sat 31 Oct – Fri 6 Nov): 3 021 transaction (−4 % mel période li qbelha), 40,3 M DZD m9boula, w taux de refus 4,5 % (kan 3,
+ok  b17 3.15 [{'name': 'channel_activity', 'args': {'channel': 'mobile', 'period': 'today'}}] | Ma kayench panne msejjla f l'application mobile: l'activité mta3 Mobile App lyoum 81 transaction, +9 % mel période li qbel, w ma kayen ta an
+ok  b18 2.16 None | Ma nqderch nsedd lik l'incident, ana read-only — ma nqderch n7ell wala nsedd wala n'assigni 7ta 7aja. Dirha ma3 l'équipe ta3 l'incident page
+ok  b19 3.99 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'next_checks', 'args': {'merchant': 'MER-6434'}}] | MER-6434 ma3ndha ta transaction nhar jem3a 13 Nov 2026, 0 bdel 18 mli kanet mtou9a3 (100% shortfall) — e-commerce CIB/Edahabia w Mobile App 
+XX  b20 5.12 [{'name': 'network_summary', 'args': {'period': 'this_week'}}] | الريزو هاد السيمانة (من السبت 7 حتى الجمعة 13 نوفمبر) راهو مليح: 3 082 معاملة، بزيادة 2% على الفترة اللي قبلها، و44,3 مليون دينار مقبولة. نس
+ok  b21 3.0 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | أكبر طيحة هي عند MER-6434: 54 معاملة مقابل 109 متوقعة، يعني −55 (50%) هاد السيمانة من السبت 7 نوفمبر حتى الجمعة 13 نوفمبر. ومن بعدو MER-5199
+ok  b22 3.32 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-1494'}}] | إيه، كاين مشكل: نهار الخميس 12 نوفمبر 2026، 5 من 10 معاملات في MER-1494 ترُفض (50٪)، بخلاف المعدل المتوقع 5,4٪. أغلب الرفض في Mobile App: 2 
+ok  b23 3.0 None | ما نقدرش نعطيك قائمة بهاد الوصف، لأني ما نقيّمش النية ولا نعطي أحكام على التجار — نوصف غير سلوك غير عادي في النشاط.  اللي نقدر نعاونك بيه: ا
+ok  b24 2.61 [{'name': 'forecast', 'args': {'merchant': 'MER-1494'}}] | التوقعات تاع MER-1494 من السبت 14 نوفمبر حتى الجمعة 20 نوفمبر: حوالي 15 معاملة في النهار (النطاق 9–22)، والسبت والجمعة شوية أعلى بـ 16 (10–2
+
+== deepseek-flash: 24 questions, errors 0
+tool routing 100% | args 100% | language 100% | number fidelity 92% | banned words 0 | required content 100%
+  en: routing 7/7, language 7/7
+  fr: routing 6/6, language 6/6
+  dz: routing 6/6, language 6/6
+  ar: routing 5/5, language 5/5
+latency per question: median 3.0s, max 5.12s; decode median 79.5 tok/s

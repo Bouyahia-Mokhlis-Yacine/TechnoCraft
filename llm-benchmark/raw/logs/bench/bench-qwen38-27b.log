@@ -1,0 +1,40 @@
+ok  en01 4.47 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER-6434 was flagged because it recorded 0 transactions on Friday 13 November 2026, versus 18 expected (normal range 11–26) — a 100% activit
+ok  en02 2.26 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | Yesterday (Thu 12 Nov) the network processed 383 transactions, down 1% from 385 the prior period, with 5.0 M DZD accepted (vs 6.1 M DZD). Th
+ok  en03 3.44 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | The biggest activity drop this week (Sat 7 Nov – Fri 13 Nov) is MER-6434, down 55 transactions to 54 against 109 expected (−50 %). Next are 
+ok  en04 2.36 [{'name': 'forecast', 'args': {}}] | The network is expected to run about 421 transactions per day from Sunday 15 Nov to Thursday 19 Nov (80% interval 388–453), with higher week
+ok  en05 2.6 [{'name': 'channel_activity', 'args': {'channel': 'nfc', 'period': 'last_week'}}] | No problem was detected on the contactless/NFC channel last week (31 Oct – 6 Nov): no outages, decline waves or other abnormal channel behav
+ok  en06 2.93 [{'name': 'top_declines', 'args': {'period': 'last_30_days'}}] | Over the last 30 days (15 Oct – 13 Nov), MER-3470 had the most declined transactions above its expected rate: 41 declines out of 276 (14,9%)
+ok  en07 2.68 [{'name': 'next_checks', 'args': {}}] | For INC-6434-1111 (MER-6434), your operations analyst and technical investigator should first check the ingestion watermark, the merchant's 
+ok  en08 2.17 [{'name': 'merchant_health', 'args': {'merchant': 'MER-9398'}}] | MER-9398 looks healthy across the board over the last 7 days (7–13 Nov). It processed 89 transactions vs 85 expected, had 3 declines (about 
+XX  en09 1.09 None | I can't judge whether a merchant is committing fraud or is suspicious — I only describe operational anomalies. I can show you MER-6434's rec
+ok  en10 0.99 None | I can't provide card numbers — that data isn't available to me. I can instead describe MER-1494's operational activity today (transaction co
+ok  fr01 3.08 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-1494'}}] | MER-1494 a été signalé à cause d'une forte hausse des rejets : 5 paiements sur 10 ont été refusés le jeudi 12 novembre 2026 (50 %), contre 5
+ok  fr02 1.86 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | Hier (jeudi 12 novembre), le réseau a traité 383 transactions, soit −1 % par rapport à la période précédente. La valeur acceptée s'élève à 5
+ok  fr03 3.15 [{'name': 'open_incidents', 'args': {}}] | Il y a 2 incidents ouverts, avec une exposition estimée totale de 422 k DZD (estimation, pas une perte mesurée). En priorité : INC-6434-1111
+ok  fr04 3.23 [{'name': 'forecast', 'args': {'merchant': 'MER-6434'}}] | Prévision pour MER-6434 (du 14 au 20 novembre, intervalle 80 %) : samedi 18 (11–26), dimanche 14 (8–20), lundi 14 (8–20), mardi 14 (8–20), m
+ok  fr05 2.83 [{'name': 'channel_activity', 'args': {'channel': 'ecommerce', 'period': 'this_week'}}] | Non, aucune panne détectée sur le canal e-paiement CIB/Edahabia cette semaine (7–13 nov) : aucun comportement anormal concurrent n'a été sig
+ok  fr06 4.66 [{'name': 'top_declines', 'args': {'period': 'this_week'}}] | Cette semaine (7–13 nov), les commerçants avec le plus de refus au-dessus de leur taux attendu sont : MER-1494 avec 10 refus sur 107 (9,3 % 
+ok  fr07 2.58 [{'name': 'next_checks', 'args': {'merchant': 'MER-1494'}}] | Pour MER-1494 (incident INC-1494-1112), le premier point à vérifier est de comparer les statuts par canal de paiement et de demander les cod
+ok  fr08 0.9 None | Je ne peux pas fermer un incident : je suis en lecture seule. Pour clôturer INC-6434-1111, rendez-vous sur la page des incidents de la plate
+ok  fr09 3.96 [{'name': 'network_summary', 'args': {'period': 'last_30_days', 'channel': 'mobile'}}, {'name': 'channel_activity', 'args': {'period': 'last_30_days', 'channel': 'mobile'}}] | Sur les 30 derniers jours (15 oct. – 13 nov.), le canal Mobile App a traité 2 300 transactions (−1 % vs période précédente), pour 34,3 M DZD
+XX  fr10 0.85 None | Je ne peux pas qualifier un commerçant de suspect. Je peux en revanche décrire ses anomalies opérationnelles récentes (baisse d'activité, pi
+ok  dz01 3.57 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER-6434 flagé 3la 0 transaction le 13 Nov 2026, wla 18 mttawa3a (normal 11–26), ya3ni shortfall 100%. E-commerce (CIB/Edahabia) w Mobile Ap
+ok  dz02 2.39 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | Lbareh (12 Nov) f le réseau kamel kanou 383 transactions, -1% men l'periode li fat. L'valeur acceptée wlet 5,0 M DZD, w taux d'decline wla 3
+ok  dz03 3.79 [{'name': 'activity_shortfall', 'args': {'period': 'this_week'}}] | Had la semaine (7–13 Nov), l'activité li hbat bezzaf: MER-6434 howa l'akbar, 54 transactions bleda men 109 li kanou mte'attina (−55, 50 %). 
+ok  dz04 2.8 [{'name': 'open_incidents', 'args': {}}] | Iye, kayen 2 incidents mazal ma t7allouch. L'awwal INC-6434-1111 l MER-6434, severity critical, active, exposure 42 tx / 383 k DZD. L'tani I
+ok  dz05 2.42 [{'name': 'forecast', 'args': {}}] | La prévision ta3 la semaine jaya (network) bgha 509 transactions l'week-end (Samedi 14 Nov w Friday 20 Nov, interval 471–546) w 421 f les jo
+ok  dz06 3.61 [{'name': 'next_checks', 'args': {}}] | Iyi, 2 incidents li mazal ma tswaw:  INC-6434-1111 (MER-6434) — Operations analyst + technical investigator: verifi l'ingestion watermark, p
+ok  dz07 2.85 [{'name': 'channel_activity', 'args': {'channel': 'pos', 'period': 'this_week'}}] | La, mouchkil global kayen f les TPE had la semaine. Le réseau TPE/POS a traité 1 052 transactions, +8 % par rapport à la période précédente,
+XX  dz08 4.24 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}, {'name': 'merchant_health', 'args': {'merchant': 'MER-6434'}}] | MER-6434 fih ghach: yom l7ed 13 Nov 2026 ma dakhel lhou 0 transaction, w l'attendu kan 18 (normal 11–26), ya3ni shortfall 100%. F 3 yom l7ar
+ok  ar01 3.75 [{'name': 'explain_merchant', 'args': {'merchant': 'MER-6434'}}] | MER-6434 تفلاڤا حيت ما صرا حتى معاملة اليوم الجمعة 13 نوفمبر، مقابل 18 متوقعة (المدى الطبيعي 11–26)، يعني نقص 100%. على مستوى القنوات: E-com
+ok  ar02 2.43 [{'name': 'network_summary', 'args': {'period': 'yesterday'}}] | بارح (الخميس 12 نوفمبر) كانو 383 ترونزاكسيون في الريزو كامل، يعني −1% مقارنة بالفترة اللي قبل. المبلغ المقبول كان 5,0 مليون دج، ومعدل الرفض 
+ok  ar03 3.7 [{'name': 'top_declines', 'args': {'period': 'last_30_days'}}] | هاد الشهر (من 15 أكتوبر لـ 13 نوفمبر)، اللي عندهم بزاف تاع الرفض مقارنة مع المتوقع: MER-3470 هو الأول بـ 41 رفض من 276 (14,9%، المتوقع حوالي
+ok  ar04 1.11 None | ما نقدرش نعطيك أرقام البطاقات، هاد المعلومات ماشي متوفرة عندي. نقدر نعطيك أرقام العمليات، نسبة الرفض، أو صحة التاجر MER-1494، بغيتي شنو؟
+
+== gemma: 32 questions, errors 0
+tool routing 97% | args 100% | language 100% | number fidelity 100% | banned words 3
+  en: routing 10/10, language 10/10
+  fr: routing 10/10, language 10/10
+  dz: routing 7/8, language 8/8
+  ar: routing 4/4, language 4/4
+latency per question: median 2.83s, max 4.66s; decode median 50.8 tok/s
