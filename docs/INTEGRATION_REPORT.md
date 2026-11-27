@@ -49,7 +49,7 @@ An isolated pip environment produced the same development flags with 36 managed 
 | Offline conversational analyst | Implemented and verified | Verified summary, hybrid, domain evidence, quality, impact and forecast queries via deterministic answers |
 | Optional private HPC assistant | Implemented but not fully verified | Connector retained and extended. This verification used the local fallback |
 | Standard reports and CSV | Implemented and verified | Daily, weekly, merchant and incident PDF files generated and inspected. Prediction, anomaly, transaction and incident downloads verified |
-| Browser data states and responsive layout | Implemented and verified | Empty explorer and desktop/mobile navigation. Width checks at 1920, 1366, 820 and 390 px. Chrome reported no page or failed API errors in the completed test |
+| Browser data states and responsive layout | Implemented and verified | Empty explorer and desktop/mobile navigation. Width checks at 1920, 1366, 820 and 390 px. Swapping the run pointer refreshed API results and advisory panels without rebuilding |
 | Opt-in mentor audit | Implemented and verified | Test split audit sign-corrected 8 retained values solely within the named candidate |
 | Live batch ingestion and organizer sign-off | Not implemented | Scope is the supplied archive. Runtime has no live SATIM feed, production identity or adjudicated held-out labels |
 
@@ -73,12 +73,12 @@ Browser evidence is saved locally in `../.verification/browser/`: `network_overv
 | Full generation on fresh Conda runtime | 149.53 s |
 | Snapshot | 12,540,362 bytes (11.96 MiB) |
 | V4 features, fit, score, attribution on fresh Conda | 49.69 s, 189 ms, 20 ms, 2.84 s |
-| Next.js startup | 658 ms |
-| Chrome first dashboard journey from sign-in | 894 ms |
-| Local API requests | Health 14 ms, overview 57 ms, official roster 25 ms, flagged anomalies 18 ms, incidents 11 ms, advisories 13 ms, forecasts 11 ms |
+| Next.js startup on the final build | 1.14 s |
+| Chrome first dashboard journey from sign-in on the final build | 1.97 s |
+| Local API requests on the final build | Health 202 ms, overview 307 ms, official roster 16 ms, flagged anomalies 30 ms, incidents 37 ms, advisories 38 ms, forecasts 29 ms |
 
 The forecast backtest uses nine prior ordinary origins. Network count MAE was 17.83 versus 22.57 for seasonal naive, and the nominal 80% interval covered 92.06% of those observations. The archived forecast is historical planning evidence, with conditional independence and limited support for shared shocks. A run contains no independently verified service causes or revenue losses.
 
 ## Git and release readiness
 
-The initial fetch verified that both remote branches were at `e98cf7d`. `67acdf4` packages the frozen engine, parity artifacts and schema. The subsequent website, submission, test and documentation changes are present in the working tree. The automatic approval service reached its usage limit and did not execute the later commit request. Pushing the completed branch and creating the GitHub pull request remain pending. The [pull request description](PULL_REQUEST.md) is prepared.
+The initial fetch verified that both remote branches were at `e98cf7d`. `67acdf4` packages the frozen engine, parity artifacts and schema. `a2ae29a` connects the website, commits the generated sealed submission and includes the verification tools and B1–B4 documentation. The delivery branch is `backend-integration`. The [pull request description](PULL_REQUEST.md) is ready for review against `main`.
