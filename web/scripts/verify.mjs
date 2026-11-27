@@ -21,6 +21,8 @@ mkdirSync(evidence, { recursive: true });
 const browser = await chromium.launch({ executablePath, args: ['--no-sandbox'] });
 try {
   const context = await browser.newContext({ viewport: { width: 1366, height: 655 }, reducedMotion: 'reduce' });
+  // the interface defaults to French; this journey asserts the English labels
+  await context.addCookies([{ name: 'pai_lang', value: 'en', url: origin }]);
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -85,7 +87,7 @@ try {
   await navigate('/merchants', 'Merchants');
   await navigate('/merchants/' + alert.merchant, new RegExp(alert.merchant));
   await navigate('/transactions?contactless=breach', 'Transactions');
-  await page.getByText('contactless limit exceeded', { exact: true }).first().waitFor();
+  await page.getByText(/^contactless limit exceeded$/i).first().waitFor();
   await navigate('/transactions?merchant=MER-0000', 'Transactions');
   await page.getByText('No transaction matches these filters', { exact: true }).waitFor();
   await navigate('/alerts', 'Alerts');
@@ -93,6 +95,8 @@ try {
   await page.getByText(alert.explanation, { exact: true }).first().waitFor();
   await page.screenshot({ path: path.join(evidence, 'official_v2_explanation.png'), fullPage: true });
   await navigate('/intelligence', 'Network intelligence');
+  await page.locator('.advisory-card').first().waitFor();   // Collective Detection tab (default)
+  await navigate('/intelligence?tab=ml', 'Network intelligence');   // Hybrid ML tab
   await page.locator('details.cluster > summary').first().click();
   await page.screenshot({ path: path.join(evidence, 'advisory_intelligence.png'), fullPage: true });
   await navigate('/intelligence/' + encodeURIComponent(advisories.advisories[0].id), 'Hypotheses');
@@ -195,8 +199,9 @@ try {
       assert.equal((await json('/api/v1/health')).run_id, other.run_id);
       assert.deepEqual((await json('/api/v1/anomalies?scope=official')).predictions, scored.predictions);
       await navigate('/intelligence', 'Network intelligence');
-      await page.getByText('Hybrid ML module disabled', { exact: true }).waitFor();
       await page.getByText('Collective Detection module disabled', { exact: true }).waitFor();
+      await navigate('/intelligence?tab=ml', 'Network intelligence');
+      await page.getByText('Hybrid ML module disabled', { exact: true }).waitFor();
     } finally {
       setLatest(latest);
     }
