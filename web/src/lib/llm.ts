@@ -11,6 +11,7 @@ import type { Turn } from './conversations';
 import type { PageContext } from './page-context';
 import { selectionBlock, type Selection } from './selection';
 import { buildReport, composeToolDef, getReport, reportSummary, saveReport, unwrittenText, updateReport, validateSpec, type StoredReport } from './custom-report';
+import { hasSensitiveIdentifier } from './privacy';
 
 const URL_ = process.env.LLM_URL?.replace(/\/+$/, '');
 const MODEL = process.env.LLM_MODEL ?? 'assistant';
@@ -48,6 +49,10 @@ const QUESTION: Record<string, (a: Args) => string> = {
   forecast: (a) => `Forecast for the next 7 days${mer(a)}`,
   channel_activity: (a) => `Which channels show concurrent abnormal behaviour ${per(a)}${ch(a)}`,
   top_declines: (a) => `Which merchants have the most declines ${per(a)}`,
+  hybrid_evidence: (a) => 'V4 investigation candidates ' + per(a) + mer(a),
+  domain_evidence: (a) => 'Contactless limit breaches ' + per(a) + mer(a),
+  data_quality: () => 'Data quality audit',
+  business_impact: (a) => 'Business impact ' + per(a) + mer(a),
   activity_shortfall: (a) => `Which merchants had the largest activity shortfall ${per(a)}`,
   next_checks: (a) => `What should I check first${mer(a)}`,
 };
@@ -155,6 +160,7 @@ function compose(raw: string, sources: string, owner: string | null, lang: Lang)
   if (args.report_id && !editing) return { result: { error: `Report ${String(args.report_id)} not found: leave report_id out to create a new one.` } };
   const { spec, errors } = validateSpec(args);
   if (!spec) return { result: { error: `Fix the report and call compose_report again: ${errors.join('; ')}.` } };
+  if (hasSensitiveIdentifier(JSON.stringify(spec))) return { result: { error: 'Remove private payment identifiers.' } };
   const built = buildReport(spec);
   // text sections are written from the report's figures: hand them back first, save nothing yet
   const todo = unwrittenText(spec);
@@ -175,8 +181,8 @@ function compose(raw: string, sources: string, owner: string | null, lang: Lang)
 function historyMessages(history: Turn[]): Msg[] {
   const out: Msg[] = [];
   for (const t of history.slice(-2 * HISTORY_TURNS)) {
-    if (t.role === 'user') out.push({ role: 'user', content: `${t.text}${t.selection?.length ? `\n(with selected: ${t.selection.map((x) => x.label).join('; ')})` : ''}${t.page ? `\n(asked on the page "${t.page.title}")` : ''}` });
-    else out.push({ role: 'assistant', content: t.reply.text.join('\n').slice(0, HISTORY_CHARS) || '…' });
+    if (t.role === 'user' && !hasSensitiveIdentifier(t.text)) out.push({ role: 'user', content: `${t.text}${t.selection?.length ? `\n(with selected: ${t.selection.map((x) => x.label).join('; ')})` : ''}${t.page ? `\n(asked on the page "${t.page.title}")` : ''}` });
+    else if (t.role === 'assistant' && !hasSensitiveIdentifier(t.reply.text.join(' '))) out.push({ role: 'assistant', content: t.reply.text.join('\n').slice(0, HISTORY_CHARS) || '…' });
   }
   return out;
 }
@@ -207,7 +213,12 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   try {
     const { prompt, tools: base } = loadContract();
-    const tools = [...base, ...appToolDefs(), ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])] as Tool[];
+    const operational = ['hybrid_evidence', 'domain_evidence', 'data_quality', 'business_impact'].map((name) => ({
+      type: 'function', function: { name, description: name.replaceAll('_', ' '),
+        parameters: { type: 'object', properties: { merchant: { type: 'string' }, period: { type: 'string', enum: Object.keys(PERIODS) } } },
+      },
+    }));
+    const tools = [...base, ...appToolDefs(), ...operational, ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])] as Tool[];
     const run = model().snap.run;
     const asOf = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${run.as_of}T00:00:00Z`)).replace(',', '');
     const system = prompt.replace('{{AS_OF}}', asOf).replace('{{RUN_ID}}', run.run_id) + (page ? pageNote(page) : '') + (selection.length ? SELECTION_NOTE : '');
@@ -236,6 +247,9 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
       if (!msg) { console.warn('[assistant] model returned no message'); break; }
       if (!msg.tool_calls?.length) {
         const text = clean(msg.content ?? '');
+        if (hasSensitiveIdentifier(text)) break;
+        // no tool called: a greeting or a clarifying question is fine, but no figure without evidence
+        if (!used.length && !wantsFile && /\d/.test(text)) break;
         if (!text) { console.warn('[assistant] model returned an empty answer'); break; }
         // a file was asked for but none was made: the answer would point at a link that does not exist
         if (wantsFile && !madeFile) {
@@ -250,10 +264,11 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
           continue;
         }
         if (PROHIBITED.test(norm(text))) { console.warn('[assistant] model answer rejected: prohibited term'); break; }
+        const ids = text.match(/\bMER-\d{4}(?::\d{4}-\d{2}-\d{2})?\b/gi) ?? [];
+        if (ids.some((id) => !sources.includes(id.toUpperCase()) || !model().byMerchant.has(id.split(':')[0].toUpperCase()))) break;
         const bad = unknownNumbers(text, sources);
         if (bad.length) {
           console.warn(`[assistant] model answer ${repaired ? 'rejected' : 'sent back'}: ${bad.join(', ')} not in the tool results`);
-          if (process.env.LLM_DEBUG) console.warn(text);
           if (repaired || round === rounds - 1) break;
           // one repair round: the model restates its answer with the exact figures
           repaired = true;
@@ -267,7 +282,6 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
           table: used.find((r) => r.table)?.table, evidence, scope: lead?.scope ?? '', suggestions: guarded.suggestions, source: 'model', model: 'online', report: [...used].reverse().find((r) => r.report)?.report,
         };
       }
-      if (process.env.LLM_DEBUG) console.warn(`[assistant] round ${round + 1}: ${msg.tool_calls.map((t) => `${t.function?.name}(${t.function?.arguments})`).join(', ')}`);
       if (round === rounds - 1) console.warn('[assistant] model still calling tools after the last round');
       messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
       for (const tc of msg.tool_calls) {

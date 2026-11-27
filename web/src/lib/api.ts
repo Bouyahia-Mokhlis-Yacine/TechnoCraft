@@ -20,34 +20,23 @@ export function getMeta() {
   const m = model();
   return { run: m.snap.run, categories: m.categories, channels: m.channels, merchants: [...m.byMerchant.keys()].sort(), asOf: m.snap.run.as_of, firstDate: m.snap.run.first_date };
 }
-export const openIncidentCount = () => model().incidents.filter((i) => i.lifecycle !== 'resolved').length;
+export const openIncidentCount = () => rankedIncidents().filter((i) => i.open).length;
 
-/* ── incidents with review state and SRS priority (FR-36–39) ─────────── */
 export interface Ranked extends Incident {
-  review: ReturnType<typeof caseState>; open: boolean; rank: number | null;
-  priority: number; factors: { impact: number; urgency: number; evidence: number; actionability: number };
+  review: ReturnType<typeof caseState>; open: boolean; rank: number | null; priority: number;
 }
 
 export function rankedIncidents(): Ranked[] {
   const m = model(), events = readAll();
-  const withState = m.incidents.map((i) => ({ ...i, review: caseState(i.id, events) }));
-  const open = withState.filter((i) => i.lifecycle !== 'resolved' && i.review.status !== 'closed');
-  const maxImpact = Math.max(1, ...open.map((i) => i.affectedEvents + i.valueExposure / 10000));
-  const ranked: Ranked[] = withState.map((i) => {
-    const isOpen = i.lifecycle !== 'resolved' && i.review.status !== 'closed';
-    const state = i.lifecycle === 'active' ? 1 : i.lifecycle === 'recovering' ? 0.5 : 0;
-    const urgency = i.type === 'INTERRUPTION' && i.lifecycle === 'active' ? 1 : 0.7 * state + 0.3 * Math.min(i.days, 7) / 7;
-    const factors = {
-      impact: isOpen ? (i.affectedEvents + i.valueExposure / 10000) / maxImpact : 0,
-      urgency, evidence: Math.min(i.peakScore, 12) / 12,
-      actionability: i.review.status === 'assigned' ? 1 : i.review.status === 'acknowledged' ? 0.8 : i.review.status === 'closed' ? 0 : 0.6,
-    };
-    const priority = Math.round(100 * (0.4 * factors.impact + 0.3 * factors.urgency + 0.2 * factors.evidence + 0.1 * factors.actionability));
-    return { ...i, open: isOpen, rank: null, priority, factors };
+  const ranks = new Map(m.snap.priority_queue.map((i) => [i.id, i.rank]));
+  const rows = m.incidents.map((i) => {
+    const review = caseState(i.id, events);
+    const open = !i.historical && i.lifecycle !== 'resolved' && review.status !== 'closed';
+    return { ...i, review, open, rank: open ? ranks.get(i.id) ?? null : null,
+      priority: Math.round(100 * i.evidence.priority_utility) };
   });
-  const order = ranked.filter((r) => r.open).sort((a, b) => b.priority - a.priority || sevRank(a.severity) - sevRank(b.severity) || a.onset.localeCompare(b.onset) || a.id.localeCompare(b.id));
-  order.forEach((r, i) => (r.rank = i + 1));
-  return ranked.sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9) || b.end.localeCompare(a.end) || a.id.localeCompare(b.id));
+  return rows.sort((a, b) => Number(b.open) - Number(a.open) ||
+    (a.rank ?? Infinity) - (b.rank ?? Infinity) || b.end.localeCompare(a.end) || a.id.localeCompare(b.id));
 }
 
 export interface IncidentFilters { lifecycle?: string; status?: string; severity?: string; merchant?: string; scope?: string }
@@ -76,8 +65,9 @@ export function getIncident(id: string) {
 export interface OverviewFilters { from?: string; to?: string; category?: string; channel?: string; merchant?: string }
 export function getOverview(f: OverviewFilters) {
   const m = model(), asOf = m.snap.run.as_of;
-  const to = f.to && f.to <= asOf ? f.to : asOf;
-  const from = f.from && f.from <= to ? f.from : addDays(to, -6);
+  const first = m.snap.run.first_date;
+  const to = f.to && f.to <= asOf && f.to >= first ? f.to : asOf;
+  const from = f.from && f.from <= to ? (f.from < first ? first : f.from) : (addDays(to, -6) < first ? first : addDays(to, -6));
   const len = days(from, to) + 1;
   const scope: Scope = { from, to, category: f.category, channel: f.channel, merchant: f.merchant };
   const priorScope: Scope = { ...scope, from: addDays(from, -len), to: addDays(from, -1) };
@@ -93,8 +83,9 @@ export function getOverview(f: OverviewFilters) {
   const affected = new Set(anomalies.map((a) => a.merchant)).size;
   const priorAnomalies = prev ? m.anomalies.filter((a) => a.date >= priorScope.from && a.date <= priorScope.to && inScope(a.merchant, a.category)) : null;
   // the named measures KPI formulas are built from (lib/formula.ts), for the period, the prior period and each day
-  const base = (t: { events: number; accepted: number; declined: number; cancelled: number; refunded: number; acceptedValue: number; attemptedValue: number }) =>
-    ({ transactions: t.events, accepted: t.accepted, declined: t.declined, cancelled: t.cancelled, refunded: t.refunded, accepted_value: t.acceptedValue, attempted_value: t.attemptedValue });
+  // amounts: the known sum (the engine leaves missing amounts out); cards say when it is partial
+  const base = (t: { events: number; accepted: number; declined: number; cancelled: number; refunded: number; acceptedValue: number | null; attemptedValue: number | null; knownAcceptedValue?: number; knownAttemptedValue?: number }) =>
+    ({ transactions: t.events, accepted: t.accepted, declined: t.declined, cancelled: t.cancelled, refunded: t.refunded, accepted_value: t.knownAcceptedValue ?? t.acceptedValue, attempted_value: t.knownAttemptedValue ?? t.attemptedValue });
   const measures: { cur: Values; prior: Values | null; daily: Values[] } = {
     cur: { ...base(cur.totals), alerts: anomalies.length, merchants_flagged: affected, open_incidents: openInScope.length, critical_incidents: openInScope.filter((i) => i.severity === 'critical').length, days: len },
     // incidents are a state "now": no prior value and no daily history
@@ -103,16 +94,22 @@ export function getOverview(f: OverviewFilters) {
   };
   const rateOf = (a: { declined: number; events: number } | undefined) => (a && a.events ? a.declined / a.events : null);
   // expected per day only without a channel filter: the engine's reference is per merchant, not per channel (FR-24)
-  const expected = (date: string) => f.channel ? undefined : [...m.byMerchant.values()].reduce((s, ds) => {
-    const d = ds.find((x) => x.date === date);
-    return d && inScope(d.merchant_id, d.category) ? s + (d.expected_n_adj ?? 0) : s;
-  }, 0);
+  const expected = (date: string) => {
+    if (f.channel) return undefined;
+    const rows = m.snap.merchant_days.filter((d) => d.date === date && inScope(d.merchant_id, d.category));
+    return rows.length && rows.every((d) => d.expected_n_adj !== null)
+      ? rows.reduce((sum, d) => sum + (d.expected_n_adj ?? 0), 0) : undefined;
+  };
   return {
     scope, priorScope: prev ? priorScope : null, holiday: holidayName(to),
     kpis: {
       events: { value: cur.totals.events, prior: prev?.totals.events ?? null },
-      acceptedValue: { value: cur.totals.acceptedValue, prior: prev?.totals.acceptedValue ?? null },
-      attemptedValue: { value: cur.totals.attemptedValue, prior: prev?.totals.attemptedValue ?? null },
+      acceptedValue: { value: cur.totals.acceptedValue, prior: prev?.totals.acceptedValue ?? null,
+        knownValue: cur.totals.knownAcceptedValue, missingEvents: cur.totals.missingAccepted },
+      attemptedValue: { value: cur.totals.attemptedValue, prior: prev?.totals.attemptedValue ?? null,
+        knownValue: cur.totals.knownAttemptedValue, missingEvents: cur.totals.missingAttempted },
+      cancellationRate: { value: cur.totals.events ? cur.totals.cancelled / cur.totals.events : null,
+        prior: prev?.totals.events ? prev.totals.cancelled / prev.totals.events : null },
       declineRate: { value: rateOf(cur.totals), prior: rateOf(prev?.totals) },
       affectedMerchants: { value: affected, prior: priorAnomalies ? new Set(priorAnomalies.map((a) => a.merchant)).size : null },
       openIncidents: { value: openInScope.length, critical: openInScope.filter((i) => i.severity === 'critical').length },
@@ -125,9 +122,11 @@ export function getOverview(f: OverviewFilters) {
     queue: openInScope.slice(0, 6),
     severityMix: (['critical', 'high', 'medium', 'low'] as Severity[]).map((s) => ({ severity: s, value: openInScope.filter((i) => i.severity === s).length })),
     advisories: m.advisories.filter((a) => a.date >= addDays(to, -13) && a.date <= to && (!chs || chs.has(a.channel))),
+    mlCandidates: m.snap.hybrid?.rows.filter((r) => r.investigation_candidate && r.date >= addDays(to, -13) &&
+      r.date <= to && (!f.merchant || r.merchant_id === f.merchant)).length ?? null,
     watchlist: m.watchlist.filter((w) => !f.merchant || w.merchant === f.merchant),
     forecast: f.merchant ? m.snap.forecast.merchants[f.merchant] ?? [] : f.category || f.channel ? null : m.snap.forecast.network,
-    backtest: m.snap.forecast.backtest,
+    backtest: m.snap.forecast.backtest, forecastDetail: m.snap.forecast,
     measures,
   };
 }
@@ -155,16 +154,19 @@ export function getAnomaly(id: string) {
   const i = ds.findIndex((d) => d.date === a.date), d = ds[i];
   const prior = ds.slice(Math.max(0, i - m.snap.run.policy.window_days), i).filter((p) => !p.is_anomaly);
   const med = (xs: number[]) => { const s = [...xs].sort((x, y) => x - y); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0; };
-  const pick = (x: MerchantDay): { value: number; usual?: number; lo?: number; hi?: number } =>
-    a.unit === 'DZD' ? { value: x.ticket ?? 0, usual: x.expected_ticket ?? undefined }
-    : a.unit === 'ratio' ? (a.type === 'CANCEL_SPIKE' ? { value: x.n ? x.n_can / x.n : 0, usual: x.expected_can_rate ?? undefined } : { value: x.n ? x.n_dec / x.n : 0, usual: x.expected_dec_rate ?? undefined })
-    : { value: x.n, usual: x.expected_n_adj ?? undefined, lo: x.expected_lo ?? undefined, hi: x.expected_hi ?? undefined };
+  const pick = (x: MerchantDay): { value: number; usual?: number; lo?: number; hi?: number } => {
+    const evidence = x.detectors[a.evidence.indicator];
+    const observed = a.evidence.indicator === 'declines' ? x.n_dec :
+      a.evidence.indicator === 'cancellations' ? x.n_can : a.unit === 'DZD' ? x.ticket : x.n;
+    return { value: observed ?? 0, usual: evidence?.expected ?? undefined,
+      lo: evidence?.interval?.[0], hi: evidence?.interval?.[1] };
+  };
   const chans = [...new Set([...Object.keys(d.channels), ...prior.flatMap((p) => Object.keys(p.channels))])];
   const tot = prior.reduce((s, p) => s + p.n, 0) || 1;
   return {
     anomaly: a, day: d, incident: rankedIncidents().find((x) => x.id === a.incidentId) ?? null,
     advisory: a.advisoryId ? m.advisories.find((x) => x.id === a.advisoryId) ?? null : null,
-    series: ds.slice(Math.max(0, i - 28), i + 8).map((x): SeriesPoint => ({ date: x.date, ...pick(x), severity: m.anomalyById.get(`${a.merchant}_${x.date}`)?.severity, anomalyId: x.is_anomaly ? `${a.merchant}_${x.date}` : undefined, holiday: holidayName(x.date) })),
+    series: ds.slice(Math.max(0, i - 28), i + 8).filter((x) => a.unit !== 'DZD' || x.ticket !== null).map((x): SeriesPoint => ({ date: x.date, ...pick(x), severity: m.anomalyById.get(`${a.merchant}_${x.date}`)?.severity, anomalyId: x.is_anomaly ? `${a.merchant}_${x.date}` : undefined, holiday: holidayName(x.date) })),
     stats: [
       { label: 'Transactions', observed: d.n as number | null, usual: d.expected_n_adj, kind: 'int' as const, note: d.expected_lo !== null ? `normal range ${d.expected_lo}–${d.expected_hi}` : '' },
       { label: 'Rejection rate', observed: d.n ? d.n_dec / d.n : null, usual: d.expected_dec_rate, kind: 'pct' as const, note: `${d.n_dec} of ${d.n}` },
@@ -175,6 +177,7 @@ export function getAnomaly(id: string) {
     channels: chans.map((c): Compare & { declined: number } => ({ label: c, observed: d.channels[c]?.[0] ?? 0, usual: med(prior.map((p) => p.channels[c]?.[0] ?? 0)), declined: d.channels[c]?.[1] ?? 0 })).filter((c) => c.observed || c.usual),
     hours: d.hours.map((v, h): Compare => ({ label: String(h).padStart(2, '0'), observed: v, usual: (prior.reduce((s, p) => s + p.hours[h], 0) / tot) * (d.expected_n_adj ?? 0) })),
     policy: m.snap.run.policy, runId: m.snap.run.run_id,
+    hybrid: m.snap.hybrid?.rows.find((row) => row.merchant_id === a.merchant && row.date === a.date) ?? null,
   };
 }
 
@@ -184,15 +187,8 @@ export function getAdvisory(id: string) {
   const m = model(), a = m.advisories.find((x) => x.id === id);
   if (!a) return null;
   const otherRate = a.otherChannels.reduce((s, c) => s + c.n_dec, 0) / Math.max(1, a.otherChannels.reduce((s, c) => s + c.n, 0));
-  const affected = a.members.filter((x) => x.affected).length, flagged = a.members.filter((x) => x.flagged).length;
-  // Rule-based hypotheses (FR-34): evidence for and against, never presented as a confirmed cause.
-  const hypotheses = [
-    { title: `Gateway or acquirer issue on ${a.channel}`, for: [`${affected} merchants show excess declines on this channel the same day`, `Channel decline rate ${fmtUnit(a.observed_rate, 'ratio')} vs ${fmtUnit(a.expected_rate, 'ratio')} expected`],
-      against: otherRate > a.expected_rate * 3 ? [`Other channels were also elevated (${fmtUnit(otherRate, 'ratio')})`] : [`Other channels stayed near normal (${fmtUnit(otherRate, 'ratio')})`],
-      missing: ['Gateway reason codes', 'Service and switch logs for the day'], next: 'Request reason codes and service logs from the gateway team.' },
-    { title: 'Merchant-side configuration problem', for: [`${flagged} of ${a.members.length} merchants on the channel were flagged`],
-      against: [`The symptom spans ${affected} unrelated merchants at once`], missing: ['Merchant terminal / integration change records'], next: 'Only pursue if gateway evidence clears the channel.' },
-  ];
+  const hypotheses = a.hypotheses.map((h) => ({ title: h.hypothesis, for: [h.support],
+    against: [h.counterevidence], missing: [], next: h.check }));
   return { advisory: a, otherRate, hypotheses, incidents: rankedIncidents().filter((i) => a.incidentIds.includes(i.id)) };
 }
 
@@ -209,7 +205,7 @@ export function listMerchants(f: MerchantFilters) {
     const open = inc.filter((i) => i.merchant === id && i.open);
     return {
       id, category: last.category, firstSeen: ds[0].date, isNew: ds[0].date > m.snap.run.train_end, learning: last.warming_up, latestDate: last.date,
-      avgDaily: total / ds.length, avgValue: ds.reduce((s, d) => s + d.value, 0) / ds.length, declineRate: ds.reduce((s, d) => s + d.n_dec, 0) / Math.max(1, total),
+      avgDaily: total / ds.length, avgValue: ds.some((d) => d.value === null) ? null : ds.reduce((sum, d) => sum + (d.value ?? 0), 0) / ds.length, declineRate: ds.reduce((s, d) => s + d.n_dec, 0) / Math.max(1, total),
       lastDay: last.n, lastExpected: last.expected_n_adj, topChannel: top ? `${top[0]} · ${Math.round((top[1] / Math.max(1, total)) * 100)} %` : '—',
       openIncidents: open.length, worst: open.map((i) => i.severity).sort((a, b) => sevRank(a) - sevRank(b))[0] ?? null,
       spark: ds.slice(-30).map((d) => d.n),
@@ -250,34 +246,40 @@ export function getMerchant(id: string) {
   for (let i = 0; i < t.ts.length; i++) if (t.merchant[i] === idx) { channels[t.channel[i]] = (channels[t.channel[i]] ?? 0) + 1; statuses[t.status[i]] = (statuses[t.status[i]] ?? 0) + 1; }
   const total = ds.reduce((s, d) => s + d.n, 0);
   return {
-    id, category: ds[0].category, firstSeen: ds[0].date, isNew: ds[0].date > m.snap.run.train_end, learning: ds[ds.length - 1].warming_up, daysObserved: ds.length,
-    kpis: { avgDailyTx: total / ds.length, avgDailyValue: ds.reduce((s, d) => s + d.value, 0) / ds.length, rejectionRate: ds.reduce((s, d) => s + d.n_dec, 0) / Math.max(1, total), flagged: ds.filter((d) => d.is_anomaly).length },
+    id, category: ds[ds.length - 1].category, firstSeen: ds[0].date, isNew: ds[0].date > m.snap.run.train_end, learning: ds[ds.length - 1].warming_up, daysObserved: ds.length,
+    kpis: { avgDailyTx: total / ds.length, avgDailyValue: ds.some((d) => d.value === null) ? null : ds.reduce((sum, d) => sum + (d.value ?? 0), 0) / ds.length, rejectionRate: ds.reduce((s, d) => s + d.n_dec, 0) / Math.max(1, total), flagged: ds.filter((d) => d.is_anomaly).length },
     series: ds.map((d): SeriesPoint => ({ date: d.date, value: d.n, usual: d.expected_n_adj ?? undefined, lo: d.expected_lo ?? undefined, hi: d.expected_hi ?? undefined, severity: m.anomalyById.get(`${id}_${d.date}`)?.severity, anomalyId: d.is_anomaly ? `${id}_${d.date}` : undefined, holiday: holidayName(d.date) })),
     channels: Object.entries(channels).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value })),
     statuses: ['Accepted', 'Declined', 'Cancelled', 'Refunded'].map((label) => ({ label, value: statuses[label] ?? 0 })),
     incidents: rankedIncidents().filter((i) => i.merchant === id).sort((a, b) => b.onset.localeCompare(a.onset)),
     cold: ds.filter((d) => d.cold_start).map((d) => ({ date: d.date, n: d.n, ...d.cold_start! })),
-    health: merchantHealth(id), forecast: m.snap.forecast.merchants[id] ?? ([] as ForecastPoint[]),
+    reference: ds[ds.length - 1], forecastDetail: m.snap.forecast, health: merchantHealth(id), forecast: m.snap.forecast.merchants[id] ?? ([] as ForecastPoint[]),
   };
 }
 
 /* ── transactions (FR-23, sanitized) ─────────────────────────────────── */
-export interface TxFilters { merchant?: string; from?: string; to?: string; category?: string; channel?: string; status?: string; sort?: string; page?: number }
+export interface TxFilters { merchant?: string; from?: string; to?: string; category?: string; channel?: string; status?: string; quality?: string; contactless?: string; sort?: string; page?: number }
 export function listTransactions(f: TxFilters, pageSize = 50) {
   const t = model().snap.transactions;
   const mIdx = f.merchant ? t.merchants.indexOf(f.merchant) : -1, chs = channelSet(f.channel);
-  const rows: { id: number; ts: string; merchant: string; category: string; channel: string; status: string; amount: number | null; flags: string[] }[] = [];
+  const rows: { id: string; ts: string; merchant: string; category: string; channel: string; status: string; amount: number | null; flags: string[]; contactlessLimit: boolean }[] = [];
   for (let i = t.ts.length - 1; i >= 0; i--) {
     const date = t.ts[i].slice(0, 10);
     if ((f.merchant && t.merchant[i] !== mIdx) || (f.from && date < f.from) || (f.to && date > f.to) || (f.category && t.category[i] !== f.category) || (chs && !chs.has(t.channel[i])) || (f.status && t.status[i] !== f.status)) continue;
-    const flags = [...(t.amount[i] === null ? ['no amount'] : []), ...(t.channel[i] === 'Unknown' ? ['unknown channel'] : [])];
-    rows.push({ id: i + 1, ts: t.ts[i], merchant: t.merchants[t.merchant[i]], category: t.category[i], channel: t.channel[i], status: t.status[i], amount: t.amount[i], flags });
+    if (f.quality && !t.quality[i].includes(f.quality)) continue;
+    if (f.contactless === 'breach' && !t.contactless_limit[i]) continue;
+    if (f.contactless === 'within' && (t.channel[i] !== 'Contactless / NFC' || t.amount[i] === null || t.contactless_limit[i])) continue;
+    const flags = t.quality[i].map((flag) => flag.replaceAll('_', ' '));
+    if (t.contactless_limit[i]) flags.push('contactless limit exceeded');
+    rows.push({ id: t.source_row[i], ts: t.ts[i], merchant: t.merchants[t.merchant[i]], category: t.category[i],
+      channel: t.channel[i], status: t.status[i], amount: t.amount[i], flags, contactlessLimit: t.contactless_limit[i] });
   }
   if (f.sort === 'amount_desc') rows.sort((a, b) => (b.amount ?? -1) - (a.amount ?? -1));
   else if (f.sort === 'amount_asc') rows.sort((a, b) => (a.amount ?? Infinity) - (b.amount ?? Infinity));
   else if (f.sort === 'status') rows.sort((a, b) => a.status.localeCompare(b.status) || b.ts.localeCompare(a.ts));
   const page = Math.max(1, f.page ?? 1);
-  const value = rows.reduce((s, r) => s + (r.status === 'Accepted' && r.amount !== null ? r.amount : 0), 0);
+  const accepted = rows.filter((r) => r.status === 'Accepted');
+  const value = accepted.some((r) => r.amount === null) ? null : accepted.reduce((sum, r) => sum + (r.amount ?? 0), 0);
   return { total: rows.length, value, page, pageSize, rows: rows.slice((page - 1) * pageSize, page * pageSize), all: rows };
 }
 
@@ -287,7 +289,7 @@ export function dailyBrief(date: string) {
   const inc = rankedIncidents();
   return {
     date, run: m.snap.run, overview: ov,
-    opened: inc.filter((i) => i.onset === date), active: inc.filter((i) => i.onset <= date && i.end >= date),
+    opened: inc.filter((i) => i.onset === date), active: inc.filter((i) => m.byMerchant.get(i.merchant)?.some((d) => d.date === date && d.lifecycle?.incident_id === i.id && ['active_incident', 'recovering'].includes(d.lifecycle.phase))),
     anomalies: m.anomalies.filter((a) => a.date === date), advisories: m.advisories.filter((a) => a.date === date),
   };
 }

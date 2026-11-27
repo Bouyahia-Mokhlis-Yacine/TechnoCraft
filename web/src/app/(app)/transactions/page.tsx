@@ -11,7 +11,7 @@ import { EmptyState, ExportLink, PageHeader, Pager, flat } from '@/components/ui
 
 export const metadata: Metadata = { title: 'Transactions' };
 type SP = Promise<Record<string, string | string[] | undefined>>;
-const STATUSES = ['Accepted', 'Declined', 'Cancelled', 'Refunded'];
+const STATUSES = ['Accepted', 'Declined', 'Cancelled', 'Refunded', 'Unknown'];
 
 export default function TransactionsPage({ searchParams }: { searchParams: SP }) {
   return <Suspense fallback={<ListSkeleton title="Transactions" fields={7} cols={[14, 10, 16, 20, 11, 9, 8]} rows={10} />}><Transactions searchParams={searchParams} /></Suspense>;
@@ -35,6 +35,8 @@ async function Transactions({ searchParams }: { searchParams: SP }) {
         <label className="field">Status<select name="status" defaultValue={p.status ?? ''}><option value="">All</option>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></label>
         <label className="field">From<input type="date" name="from" defaultValue={p.from} min={meta.firstDate} max={meta.asOf} /></label>
         <label className="field">To<input type="date" name="to" defaultValue={p.to} min={meta.firstDate} max={meta.asOf} /></label>
+        <label className="field">Quality<select name="quality" defaultValue={p.quality ?? ''}><option value="">All</option><option value="missing_amount">Missing amount</option><option value="negative_amount">Negative input amount</option><option value="invalid_amount">Invalid amount</option><option value="unknown_channel">Unknown channel</option><option value="category_imputed">Recovered category</option></select></label>
+        <label className="field">Contactless<select name="contactless" defaultValue={p.contactless ?? ''}><option value="">All</option><option value="breach">Over 2,500 DZD</option><option value="within">Within limit</option></select></label>
         <label className="field">Sort<select name="sort" defaultValue={p.sort ?? ''}><option value="">Newest first</option><option value="amount_desc">Largest amount</option><option value="amount_asc">Smallest amount</option><option value="status">Status</option></select></label>
       </FilterForm>
 
@@ -45,7 +47,7 @@ async function Transactions({ searchParams }: { searchParams: SP }) {
             <tbody>
               {res.rows.map((t) => (
                 <tr key={t.id}>
-                  <td className="num">{t.ts.slice(0, 16)}</td>
+                  <td className="num">{t.ts.slice(0, 16)}<br /><small className="muted">{t.id}</small></td>
                   <td><Link className="merchant" href={`/merchants/${t.merchant}`}><b>{t.merchant}</b></Link></td>
                   <td>{t.category}</td>
                   <td><span className="status"><i className="dot" style={{ background: CHANNEL_VAR[t.channel] ?? 'var(--ch-unknown)' }} />{t.channel}</span></td>
@@ -61,8 +63,7 @@ async function Transactions({ searchParams }: { searchParams: SP }) {
       <Pager page={res.page} pageSize={res.pageSize} total={res.total} params={p} path="/transactions" />
 
       <MethodNote label="Data cleaning">
-        Engine cleaning kept {fmtInt(c.rows_clean)} of {fmtInt(c.rows_raw)} rows: {fmtInt(c.exact_duplicates_removed)} exact duplicates removed; {fmtInt(c.missing_amount_kept_for_counts)} rows without an amount kept for counts but not value; {fmtInt(c.negative_amounts_sign_fixed)} negative amounts sign-corrected;
-        {' '}{fmtInt(c.missing_channel_set_unknown)} rows without a channel shown as “Unknown”; {fmtInt(c.missing_category_filled)} missing categories filled from the merchant. Card numbers are never shown. <Link href="/data">Full data audit</Link>
+        Cleaning kept {fmtInt(c.retained_events)} of {fmtInt(c.raw_rows)} input rows. Negative and missing amounts are excluded from monetary totals. Contactless amounts remain unchanged. High limit breach prevalence comes from synthetic data generation. <Link href="/data">Full data audit</Link>
       </MethodNote>
     </>
   );

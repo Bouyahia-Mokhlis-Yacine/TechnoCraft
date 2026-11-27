@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
+import { redirect } from 'next/navigation';
 import { ArrowRight, Database } from 'lucide-react';
 import { NavFallback, NavLinks, NavTracker, SidebarToggle } from '@/components/client';
 import { AssistantDock } from '@/components/assistant-dock';
@@ -10,12 +11,6 @@ import { fmtDay } from '@/lib/format';
 import { TYPES } from '@/lib/labels';
 import { PAGES } from '@/lib/accounts';
 import { currentUser } from '@/lib/session';
-
-/** The sidebar menu: only the account's pages. */
-async function UserNav() {
-  const user = await currentUser();
-  return <NavLinks incidents={openIncidentCount()} allow={user ? user.pages.map((k) => PAGES[k].path) : []} admin={!!user?.admin} />;
-}
 
 /** Shown only when the account can open what it links to (assistant, incidents, data). */
 async function IfPage({ page, children }: { page: keyof typeof PAGES; children: React.ReactNode }) {
@@ -26,8 +21,9 @@ async function IfPage({ page, children }: { page: keyof typeof PAGES; children: 
 /** Top of the queue: reads the review ledger, so it renders per request. */
 async function Spotlight() {
   await connection();
-  const top = rankedIncidents().find((i) => i.open);
-  if (!top) return <><b>All clear</b><p>No open incident right now.</p></>;
+  let top: ReturnType<typeof rankedIncidents>[number] | undefined;
+  try { top = rankedIncidents().find((i) => i.open); } catch { return <b>Run unavailable</b>; }
+  if (!top) return <><b>All clear</b><p>No open incident at the data cutoff.</p></>;
   return (
     <>
       <b>{top.severity === 'critical' ? 'Critical now' : 'Top of the queue'}</b>
@@ -37,8 +33,35 @@ async function Spotlight() {
   );
 }
 
+/** The sidebar menu, read per request so a newly published run updates the badge. */
+async function RunNavigation() {
+  await connection();
+  let count: number | undefined;
+  try { count = openIncidentCount(); } catch { return <NavFallback />; }
+  // only the account's pages (the administrator also gets Accounts)
+  const user = await currentUser();
+  return <NavLinks incidents={count} allow={user ? user.pages.map((k) => PAGES[k].path) : []} admin={!!user?.admin} />;
+}
+
+async function RunStatus() {
+  await connection();
+  let meta: ReturnType<typeof getMeta>;
+  try { meta = getMeta(); } catch { return <span className="side-status">Run unavailable</span>; }
+  return (
+    <Link href="/data" className="side-status" title="Run details and data audit">
+      <Database aria-hidden />
+      <span><b>{meta.run.parity.sealed ? 'Competition archive' : 'Unsealed replay preview'}</b>
+        <small>Data through {fmtDay(meta.asOf)} · batch {meta.run.batch_status}</small></span>
+    </Link>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const meta = getMeta();
+  return <Suspense fallback={null}><AuthorizedApp>{children}</AuthorizedApp></Suspense>;
+}
+
+async function AuthorizedApp({ children }: { children: React.ReactNode }) {
+  if (!await currentUser()) redirect('/login');
   return (
     <>
       <a className="skip" href="#content">Skip to content</a>
@@ -55,23 +78,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarToggle />
           </div>
 
-          <Suspense fallback={<NavFallback />}><UserNav /></Suspense>
+          <Suspense fallback={<NavFallback />}><RunNavigation /></Suspense>
 
           <Suspense fallback={null}><IfPage page="incidents">
             <div className="spot"><Spotlight /></div>
           </IfPage></Suspense>
 
           {/* Data status (FR-11, FR-20): which run, how fresh, complete or not. Lives in the sidebar foot. */}
-          <Suspense fallback={null}><IfPage page="data">
-            <Link href="/data" className="side-status" title="Run details and data audit">
-              <Database aria-hidden />
-              <span>
-                <b>Run {meta.run.run_id}</b>
-                <small>Engine {meta.run.policy.version} · as of {fmtDay(meta.asOf)}</small>
-              </span>
-              <i className={`status-dot ${meta.run.batch_status === 'complete' ? 'ok' : 'warn'}`} aria-label={`Batch ${meta.run.batch_status}`} />
-            </Link>
-          </IfPage></Suspense>
+          <Suspense fallback={null}><IfPage page="data"><RunStatus /></IfPage></Suspense>
         </aside>
         <main id="content" className="content">
           {children}

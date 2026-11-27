@@ -7,7 +7,8 @@ import { getAdvisory } from '@/lib/api';
 import { fmtDate, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 import { model } from '@/lib/model';
 import { CHANNEL_VAR } from '@/lib/labels';
-import { MerchantTiles, RateBars } from '@/components/visuals';
+import { Gauge, MerchantTiles, RateBars } from '@/components/visuals';
+import { symptomLabel } from '@/components/satim-evidence';
 import { PageHeader } from '@/components/ui';
 
 type Params = Promise<{ id: string }>;
@@ -21,6 +22,8 @@ async function AdvisoryView({ params }: { params: Params }) {
   const data = getAdvisory(decodeURIComponent((await params).id));
   if (!data) notFound();
   const { advisory: a, otherRate, hypotheses, incidents } = data;
+  const decline = a.symptom === 'rejection_increase';
+  const affected = a.excess_rejections ?? a.potential_activity_shortfall ?? a.activity_increase;
   const members = [...a.members].sort((x, y) => Number(y.affected) - Number(x.affected) || y.n_dec / Math.max(1, y.n) - x.n_dec / Math.max(1, x.n));
   // merchant × channel decline matrix that day (FR-33)
   const days = model().byMerchant;
@@ -30,15 +33,17 @@ async function AdvisoryView({ params }: { params: Params }) {
   return (
     <>
       <PageHeader crumbs={<><Link transitionTypes={['nav-back']} href="/intelligence">Intelligence</Link><span>/</span><span>{a.id}</span></>}
-        title={`${a.channel} · high declines`} />
+        title={`${a.channel} · ${symptomLabel(a.symptom)}`} />
 
       <div className="detail-grid">
         <div className="stack">
           <section className="story m-rise">
-            <span className="meta">Network advisory · {fmtDate(a.date)} · score {fmtNum(a.score, 0)} (alert at {fmtNum(a.threshold, 0)})</span>
-            <p className="sr-only">{fmtInt(a.n_dec)} of {fmtInt(a.n)} payments on {a.channel} were declined across the network on {fmtDate(a.date)}, against {fmtPct(a.expected_rate, 1)} expected. Other channels: {fmtPct(otherRate, 1)} the same day.</p>
-            <div className="compare" aria-hidden><b>{fmtPct(a.observed_rate, 0)}</b><span className="unit">declined</span><span className="vs">{fmtInt(a.n_dec)} of {fmtInt(a.n)}</span></div>
-            <RateBars tone="hero" rows={[{ label: 'This channel', value: a.observed_rate, hot: true }, { label: 'Expected', value: a.expected_rate }, { label: 'Other channels', value: otherRate }]} />
+            <span className="meta">V3 advisory · {fmtDate(a.date)} · {a.category ?? 'All categories'}</span>
+            <p>{fmtInt(a.observed)} observed vs {fmtNum(a.expected, 1)} expected · {fmtInt(affected)} estimated affected events</p>
+            {decline ? <RateBars tone="hero" rows={[{ label: 'Selected merchants', value: a.observed_rate, hot: true },
+              { label: 'Expected', value: a.expected_rate }, { label: 'Other channels', value: otherRate }]} /> :
+              <Gauge tone="hero" observed={a.observed} expected={a.expected} unit="tx" label={symptomLabel(a.symptom)} />}
+            <p>Likelihood score {fmtNum(a.score, 2)} · ordinary date tail rank {fmtPct(a.calibration_date_tail_rank, 2)} · scope since {fmtDate(a.start)}</p>
             <div className="figures small">
               <div><b>{a.members.length}</b><span>merchants</span></div>
               <div><b>{a.members.filter((m) => m.affected).length}</b><span>corroborated</span></div>
@@ -78,7 +83,9 @@ async function AdvisoryView({ params }: { params: Params }) {
         <div className="stack">
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>Merchants on the channel</h2><p>That day</p></div></div>
-            <MerchantTiles items={members.map((mm) => ({ id: mm.merchant_id, k: mm.n_dec, n: mm.n, affected: mm.affected, flagged: mm.flagged }))} />
+            {decline && <MerchantTiles items={members.map((mm) => ({ id: mm.merchant_id, k: mm.n_dec, n: mm.n, affected: mm.affected, flagged: mm.flagged }))} />}
+            <ul className="reasons">{members.map((mm) => <li key={mm.merchant_id}><Link href={'/merchants/' + mm.merchant_id}>{mm.merchant_id}</Link>
+              {' · '}{fmtInt(mm.observed)} observed vs {fmtNum(mm.expected, 1)} expected{mm.affected ? ' · corroborated' : ''}{mm.flagged ? ' · official V2 alert' : ''}</li>)}</ul>
           </section>
           <section className="panel m-rise" style={css({ '--i': 2 })}>
             <div className="panel-head"><div><h2>Merchant × channel</h2><p>Declined / total · darker = more declines</p></div></div>

@@ -86,9 +86,9 @@ export function incidentHypotheses(inc: Ranked): Hypothesis[] {
       [share >= 0.3 && `${pct(share)} of the day’s transactions fell in one hour`, d.n_dec + d.n_can > 0.2 * d.n && `${d.n_dec + d.n_can} declined or cancelled of ${d.n}`],
       [share < 0.2 && 'Activity was spread across the day'], ['Transaction identifiers to check for duplicates']);
   } else if (t === 'SPIKE_AMOUNT') {
-    const exp = d.expected_n_adj ?? 0;
     add('Genuinely larger orders',
-      [exp > 0 && Math.abs(d.n - exp) <= 2 * Math.sqrt(exp) && 'The number of transactions stayed within its normal range'], [], ['Order details from the merchant']);
+      [d.expected_lo !== null && d.expected_hi !== null && d.n >= d.expected_lo && d.n <= d.expected_hi &&
+        'Transaction count was within the archived predictive interval'], [], ['Order details from the merchant']);
     add('Data entry or integrity problem',
       [d.ticket !== null && (d.expected_ticket ?? 0) > 0 && d.ticket > 3 * (d.expected_ticket ?? 0) && 'Typical amount more than three times the reference'], [], ['Raw amounts and currency fields from the source']);
   } else if (t === 'CANCEL_SPIKE') {
@@ -110,73 +110,67 @@ export function weeklyBrief(end: string) {
     from, to: end, overview: ov, anomalies,
     opened: inc.filter((i) => i.onset >= from && i.onset <= end),
     active: inc.filter((i) => i.onset <= end && i.end >= from),
-    resolvedInWeek: inc.filter((i) => i.lifecycle === 'resolved' && i.end >= from && i.end <= end),
+    resolvedInWeek: inc.filter((i) => i.lifecycle === 'resolved' && i.evidence.as_of >= from && i.evidence.as_of <= end),
     topMerchants: [...byMerchant.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5),
     advisories: m.advisories.filter((a) => a.date >= from && a.date <= end),
-    clusters: (m.snap.collective?.clusters ?? []).filter((c) => c.date >= from && c.date <= end),
+    clusters: m.advisories.filter((c) => c.date >= from && c.date <= end),
+    candidates: m.snap.hybrid?.rows.filter((c) => c.investigation_candidate && c.date >= from && c.date <= end) ?? [],
     forecast: end === m.snap.run.as_of ? m.snap.forecast.network : null,
   };
 }
 
 /* ── collective clusters (V3 subset scan) ───────────────────────────── */
 export function listClusters() {
-  const m = model(), c = m.snap.collective;
-  if (!c) return null;
+  const m = model();
+  if (!m.snap.run.models.v3) return null;
   return {
-    ...c,
-    clusters: c.clusters.map((x) => ({
-      ...x,
-      members: x.members.map((id) => {
-        const d = m.byMerchant.get(id)?.find((y) => y.date === x.date);
-        const ch = x.channel && d ? d.channels[x.channel] : undefined;
-        return { id, flagged: !!d?.is_anomaly, observed: x.kind === 'declines' ? ch?.[1] ?? 0 : d?.n ?? 0, total: x.kind === 'declines' ? ch?.[0] ?? 0 : null, expected: x.kind === 'activity' ? d?.expected_n_adj ?? null : null };
-      }),
-      advisory: m.advisories.find((a) => a.date === x.date && a.channel === x.channel)?.id ?? null,
+    method: 'Frozen V3 likelihood subset scan with ordinary date-max calibration',
+    clusters: m.advisories.map((a) => ({
+      id: a.id, kind: a.symptom === 'rejection_increase' ? 'declines' as const : 'activity' as const,
+      date: a.date, channel: a.channel, observed: a.observed, expected: a.expected,
+      relative_risk: a.expected ? a.observed / a.expected : 0, score: a.score,
+      p_value: a.calibration_date_tail_rank, cohort: a.members.length, advisory: a.id, symptom: a.symptom,
+      members: a.members.map((row) => ({ id: row.merchant_id, flagged: row.flagged,
+        observed: row.observed, expected: row.expected, total: row.exposure })),
     })),
   };
 }
 
-/* ── simulator baseline ─────────────────────────────────────────────── */
-// Per merchant: expected daily count by day type (the engine's same-day-type median of the last 28
-// days), hourly share by channel over those days, typical accepted ticket and expected decline rate.
 export function simulatorBaseline() {
-  const m = model(), asOf = m.snap.run.as_of, t = m.snap.transactions;
-  const from = addDays(asOf, -27);
-  const weekend = (iso: string) => [4, 5].includes(new Date(`${iso}T00:00:00Z`).getUTCDay());
-  const channels = m.channels.filter((c) => c !== 'Unknown');
-  type Acc = { hours: Record<string, number[][]>; tickets: number[] };
-  const acc = new Map<string, Acc>();
+  const m = model(), t = m.snap.transactions;
+  const from = m.snap.run.first_date, asOf = m.snap.run.reference_last_date;
+  const weekend = (iso: string) => [4, 5].includes(new Date(iso + 'T00:00:00Z').getUTCDay());
+  const channels = m.channels;
+  const hourly = new Map<string, Record<string, number[][]>>();
   for (let i = 0; i < t.ts.length; i++) {
     const date = t.ts[i].slice(0, 10);
-    if (date < from || date > asOf || t.channel[i] === 'Unknown') continue;
-    const id = t.merchants[t.merchant[i]];
-    const a = acc.get(id) ?? { hours: {}, tickets: [] };
-    const k = weekend(date) ? 1 : 0;
-    a.hours[t.channel[i]] ??= [Array(24).fill(0), Array(24).fill(0)];
-    a.hours[t.channel[i]][k][Number(t.ts[i].slice(11, 13))]++;
-    if (t.status[i] === 'Accepted' && t.amount[i] !== null) a.tickets.push(t.amount[i] as number);
-    acc.set(id, a);
+    if (date > asOf) continue;
+    const id = t.merchants[t.merchant[i]], profile = hourly.get(id) ?? {};
+    profile[t.channel[i]] ??= [Array<number>(24).fill(0), Array<number>(24).fill(0)];
+    profile[t.channel[i]][Number(weekend(date))][Number(t.ts[i].slice(11, 13))]++;
+    hourly.set(id, profile);
   }
-  const median = (xs: number[]) => { const s = [...xs].sort((p, q) => p - q); return s.length ? (s.length % 2 ? s[s.length >> 1] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : 0; };
-  const merchants = [...m.byMerchant.entries()].map(([id, ds]) => {
-    const win = ds.filter((d) => d.date >= from && d.date <= asOf);
-    const exp = [0, 1].map((k) => median(win.filter((d) => weekend(d.date) === (k === 1) && !d.is_anomaly).map((d) => d.n)));
-    const a = acc.get(id);
-    const last = ds[ds.length - 1];
-    // hourly share by channel for each day type, normalised to the day's total
-    const share = [0, 1].map((k) => {
-      const tot = channels.reduce((s, c) => s + (a?.hours[c]?.[k].reduce((x, y) => x + y, 0) ?? 0), 0) || 1;
-      return Object.fromEntries(channels.map((c) => [c, (a?.hours[c]?.[k] ?? Array(24).fill(0)).map((v) => v / tot)]));
+  const merchants = [...m.byMerchant.entries()].map(([id, days]) => {
+    const byChannel = hourly.get(id) ?? {};
+    const metrics = [false, true].map((kind) => {
+      const forecasts = m.snap.forecast.detail.days.filter((d) => weekend(d.date) === kind).map((d) => d.merchants[id]);
+      const n = forecasts.reduce((sum, d) => sum + (d?.transactions?.mean ?? 0), 0);
+      const sum = (metric: 'accepted_value' | 'rejections') =>
+        n > 0 && forecasts.every((d) => d?.[metric]) ? forecasts.reduce((total, d) => total + (d[metric]?.mean ?? 0), 0) / n : null;
+      return { expected: n / Math.max(1, forecasts.length), valuePerEvent: sum('accepted_value'), rejectionRate: sum('rejections') };
     });
-    return { id, category: last.category, expected: exp, share, ticket: median(a?.tickets ?? []), decRate: last.expected_dec_rate ?? 0, learning: last.warming_up };
-  });
-  // busiest channel first, so the simulator opens on a scenario that matters
-  const vol = (c: string) => merchants.reduce((s, x) => s + x.expected[0] * (x.share[0][c]?.reduce((a, b) => a + b, 0) ?? 0), 0);
-  channels.sort((a, b) => vol(b) - vol(a));
-  return { asOf, from, channels, categories: m.categories, alpha: m.snap.run.dispersion, high: m.snap.run.policy.high, incidentMin: 6, merchants };
+    const share = [0, 1].map((kind) => {
+      const total = Object.values(byChannel).reduce((n, hours) => n + hours[kind].reduce((a, b) => a + b, 0), 0);
+      return Object.fromEntries(channels.map((c) => [c, (byChannel[c]?.[kind] ?? Array<number>(24).fill(0)).map((n) => total ? n / total : 0)]));
+    });
+    return { id, category: days[days.length - 1].category, expected: metrics.map((r) => r.expected), share,
+      valuePerEvent: metrics.map((r) => r.valuePerEvent), rejectionRate: metrics.map((r) => r.rejectionRate) };
+  }).filter((m) => hourly.has(m.id));
+  return { asOf, from, channels, categories: m.categories, merchants };
 }
 
 export function valueCurve() {
   const r = model().snap.run;
-  return { curve: r.value_curve ?? [], policy: r.policy.high, trainEnd: r.train_end };
+  const { tp, fp, fn } = r.validation;
+  return { curve: [{ threshold: r.policy.high, tp, fp, fn, flagged: tp + fp }], policy: r.policy.high, trainEnd: r.train_end };
 }

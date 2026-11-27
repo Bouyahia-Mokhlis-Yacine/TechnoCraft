@@ -53,7 +53,7 @@ export function appToolDefs() {
       { period: PERIOD, severity: { type: 'string', enum: ['critical', 'high', 'medium', 'low'] }, symptom: { type: 'string', enum: Object.keys(SYMPTOMS) }, merchant: MER, channel: CHANNEL }),
     fn('compare_merchants', 'Side-by-side comparison of 2 to 4 merchants over the last 7 days: transactions vs expected, declines, health score, open incidents and flagged days.',
       { merchants: { type: 'array', items: MER, minItems: 2, maxItems: 4 } }, ['merchants']),
-    fn('simulate_disruption', 'What-if simulator: estimates the impact of a hypothetical outage or decline surge (transactions lost or extra declines, value at risk, merchants touched, merchants the engine would flag, whether a network advisory would open). Uses each merchant\'s engine baseline; the disruption itself is an assumption.',
+    fn('simulate_disruption', 'What-if simulator: estimates the impact of a hypothetical outage or decline surge (transactions lost or extra declines, value at risk, merchants touched, merchants exposed to the hypothetical scenario). Uses each merchant\'s engine baseline; the disruption itself is an assumption.',
       { mode: { type: 'string', enum: ['outage', 'declines'] }, channel: CHANNEL, category: { type: 'string', enum: categories }, day_type: { type: 'string', enum: ['weekday', 'weekend'], description: 'weekend = Friday-Saturday. Default weekday.' },
         start_hour: { type: 'integer', minimum: 0, maximum: 23, description: 'Default 10.' }, hours: { type: 'integer', minimum: 1, maximum: 24, description: 'Duration. Default 3.' }, decline_rate: { type: 'integer', minimum: 5, maximum: 100, description: 'Percent declined during a decline surge. Default 40.' } }, ['mode']),
     fn('collective_anomalies', 'Groups of merchants that moved together on the same day (network-level subset scan): declines or activity drops shared by several merchants, with relative risk and significance.',
@@ -148,12 +148,11 @@ function simulateTool(a: Args, c: Ctx): ToolOut {
   return {
     result: {
       hypothetical: true, scenario: { mode, channel: channel || 'all channels', category: category || 'all categories', day: sc.weekend ? 'Friday-Saturday' : 'weekday', from_hour: `${sc.start}:00`, to_hour: `${end}:00`, ...(mode === 'declines' ? { declined_percent: sc.rate } : {}) },
-      [mode === 'outage' ? 'transactions_lost_estimate' : 'extra_declines_estimate']: Math.round(r.affected),
-      value_at_risk_estimate: fmtCompactDzd(r.value), value_at_risk_estimate_dzd: Math.round(r.value), merchants_touched: r.touched, merchants_in_scope: r.cohort,
-      merchants_engine_would_flag: r.flagged.length, flagged_examples: r.flagged.slice(0, 8), network_advisory_would_open: r.advisory,
+      [mode === 'outage' ? 'transactions_lost_estimate' : 'extra_declines_estimate']: r.affected,
+      value_at_risk_estimate: fmtCompactDzd(r.value), value_at_risk_estimate_dzd: r.value, merchants_touched: r.touched, merchants_in_scope: r.cohort,
       baseline: `each merchant's same-day-type median and hourly mix, ${base.from} to ${base.asOf}`,
     },
-    display: { intent: 'simulate_disruption', scope: scopeLine(c, fr(c, 'what-if (hypothesis)', 'simulation (hypothèse)'), base.from, base.asOf), evidence: [{ label: fr(c, 'Open the simulator', 'Ouvrir le simulateur'), href: '/simulate' }, ...r.flagged.slice(0, 3).map((m) => ({ label: m, href: `/merchants/${m}` }))] },
+    display: { intent: 'simulate_disruption', scope: scopeLine(c, fr(c, 'what-if (hypothesis)', 'simulation (hypothèse)'), base.from, base.asOf), evidence: [{ label: fr(c, 'Open the simulator', 'Ouvrir le simulateur'), href: '/simulate' }] },
   };
 }
 
@@ -174,7 +173,7 @@ function quality(_: Args, c: Ctx): ToolOut {
       run: r.run_id, data_as_of: r.as_of, batch: r.batch_status, alert_threshold: r.policy.high, labelled_period_until: r.train_end,
       validation: { precision: fmtPct(v.precision), recall: fmtPct(v.recall), f1: fmtPct(v.f1), caught_days: v.tp, false_alert_days: v.fp, missed_days: v.fn, episodes_found: `${Math.round(v.episode_recall * v.true_episodes)} of ${v.true_episodes}` },
       forecast_backtest: { error_model: bt.mae_model, error_seasonal_naive: bt.mae_seasonal_naive, interval_coverage: fmtPct(bt.interval_coverage), nominal_coverage: fmtPct(bt.nominal_coverage), origins: bt.origins },
-      cleaning: { rows_raw: r.cleaning.rows_raw, rows_clean: r.cleaning.rows_clean, duplicates_removed: r.cleaning.exact_duplicates_removed, negative_amounts_fixed: r.cleaning.negative_amounts_sign_fixed, categories_filled: r.cleaning.missing_category_filled, channels_unknown: r.cleaning.missing_channel_set_unknown },
+      cleaning: { rows_raw: r.cleaning.raw_rows, rows_clean: r.cleaning.retained_events, duplicates_removed: r.cleaning.exact_duplicate, negative_amounts_excluded: r.cleaning.negative_amount, missing_category: r.cleaning.missing_category, channels_unknown: r.cleaning.missing_channel },
     },
     display: { intent: 'engine_quality', scope: scopeLine(c, fr(c, 'engine validation', 'validation du moteur'), r.first_date, r.as_of), evidence: [{ label: fr(c, 'Data & runs', 'Données et exécutions'), href: '/data' }] },
   };
@@ -246,7 +245,7 @@ function dayDetail(a: Args, c: Ctx): ToolOut {
         declined: d.n_dec, decline_rate: d.n ? fmtPct(d.n_dec / d.n) : 'n/a', expected_decline_rate: d.expected_dec_rate === null ? 'n/a' : fmtPct(d.expected_dec_rate),
         cancelled: d.n_can, typical_payment: d.ticket === null ? 'n/a' : fmtCompactDzd(d.ticket), expected_typical_payment: d.expected_ticket === null ? 'n/a' : fmtCompactDzd(d.expected_ticket), accepted_value: fmtCompactDzd(d.value),
         channels: Object.fromEntries(Object.entries(d.channels).map(([ch, [n, dec]]) => [ch, { transactions: n, declined: dec }])), busiest_hours: hours.map(([h, v]) => `${h}:00 (${v})`),
-        anomaly_score: d.anomaly_score.toFixed(1), alert_threshold: r.policy.high, still_learning: d.warming_up,
+        anomaly_score: d.anomaly_score?.toFixed(4) ?? 'unscored', alert_threshold: r.policy.high, still_learning: d.warming_up,
         flagged: an ? { severity: an.severity, symptom: TYPES[an.type].label, explanation: an.explanation, incident: an.incidentId } : 'no',
       },
       display: { intent: 'day_detail', scope: scopeLine(c, id, date), evidence: [...(an ? [{ label: `${id} · ${date}`, href: `/alerts/${an.id}` }] : []), { label: id, href: `/merchants/${id}` }] },
@@ -259,7 +258,7 @@ function dayDetail(a: Args, c: Ctx): ToolOut {
       network: true, date, public_holiday: ov.holiday ?? 'no', transactions: fmtInt(k.events.value), expected: day?.usual === undefined ? 'n/a' : fmtInt(Math.round(day.usual)), accepted_value: fmtCompactDzd(k.acceptedValue.value), decline_rate: k.declineRate.value === null ? 'n/a' : fmtPct(k.declineRate.value),
       merchants_flagged: flagged.map((x) => ({ merchant: x.merchant, symptom: TYPES[x.type].label, severity: x.severity, explanation: x.explanation })),
       network_advisories: m.advisories.filter((x) => x.date === date).map((x) => `${x.id} (${x.channel})`),
-      collective_anomalies: (m.snap.collective?.clusters ?? []).filter((x) => x.date === date).map((x) => `${x.kind === 'declines' ? 'shared decline wave' : 'shared activity drop'} on ${x.channel ?? 'all channels'}, ${x.members.length} merchants`),
+      collective_anomalies: (listClusters()?.clusters ?? []).filter((x) => x.date === date).map((x) => `${x.kind === 'declines' ? 'shared decline wave' : 'shared activity drop'} on ${x.channel ?? 'all channels'}, ${x.members.length} merchants`),
       channels: ov.channels.map((x) => ({ channel: x.label, transactions: x.value })),
     },
     display: { intent: 'day_detail', scope: scopeLine(c, fr(c, 'network', 'réseau'), date), evidence: [{ label: fr(c, 'That day on the overview', 'Ce jour sur la vue d’ensemble'), href: `/?from=${date}&to=${date}` }, ...flagged.slice(0, 3).map((x) => ({ label: `${x.merchant} · ${date}`, href: `/alerts/${x.id}` }))] },

@@ -2,13 +2,13 @@
 
 const nf = (digits = 0) => new Intl.NumberFormat('fr-DZ', { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
-export const fmtInt = (n: number) => nf(0).format(Math.round(n));
-export const fmtDzd = (n: number) => `${fmtInt(n)} DZD`;
-export const fmtCompactDzd = (n: number) =>
-  n >= 1e6 ? `${nf(1).format(n / 1e6)} M DZD` : n >= 1e4 ? `${nf(0).format(n / 1e3)} k DZD` : fmtDzd(n);
+export const fmtInt = (n: number | null) => n === null ? 'n/a' : nf(0).format(Math.round(n));
+export const fmtDzd = (n: number | null) => n === null ? 'n/a' : `${fmtInt(n)} DZD`;
+export const fmtCompactDzd = (n: number | null) =>
+  n === null ? 'n/a' : n >= 1e6 ? `${nf(1).format(n / 1e6)} M DZD` : n >= 1e4 ? `${nf(0).format(n / 1e3)} k DZD` : fmtDzd(n);
 /** x is a ratio (0.062 → "6,2 %") */
-export const fmtPct = (x: number, digits = 1) => `${nf(digits).format(x * 100)} %`;
-export const fmtNum = (n: number, digits = 1) => nf(digits).format(n);
+export const fmtPct = (x: number | null, digits = 1) => x === null ? 'n/a' : `${nf(digits).format(x * 100)} %`;
+export const fmtNum = (n: number | null, digits = 1) => n === null ? 'n/a' : nf(digits).format(n);
 
 /** Signed relative change, "−71 %" / "+12 %"; ratio "×2,4" when above +100 %. */
 export function fmtDelta(observed: number, usual: number): string {

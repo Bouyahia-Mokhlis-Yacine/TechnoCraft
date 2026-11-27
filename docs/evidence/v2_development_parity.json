@@ -1,0 +1,6 @@
+{
+  "config_sha256": "ae0e8b517a7890223ad3e9a023dea5a275793b54fabf00175ab99400e57c5c59",
+  "prior_recorded_training_replay_sha256": "9396f8464bab86463fa9a36bc14951c4e6b2e8bb175412cfa1ae4dfee94ef0bf",
+  "exact_extension_parity_rows": 280,
+  "managed_threshold": 1.432641416752573
+}

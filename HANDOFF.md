@@ -1,5 +1,7 @@
 # Handoff: TechnoCraft 2026 · SATIM Payment Anomaly Intelligence (frontend)
 
+This is the original frontend handoff. The production engine, startup commands, statistical explanations, snapshot refresh and evaluation contract are documented in the current [README](README.md) and [architecture guide](docs/ARCHITECTURE.md).
+
 Written 2026-11-27. Read this first, then `web/README.md`.
 
 ## What the project is

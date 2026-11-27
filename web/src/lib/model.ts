@@ -1,8 +1,8 @@
 // Domain model derived from the engine snapshot: official anomalies (V2 flags, immutable),
 // incidents (episodes of consecutive flagged days), advisories, watchlist and aggregates.
 // Nothing here changes a flag or a score; it only reads and explains them (SRS FR-13–16, FR-26–39).
-import { snapshot, type AdvisoryRaw, type MerchantDay, type Snapshot } from './snapshot';
-import { fmtDate, fmtDzd, fmtInt, fmtPct } from './format';
+import { snapshot, type AdvisoryRaw, type Explanation, type IncidentEvidence, type MerchantDay, type Snapshot } from './snapshot';
+import { fmtDzd, fmtInt, fmtPct } from './format';
 
 export type AnomalyType = 'INTERRUPTION' | 'DROP_VOLUME' | 'ATYPICAL_SURGE' | 'SPIKE_AMOUNT' | 'SPIKE_DECLINED' | 'NETWORK_DECLINES' | 'CANCEL_SPIKE';
 export type Severity = 'critical' | 'high' | 'medium' | 'low';
@@ -30,23 +30,21 @@ export const PLAYBOOK: Record<AnomalyType, { check: string; owner: string; steps
 export interface Signal { key: string; label: string; score: number }
 export interface Anomaly {
   id: string; merchant: string; category: string; date: string; type: AnomalyType; severity: Severity; score: number;
-  signals: Signal[]; indicator: string; observed: number; expected: number | null; lo: number | null; hi: number | null; unit: Unit;
+  signals: Signal[]; indicator: string; observed: number | null; expected: number | null; lo: number | null; hi: number | null; unit: Unit;
   explanation: string; reasons: string[]; check: string; owner: string; steps: string[]; incidentId: string; advisoryId: string | null;
-  holiday: boolean; holidayFactor: number; historyDays: number;
+  holiday: boolean; holidayFactor: number; historyDays: number; evidence: Explanation;
 }
 export interface Incident {
   id: string; merchant: string; category: string; onset: string; end: string; days: number; anomalyIds: string[];
   type: AnomalyType; types: AnomalyType[]; severity: Severity; peakScore: number; lifecycle: Lifecycle; quietDays: number;
-  affectedEvents: number; valueExposure: number; advisoryId: string | null; latest: Anomaly;
+  affectedEvents: number | null; valueExposure: number | null; advisoryId: string | null; latest: Anomaly;
+  evidence: IncidentEvidence; historical: boolean;
 }
 export type Advisory = AdvisoryRaw & { otherChannels: { channel: string; n: number; n_dec: number }[]; incidentIds: string[] };
 
 const SEV_RANK: Record<Severity, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 export const sevRank = (s: Severity) => SEV_RANK[s];
 export const addDays = (iso: string, d: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + d * 864e5).toISOString().slice(0, 10);
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5);
-const median = (xs: number[]) => { if (!xs.length) return 0; const s = [...xs].sort((a, b) => a - b), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
-
 function typeOf(d: MerchantDay): AnomalyType {
   const s = d.main_signal;
   if (s === 'drop' || s === 'drop_sustained') return d.n === 0 ? 'INTERRUPTION' : 'DROP_VOLUME';
@@ -57,73 +55,21 @@ function typeOf(d: MerchantDay): AnomalyType {
   if (s === 'amount') return 'SPIKE_AMOUNT';
   return d.n < (d.expected_n_adj ?? 0) ? 'DROP_VOLUME' : 'ATYPICAL_SURGE';
 }
-/** Severity from the engine's evidence (−log10 p): ≥10 critical, ≥7 high, ≥4 opens an alert, below = joined by hysteresis. */
-const severityOf = (d: MerchantDay, t: AnomalyType): Severity =>
-  t === 'INTERRUPTION' || d.anomaly_score >= 10 ? 'critical' : d.anomaly_score >= 7 ? 'high' : d.anomaly_score >= 4 ? 'medium' : 'low';
-
-const rate = (k: number, n: number) => (n > 0 ? k / n : 0);
-
-function indicatorOf(d: MerchantDay, t: AnomalyType) {
-  if (t === 'SPIKE_DECLINED') return { indicator: 'rejection rate', observed: rate(d.n_dec, d.n), expected: d.expected_dec_rate, lo: null, hi: null, unit: 'ratio' as Unit };
-  if (t === 'NETWORK_DECLINES') {
-    const c = d.incident_channel ? d.channels[d.incident_channel] : undefined;
-    return { indicator: `rejection rate on ${d.incident_channel ?? 'the channel'}`, observed: c ? rate(c[1], c[0]) : rate(d.n_dec, d.n), expected: d.expected_dec_rate, lo: null, hi: null, unit: 'ratio' as Unit };
-  }
-  if (t === 'CANCEL_SPIKE') return { indicator: 'cancellation rate', observed: rate(d.n_can, d.n), expected: d.expected_can_rate, lo: null, hi: null, unit: 'ratio' as Unit };
-  if (t === 'SPIKE_AMOUNT') return { indicator: 'typical payment', observed: d.ticket ?? 0, expected: d.expected_ticket, lo: null, hi: null, unit: 'DZD' as Unit };
-  return { indicator: 'transactions', observed: d.n, expected: d.expected_n_adj, lo: d.expected_lo, hi: d.expected_hi, unit: 'tx' as Unit };
-}
-
 export const fmtUnit = (v: number | null, u: Unit) => (v === null ? 'n/a' : u === 'DZD' ? fmtDzd(v) : u === 'ratio' ? fmtPct(v, 1) : fmtInt(v));
 
-/** B4 explanation contract: merchant, period, indicator, observed vs reference, what triggered it. */
-function explain(d: MerchantDay, t: AnomalyType, ind: ReturnType<typeof indicatorOf>, advisoryId: string | null) {
-  const day = fmtDate(d.date), exp = ind.expected;
-  if (ind.unit === 'tx') {
-    const range = ind.lo !== null && ind.hi !== null ? ` (normal range ${fmtInt(ind.lo)}–${fmtInt(ind.hi)})` : '';
-    const diff = exp ? Math.round(((d.n - exp) / exp) * 100) : 0;
-    const how = d.main_signal.endsWith('sustained') ? 'Accumulated evidence over three days' : 'Activity this far from the merchant’s own reference';
-    return t === 'ATYPICAL_SURGE'
-      ? `${d.merchant_id} recorded ${fmtInt(d.n)} transactions on ${day}, compared with ${fmtInt(exp ?? 0)} expected${range}, ${diff >= 100 ? `×${(d.n / (exp || 1)).toFixed(1).replace('.', ',')}` : `+${diff} %`} above. ${how} triggered the alert.`
-      : `${d.merchant_id} recorded ${fmtInt(d.n)} transactions on ${day}, compared with ${fmtInt(exp ?? 0)} expected${range}, a ${Math.abs(diff)} % shortfall. ${d.n === 0 ? 'No activity at all' : how} triggered the alert.`;
-  }
-  if (t === 'SPIKE_AMOUNT') return `${d.merchant_id}’s typical accepted payment on ${day} was ${fmtDzd(d.ticket ?? 0)}, compared with ${fmtDzd(exp ?? 0)} expected, across ${fmtInt(d.n_acc)} accepted payments. Ticket sizes this far above the reference triggered the alert.`;
-  if (t === 'NETWORK_DECLINES') return `${ind.indicator[0].toUpperCase()}${ind.indicator.slice(1)} at ${d.merchant_id} reached ${fmtPct(ind.observed, 0)} on ${day}, compared with ${fmtPct(exp ?? 0, 1)} expected, on a day when the same channel showed excess declines across the network${advisoryId ? ` (advisory ${advisoryId})` : ''}.`;
-  if (t === 'CANCEL_SPIKE') return `${fmtInt(d.n_can)} of ${fmtInt(d.n)} transactions at ${d.merchant_id} were cancelled on ${day} (${fmtPct(ind.observed, 0)}), compared with ${fmtPct(exp ?? 0, 1)} expected.`;
-  return `${fmtInt(d.n_dec)} of ${fmtInt(d.n)} payments at ${d.merchant_id} were declined on ${day} (${fmtPct(ind.observed, 0)}), compared with ${fmtPct(exp ?? 0, 1)} expected for this merchant.`;
+function displayIndicator(e: Explanation) {
+  const { observed, expected, interval } = e.observed_expected;
+  const labels: Record<string, string> = { transaction_count: 'transactions', declines: 'declined transactions',
+    cancellations: 'cancelled transactions', median_ticket: 'median recorded ticket' };
+  return { indicator: labels[e.indicator] ?? e.indicator, observed, expected,
+    lo: interval?.[0] ?? null, hi: interval?.[1] ?? null, unit: (e.indicator === 'median_ticket' ? 'DZD' : 'tx') as Unit };
 }
 
-function reasonsFor(d: MerchantDay, t: AnomalyType, prior: MerchantDay[]): string[] {
-  const r: string[] = [];
-  const chans = [...new Set([...Object.keys(d.channels), ...prior.flatMap((p) => Object.keys(p.channels))])];
-  const usual = (c: string, i: 0 | 1) => median(prior.map((p) => p.channels[c]?.[i] ?? 0));
-  if (t === 'INTERRUPTION' || t === 'DROP_VOLUME' || t === 'ATYPICAL_SURGE') {
-    const diffs = chans.map((c) => ({ c, obs: d.channels[c]?.[0] ?? 0, u: usual(c, 0) })).filter((x) => x.u >= 1 || x.obs >= 1);
-    diffs.sort((a, b) => Math.abs(b.obs - b.u) - Math.abs(a.obs - a.u));
-    for (const x of diffs.slice(0, 2)) if (Math.abs(x.obs - x.u) >= 2) r.push(`${x.c}: ${fmtInt(x.obs)} transactions vs a usual ${fmtInt(x.u)}`);
-    if (t === 'DROP_VOLUME' && d.n > 0) {
-      const last = d.hours.reduce((acc, v, h) => (v ? h : acc), -1);
-      const tot = prior.reduce((s, p) => s + p.n, 0) || 1;
-      const after = prior.reduce((s, p) => s + p.hours.slice(last + 1).reduce((a, b) => a + b, 0), 0) / tot;
-      if (last >= 0 && last < 21 && after >= 0.3) r.push(`No transaction after ${String(last + 1).padStart(2, '0')}:00, while ${fmtPct(after, 0)} of the merchant’s activity usually comes later`);
-    }
-    if (d.main_signal.endsWith('sustained')) {
-      const w = [...prior.slice(-2), d];
-      r.push(`Last 3 days: ${fmtInt(w.reduce((s, x) => s + x.n, 0))} transactions vs ${fmtInt(w.reduce((s, x) => s + (x.expected_n_adj ?? 0), 0))} expected`);
-    }
-  } else if (t === 'SPIKE_DECLINED' || t === 'NETWORK_DECLINES') {
-    const worst = chans.map((c) => ({ c, k: d.channels[c]?.[1] ?? 0, n: d.channels[c]?.[0] ?? 0 })).sort((a, b) => b.k - a.k)[0];
-    if (worst?.k) r.push(`Most declines on ${worst.c}: ${fmtInt(worst.k)} of ${fmtInt(worst.n)}`);
-    r.push(`Overall: ${fmtInt(d.n_dec)} declined of ${fmtInt(d.n)} transactions`);
-  } else if (t === 'SPIKE_AMOUNT') {
-    r.push(`Value accepted: ${fmtDzd(d.value)}`);
-    r.push(`Number of transactions ${d.expected_n_adj !== null && Math.abs(d.n - d.expected_n_adj) <= 2 * Math.sqrt(d.expected_n_adj) ? 'stayed within its normal range' : 'also moved'}: ${fmtInt(d.n)} vs ${fmtInt(d.expected_n_adj ?? 0)} expected`);
-  } else if (t === 'CANCEL_SPIKE') {
-    r.push(`Cancelled: ${fmtInt(d.n_can)} · refunded: ${fmtInt(d.n_ref)} · declined: ${fmtInt(d.n_dec)}`);
-  }
-  if (d.holiday) r.push(`Public holiday: the expectation was scaled ×${d.holiday_factor.toFixed(2).replace('.', ',')} from the category’s own movement that day`);
-  if (d.history_days < 14) r.push(`Sparse history: only ${d.history_days} prior days for this merchant`);
-  return r;
+function businessSeverity(e: IncidentEvidence | undefined, t: AnomalyType): Severity {
+  if (t === 'INTERRUPTION') return 'critical';
+  if (e?.criticality === 'high') return 'high';
+  if (e?.criticality === 'elevated') return 'medium';
+  return 'low';
 }
 
 interface Model {
@@ -140,54 +86,50 @@ export function model(): Model {
   const byMerchant = new Map<string, MerchantDay[]>();
   for (const d of snap.merchant_days) byMerchant.set(d.merchant_id, [...(byMerchant.get(d.merchant_id) ?? []), d]);
   for (const days of byMerchant.values()) days.sort((a, b) => a.date.localeCompare(b.date));
-  const asOf = snap.run.as_of, W = snap.run.policy.window_days;
-  const advFor = (d: MerchantDay) => (d.s_incident > 0 ? snap.advisories.find((a) => a.date === d.date && a.channel === d.incident_channel)?.id ?? null : null);
-
-  const anomalies: Anomaly[] = [], incidents: Incident[] = [];
-  for (const [mid, days] of byMerchant) {
-    let cur: Anomaly[] = [];
-    const close = () => {
-      if (!cur.length) return;
-      const peak = cur.reduce((p, a) => (a.score > p.score ? a : p));
-      const first = cur[0], last = cur[cur.length - 1];
-      const id = `INC-${mid.slice(4)}-${first.date.slice(5).replace('-', '')}`;
-      let affected = 0, value = 0;
-      for (const a of cur) {
-        const d = days.find((x) => x.date === a.date)!;
-        const ticket = d.expected_ticket ?? 0;
-        let ev = 0;
-        if (a.type === 'INTERRUPTION' || a.type === 'DROP_VOLUME') ev = Math.max(0, (d.expected_n_adj ?? 0) - d.n);
-        else if (a.type === 'ATYPICAL_SURGE') ev = Math.max(0, d.n - (d.expected_n_adj ?? 0));
-        else if (a.type === 'SPIKE_DECLINED' || a.type === 'NETWORK_DECLINES') ev = Math.max(0, d.n_dec - (d.expected_dec_rate ?? 0) * d.n);
-        else if (a.type === 'CANCEL_SPIKE') ev = Math.max(0, d.n_can - (d.expected_can_rate ?? 0) * d.n);
-        affected += a.type === 'SPIKE_AMOUNT' ? 0 : ev;
-        value += a.type === 'SPIKE_AMOUNT' ? Math.max(0, ((d.ticket ?? 0) - ticket) * d.n_acc) : ev * ticket;
-      }
-      const quiet = daysBetween(last.date, asOf);
-      for (const a of cur) a.incidentId = id;
-      incidents.push({
-        id, merchant: mid, category: first.category, onset: first.date, end: last.date, days: cur.length, anomalyIds: cur.map((a) => a.id),
-        type: peak.type, types: [...new Set(cur.map((a) => a.type))], severity: cur.reduce((s, a) => (SEV_RANK[a.severity] < SEV_RANK[s] ? a.severity : s), 'low' as Severity),
-        peakScore: peak.score, lifecycle: quiet === 0 ? 'active' : quiet === 1 ? 'recovering' : 'resolved', quietDays: quiet,
-        affectedEvents: Math.round(affected), valueExposure: Math.round(value), advisoryId: cur.map((a) => a.advisoryId).find(Boolean) ?? null, latest: last,
-      });
-      cur = [];
-    };
-    days.forEach((d, i) => {
-      if (!d.is_anomaly) { close(); return; }
-      if (cur.length && daysBetween(cur[cur.length - 1].date, d.date) !== 1) close();
-      const t = typeOf(d), ind = indicatorOf(d, t), advisoryId = advFor(d);
-      const prior = days.slice(Math.max(0, i - W), i).filter((p) => !p.is_anomaly);
-      const signals = Object.keys(SIGNAL_LABEL).map((k) => ({ key: k, label: SIGNAL_LABEL[k], score: (d as unknown as Record<string, number>)[k] })).filter((s) => s.score >= 1).sort((a, b) => b.score - a.score);
-      const a: Anomaly = {
-        id: `${mid}_${d.date}`, merchant: mid, category: d.category, date: d.date, type: t, severity: severityOf(d, t), score: d.anomaly_score, signals,
-        ...ind, explanation: explain(d, t, ind, advisoryId), reasons: reasonsFor(d, t, prior), ...PLAYBOOK[t], incidentId: '', advisoryId,
-        holiday: d.holiday, holidayFactor: d.holiday_factor, historyDays: d.history_days,
-      };
-      anomalies.push(a); cur.push(a);
+  const asOf = snap.run.as_of;
+  const evidenceById = new Map(snap.incidents.map((i) => [i.id, i]));
+  const anomalies: Anomaly[] = [];
+  for (const d of snap.merchant_days) {
+    const e = d.explanation;
+    if (!d.is_anomaly || d.anomaly_score === null || !e) continue;
+    const type = typeOf(d);
+    const advisoryId = snap.advisories.find((a) => a.date === d.date && a.symptom === e.symptom &&
+      a.members.some((x) => x.merchant_id === d.merchant_id && x.affected))?.id ?? null;
+    const signals = Object.entries(SIGNAL_LABEL).flatMap(([key, label]) => {
+      const score = (d as unknown as Record<string, number | undefined>)[key];
+      return score === undefined ? [] : [{ key, label, score }];
+    }).sort((a, b) => b.score - a.score);
+    const reasons = [...e.limitations, 'Reference support: ' + e.reference_support.eligible_days + ' eligible merchant-days through ' + e.reference_last_date + '.'];
+    if (e.signal_source === 'persistent_count') reasons.push('Persistent count evidence required ' + e.count_cusum.minimum_streak + ' supporting days.');
+    anomalies.push({
+      id: d.merchant_id + '_' + d.date, merchant: d.merchant_id, category: d.category, date: d.date,
+      type, severity: businessSeverity(evidenceById.get(e.incident_id), type), score: d.anomaly_score, signals,
+      ...displayIndicator(e), explanation: e.explanation, reasons,
+      check: e.first_action, owner: e.responsible_role, steps: PLAYBOOK[type].steps,
+      incidentId: e.incident_id, advisoryId, holiday: d.holiday, holidayFactor: d.holiday_factor,
+      historyDays: d.history_days, evidence: e,
     });
-    close();
   }
+
+  const grouped = new Map<string, Anomaly[]>();
+  for (const a of anomalies) grouped.set(a.incidentId, [...(grouped.get(a.incidentId) ?? []), a]);
+  const incidents: Incident[] = snap.incidents.flatMap((e) => {
+    const alerts = grouped.get(e.id);
+    if (!alerts?.length) return [];
+    const first = alerts[0], last = alerts[alerts.length - 1];
+    const peak = alerts.reduce((p, a) => a.score > p.score ? a : p);
+    const lifecycle = e.recovery_status === 'active_incident' ? 'active' : e.recovery_status;
+    return [{
+      id: e.id, merchant: first.merchant, category: first.category, onset: e.start, end: e.last_alert,
+      days: e.duration_days, anomalyIds: alerts.map((a) => a.id), type: peak.type,
+      types: [...new Set(alerts.map((a) => a.type))],
+      severity: alerts.reduce((severity, a) => sevRank(a.severity) < sevRank(severity) ? a.severity : severity, first.severity),
+      peakScore: e.comparable_score, lifecycle, quietDays: e.recovery_quiet_days,
+      affectedEvents: e.affected_transactions, valueExposure: e.potential_value,
+      advisoryId: alerts.find((a) => a.advisoryId)?.advisoryId ?? null, latest: last,
+      evidence: e, historical: e.last_alert <= snap.run.train_end,
+    }];
+  });
 
   const advisories: Advisory[] = snap.advisories.map((a) => {
     const ch: Record<string, [number, number]> = {};
@@ -196,8 +138,8 @@ export function model(): Model {
   });
 
   const watchlist = [...byMerchant.values()].map((days) => days[days.length - 1])
-    .filter((d) => !d.is_anomaly && d.anomaly_score >= snap.run.policy.low && d.date === asOf)
-    .map((d) => ({ merchant: d.merchant_id, date: d.date, score: d.anomaly_score, signal: SIGNAL_LABEL[`s_${d.main_signal}`] ?? d.main_signal }));
+    .filter((d) => d.lifecycle?.phase === 'under_observation' && d.date === asOf)
+    .map((d) => ({ merchant: d.merchant_id, date: d.date, score: d.anomaly_score ?? 0, signal: SIGNAL_LABEL[`s_${d.main_signal}`] ?? d.main_signal }));
 
   const m: Model = {
     snap, byMerchant, anomalies, anomalyById: new Map(anomalies.map((a) => [a.id, a])), incidents, incidentById: new Map(incidents.map((i) => [i.id, i])),
@@ -211,13 +153,13 @@ export function model(): Model {
 /** `channel` may list several channels separated by commas (overview multi-select). */
 export interface Scope { from: string; to: string; merchant?: string; category?: string; channel?: string }
 export const channelSet = (c?: string) => (c ? new Set(c.split(',').map((x) => x.trim()).filter(Boolean)) : null);
-export interface DayAgg { date: string; events: number; accepted: number; acceptedValue: number; attemptedValue: number; declined: number; cancelled: number; refunded: number }
+export interface DayAgg { date: string; events: number; accepted: number; acceptedValue: number; attemptedValue: number; missingAccepted: number; missingAttempted: number; declined: number; cancelled: number; refunded: number }
 
 export function aggregate(s: Scope) {
   const t = model().snap.transactions;
   const mIdx = s.merchant ? t.merchants.indexOf(s.merchant) : -1, chs = channelSet(s.channel);
   const days = new Map<string, DayAgg>();
-  for (let d = s.from; d <= s.to; d = addDays(d, 1)) days.set(d, { date: d, events: 0, accepted: 0, acceptedValue: 0, attemptedValue: 0, declined: 0, cancelled: 0, refunded: 0 });
+  for (let d = s.from; d <= s.to; d = addDays(d, 1)) days.set(d, { date: d, events: 0, accepted: 0, acceptedValue: 0, attemptedValue: 0, missingAccepted: 0, missingAttempted: 0, declined: 0, cancelled: 0, refunded: 0 });
   const byChannel = new Map<string, number>(), byCategory = new Map<string, number>(), byMerchant = new Map<string, DayAgg>();
   for (let i = 0; i < t.ts.length; i++) {
     const date = t.ts[i].slice(0, 10);
@@ -226,11 +168,16 @@ export function aggregate(s: Scope) {
     if ((s.merchant && t.merchant[i] !== mIdx) || (s.category && t.category[i] !== s.category) || (chs && !chs.has(t.channel[i]))) continue;
     const st = t.status[i], amt = t.amount[i];
     const mid = t.merchants[t.merchant[i]];
-    const mm = byMerchant.get(mid) ?? { date: mid, events: 0, accepted: 0, acceptedValue: 0, attemptedValue: 0, declined: 0, cancelled: 0, refunded: 0 };
+    const mm = byMerchant.get(mid) ?? { date: mid, events: 0, accepted: 0, acceptedValue: 0, attemptedValue: 0, missingAccepted: 0, missingAttempted: 0, declined: 0, cancelled: 0, refunded: 0 };
     for (const a of [day, mm]) {
       a.events++;
-      if (st === 'Accepted') { a.accepted++; if (amt !== null) a.acceptedValue += amt; }
-      if (st !== 'Refunded' && amt !== null) a.attemptedValue += amt;
+      if (st === 'Accepted') {
+        a.accepted++;
+        if (amt === null) a.missingAccepted++; else a.acceptedValue += amt;
+      }
+      if (st !== 'Refunded') {
+        if (amt === null) a.missingAttempted++; else a.attemptedValue += amt;
+      }
       if (st === 'Declined') a.declined++; else if (st === 'Cancelled') a.cancelled++; else if (st === 'Refunded') a.refunded++;
     }
     byMerchant.set(mid, mm);
@@ -241,7 +188,9 @@ export function aggregate(s: Scope) {
   const sum = (k: keyof Omit<DayAgg, 'date'>) => list.reduce((x, d) => x + d[k], 0);
   return {
     days: list,
-    totals: { events: sum('events'), accepted: sum('accepted'), acceptedValue: sum('acceptedValue'), attemptedValue: sum('attemptedValue'), declined: sum('declined'), cancelled: sum('cancelled'), refunded: sum('refunded') },
+    totals: { events: sum('events'), accepted: sum('accepted'), acceptedValue: sum('missingAccepted') ? null : sum('acceptedValue'), attemptedValue: sum('missingAttempted') ? null : sum('attemptedValue'),
+      knownAcceptedValue: sum('acceptedValue'), knownAttemptedValue: sum('attemptedValue'),
+      missingAccepted: sum('missingAccepted'), missingAttempted: sum('missingAttempted'), declined: sum('declined'), cancelled: sum('cancelled'), refunded: sum('refunded') },
     byChannel: [...byChannel.entries()].sort((a, b) => b[1] - a[1]), byCategory: [...byCategory.entries()].sort((a, b) => b[1] - a[1]),
     byMerchant: [...byMerchant.values()].sort((a, b) => b.events - a.events),
   };

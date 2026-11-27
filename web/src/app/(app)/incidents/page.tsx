@@ -53,7 +53,7 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
           </table>
         </div>
       ) : <EmptyState title="No incident matches">Try “All” or reset the filters.</EmptyState>}
-      <MethodNote>Exposure estimates the payment activity potentially affected (shortfall or excess against the expected level × the expected ticket). It is not a confirmed loss. Priority = 100 × (0.4 impact + 0.3 urgency + 0.2 evidence + 0.1 actionability).</MethodNote>
+      <MethodNote>Impact combines forecast volume, payment outcome and observed ticket history. Priority uses the backend’s evaluated multi-criteria policy. Open an incident to see the drivers, uncertainty and provisional assumptions.</MethodNote>
     </>
   );
 }

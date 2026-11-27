@@ -1,0 +1,8 @@
+config/*.json -text whitespace=cr-at-eol
+docs/evidence/*.json -text whitespace=cr-at-eol
+src/**/*.py whitespace=-blank-at-eof
+/X_train_transactions.csv -text
+/X_test_transactions.csv -text
+/y_train_labels.csv -text
+/y_pred_template.csv -text
+/y_pred_anomalies.csv text eol=lf

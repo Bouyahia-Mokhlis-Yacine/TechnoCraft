@@ -20,8 +20,8 @@ async function browserPath(): Promise<string | null> {
 }
 export class NoBrowserError extends Error {}
 
-export type BriefType = 'daily' | 'weekly' | 'merchant' | 'alerts';
-export interface BriefParams { type: BriefType; date?: string; merchant?: string; from?: string; to?: string; severity?: string; channel?: string }
+export type BriefType = 'daily' | 'weekly' | 'merchant' | 'alerts' | 'incident';
+export interface BriefParams { type: BriefType; incident?: string; date?: string; merchant?: string; from?: string; to?: string; severity?: string; channel?: string }
 
 let browser: Promise<Browser> | null = null;
 async function getBrowser() {

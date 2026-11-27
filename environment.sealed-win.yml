@@ -1,0 +1,17 @@
+name: satim-sealed
+channels:
+  - defaults
+dependencies:
+  - python=3.12.7=h14ffc60_0
+  - scipy=1.13.1=py312hbb039d4_0
+  - pandas=2.2.2=py312h0158946_0
+  - scikit-learn=1.5.1=py312h0158946_0
+  - numpy=1.26.4=py312hfd52020_0
+  - mkl=2023.1.0=h6b88ed4_46358
+  - joblib=1.4.2
+  - threadpoolctl=3.5.0
+  - python-dateutil=2.9.0post0
+  - pip
+  - pip:
+      - holidays==0.109
+      - statsmodels==0.14.6

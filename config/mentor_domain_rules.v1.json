@@ -1,0 +1,9 @@
+{
+  "version": "satim-mentor-domain-v1",
+  "base": "satim-probabilistic-v2",
+  "contactless_limit_dzd": 2500,
+  "limit_source": "SATIM mentor confirmation supplied with the domain re-evaluation brief",
+  "merchant_day_policy": "advisory",
+  "cleaned_reference": false,
+  "synthetic_seed": 71027
+}

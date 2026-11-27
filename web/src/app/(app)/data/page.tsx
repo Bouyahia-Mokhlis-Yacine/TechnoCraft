@@ -18,7 +18,7 @@ export default function DataPage() {
 
 async function Data() {
   const user = await currentUser();
-  const r = getMeta().run;
+  const { run: r } = getMeta();
   const v = r.validation, c = r.cleaning;
   const audit = can(user, 'audit') ? readAll().slice(-40).reverse() : null;
   return (
@@ -26,31 +26,37 @@ async function Data() {
       <PageHeader title="Data & runs" />
       <section className="panel m-rise">
         <div className="panel-head"><div><h2>Cleaning</h2><p>Before scoring</p></div></div>
-        <Pipeline start={{ label: 'rows received', value: c.rows_raw }} end={{ label: 'rows scored', value: c.rows_clean }} steps={[
-          { label: 'exact duplicates', value: c.exact_duplicates_removed, kind: 'removed' },
-          { label: 'unparseable dates', value: c.unparseable_dates_removed, kind: 'removed' },
-          { label: 'negative amounts sign-corrected', value: c.negative_amounts_sign_fixed, kind: 'fixed' },
-          { label: 'categories filled', value: c.missing_category_filled, kind: 'fixed' },
-          { label: 'channels → Unknown', value: c.missing_channel_set_unknown, kind: 'fixed' },
-          { label: 'no amount, kept for counts', value: c.missing_amount_kept_for_counts, kind: 'kept' },
+        <Pipeline start={{ label: 'rows received', value: c.raw_rows }} end={{ label: 'rows scored', value: c.retained_events }} steps={[
+          { label: 'exact duplicates', value: c.exact_duplicate, kind: 'removed' },
+          { label: 'unparseable dates', value: c.invalid_timestamp, kind: 'removed' },
+          { label: 'negative amounts excluded from value', value: c.negative_amount, kind: 'kept' },
+          { label: 'missing categories', value: c.missing_category, kind: 'fixed' },
+          { label: 'channels → Unknown', value: c.missing_channel, kind: 'fixed' },
+          { label: 'no amount, kept for counts', value: c.missing_amount, kind: 'kept' },
         ]} />
       </section>
       <div className="ov">
         <div className="stack">
           <section className="panel m-rise">
-            <div className="panel-head"><div><h2>Current run</h2></div><span className="chip ok">Batch {r.batch_status}</span></div>
+            <div className="panel-head"><div><h2>Historical competition replay</h2></div><span className="chip ok">Batch {r.batch_status}</span></div>
             <table className="stats"><tbody>
               <tr><td>Run ID</td><td className="r"><b>{r.run_id}</b></td></tr>
-              <tr><td>Policy</td><td className="r">{r.policy.version} · opens at {r.policy.high}, continues at {r.policy.low} · {r.policy.window_days}-day reference · {r.policy.min_history} days history</td></tr>
-              <tr><td>Dispersion α</td><td className="r">{fmtNum(r.dispersion, 4)}</td></tr>
+              <tr><td>Generated (Algiers)</td><td className="r">{new Date(r.generated_at).toLocaleString('en-GB', { timeZone: 'Africa/Algiers' })}</td></tr>
+              <tr><td>Data through</td><td className="r">{fmtDate(r.as_of)}</td></tr>
+              <tr><td>Model / preprocessing</td><td className="r">{r.policy.version} / {r.preprocessing_version}</td></tr>
+              <tr><td>Pinned reference</td><td className="r">{r.reference_version} · through {fmtDate(r.reference_last_date)}</td></tr>
+              <tr><td>Frozen managed cutoff</td><td className="r">{fmtNum(r.policy.high, 6)}</td></tr>
+              <tr><td>Sealed score parity</td><td className="r">{r.parity.sealed ? 'Verified against the archive' : 'Preview · archive digest differs'}</td></tr>
+              <tr><td>Replayed merchant-days</td><td className="r">{r.parity.development_rows} development · {r.parity.official_rows} official template</td></tr>
+              <tr><td>Advisory models</td><td className="r">{r.models.v3 ?? 'V3 disabled'} · {r.models.v4 ?? 'V4 disabled'}</td></tr>
               <tr><td>Training period ends</td><td className="r">{fmtDate(r.train_end)}</td></tr>
               <tr><td>Flagged merchant-days</td><td className="r">{fmtInt(r.flagged_days)}</td></tr>
               <tr><td>Public holidays</td><td className="r">{r.holidays.filter((h) => h >= r.first_date && h <= r.as_of).map(fmtDate).join(', ') || 'none in range'}</td></tr>
             </tbody></table>
-            <MethodNote label="Reproduce this run">From the repository root: <code>.venv/bin/python -m engine.export</code> then <code>npm run build</code> in <code>web/</code>. Identical inputs give the same run ID; the same code path writes y_pred_anomalies.csv. Holidays: python-holidays (DZ). Dispersion is the negative binomial α for counts.</MethodNote>
+            <MethodNote label="Reproduce this run">Run <code>python -m engine.export</code> from the repository root. Each run records its own generation time. Public holidays are marked as calendar context.</MethodNote>
           </section>
           <section className="panel m-rise" style={css({ '--i': 1 })}>
-            <div className="panel-head"><div><h2>Validation</h2><p>Training labels · one dot per labelled day</p></div></div>
+            <div className="panel-head"><div><h2>Validation</h2><p>{v.scope}</p></div></div>
             <HitDots hit={v.tp} miss={v.fn} falsePos={v.fp} />
             <div className="mini-kpis">
               <div><b>{fmtNum(v.precision, 2)}</b><span>precision</span></div>
@@ -58,34 +64,16 @@ async function Data() {
               <div><b>{fmtNum(v.f1, 2)}</b><span>F1</span></div>
               <div><b>{v.pred_episodes}/{v.true_episodes}</b><span>episodes</span></div>
             </div>
-            <MethodNote>Measured on the training period, where the thresholds were chosen, so it is optimistic. PR-AUC {fmtNum(v.pr_auc, 2)}; episode precision {fmtNum(v.episode_precision, 2)}, recall {fmtNum(v.episode_recall, 2)}.</MethodNote>
+            <MethodNote>Average precision {fmtNum(v.ap, 2)} in the reserved development block; episode precision {fmtNum(v.episode_precision, 2)}, recall {fmtNum(v.episode_recall, 2)}.</MethodNote>
           </section>
-          {r.calibration && (
-            <section className="panel m-rise" style={css({ '--i': 2 })}>
-              <div className="panel-head"><div><h2>Calibration</h2><p>Share of labelled anomalies by score band · training period</p></div></div>
-              <div className="cal-bars" role="img" aria-label={r.calibration.map((b) => `score ${b.lo} to ${b.hi}: ${b.positives} of ${b.n} labelled anomalies`).join('; ')}>
-                {r.calibration.map((b, i) => (
-                  <div key={b.lo} className={`cal${b.lo >= r.policy.high ? ' alert' : ''}`}>
-                    <span className="cal-rate num">{b.rate === null ? '—' : `${Math.round(b.rate * 100)} %`}</span>
-                    <span className="cal-col"><span className="cal-fill m-grow-up" style={css({ height: `${(b.rate ?? 0) * 100}%`, '--i': i })} /></span>
-                    <span className="cal-band num">{b.lo}–{b.hi}</span>
-                    <small className="num">{b.positives}/{b.n}</small>
-                  </div>
-                ))}
-              </div>
-              <p className="ns-foot">Bands at or above {r.policy.high} open an alert. A higher score means more unusual for that merchant, not a probability.</p>
-            </section>
-          )}
-          <section className="panel m-rise" style={css({ '--i': 3 })}>
-            <div className="panel-head"><div><h2>Known limitations</h2></div></div>
+          <section className="panel m-rise">
+            <div className="panel-head"><div><h2>Data-quality limitations</h2></div></div>
             <ul className="reasons">
-              <li>Validated on the training labels only: the thresholds were chosen there, so these figures are optimistic.</li>
-              <li>{v.tp + v.fn} labelled anomaly days in training: too few for tight error bars.</li>
-              <li>Count alerts need {r.policy.min_history} days of a merchant’s own history; before that the category reference is advisory.</li>
-              <li>Causes cannot be confirmed: gateway reason codes and switch logs are not in the data.</li>
-              <li>Negative amounts are sign-corrected ({fmtInt(c.negative_amounts_sign_fixed)} rows); the SRS proposes excluding them.</li>
-              <li>The network forecast interval is a normal approximation of the merchant sum, not a calibrated joint interval.</li>
-              <li>The assistant is rule-based: it answers the question types it knows and refuses the rest.</li>
+              <li>{fmtInt(c.contactless_limit_events)} retained contactless transactions exceed 2,500 DZD. The unusually high rate reflects synthetic data generation. Original amounts are preserved.</li>
+              <li>{fmtInt(c.negative_amount)} negative amounts are excluded from monetary metrics. Their events remain in activity and outcome counts.</li>
+              <li>New merchants use a pooled Gamma–Poisson reference. Sparse evidence widens the uncertainty.</li>
+              <li>Feed completeness is assumed for supplied competition roster days. Service telemetry is unavailable.</li>
+              <li>Forecasts assume conditional independence across merchants and exclude shared shocks.</li>
             </ul>
           </section>
           {audit && (
@@ -97,8 +85,8 @@ async function Data() {
         </div>
         <div className="stack">
           <section className="panel m-rise" style={css({ '--i': 2 })}>
-            <div className="panel-head"><div><h2>Digests</h2><p>SHA-256 · {Object.keys({ ...r.inputs, ...r.code }).length} files</p></div></div>
-            <MethodNote label="Show file digests"><table className="stats digests"><tbody>{Object.entries({ ...r.inputs, ...r.code }).map(([f, h]) => <tr key={f}><td>{f}</td><td className="r"><code>{h.slice(0, 16)}</code></td></tr>)}</tbody></table></MethodNote>
+            <div className="panel-head"><div><h2>Digests</h2><p>SHA-256 · {Object.keys({ ...r.inputs, ...r.configurations }).length} files</p></div></div>
+            <MethodNote label="Show file digests"><table className="stats digests"><tbody>{Object.entries({ ...r.inputs, ...r.configurations }).map(([f, h]) => <tr key={f}><td>{f}</td><td className="r"><code>{h.slice(0, 16)}</code></td></tr>)}</tbody></table></MethodNote>
           </section>
         </div>
       </div>

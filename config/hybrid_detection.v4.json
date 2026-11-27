@@ -1,0 +1,74 @@
+{
+  "version": "satim-hybrid-v4",
+  "status": "challenger_advisory_ranking",
+  "official_model": "satim-probabilistic-v2",
+  "advisory_collective_model": "satim-probabilistic-v3",
+  "amount_policy": "archived_v2",
+  "seed": 710,
+  "chronological_cutoffs": {
+    "warmup_start": "2026-09-01",
+    "ml_fit_start": "2026-09-15",
+    "calibration_start": "2026-09-22",
+    "burden_start": "2026-10-06",
+    "terminal_dev_start": "2026-10-17",
+    "terminal_dev_end": "2026-10-24"
+  },
+  "feature_sets": {
+    "H1": {
+      "description": "Probabilistic V1 residuals, tail scores, support, and V2 directional/persistent CUSUM",
+      "count": 25
+    },
+    "H2": {
+      "description": "H1 + hierarchical merchant-channel Gamma-Poisson, Dirichlet-Multinomial, EB Binomial, and empirical ticket pools",
+      "count": 44
+    },
+    "H3": {
+      "description": "H2 + strictly causal 3d/7d temporal slopes, streaks, intermittency, and multivariate interaction indicators",
+      "count": 62
+    }
+  },
+  "selected_challenger": {
+    "name": "C3_rank_fisher (Isolation Forest H3)",
+    "feature_set": "H3",
+    "ml_family": "Isolation Forest",
+    "ml_params": {
+      "scaler": "standard",
+      "n_estimators": 128,
+      "max_samples": "auto",
+      "max_features": 1.0
+    },
+    "fusion_method": "rank_fisher",
+    "ordinary_budget_per_merchant_week": 0.07,
+    "calibration_cutoff_rule": "rank 0.005",
+    "development_ordinary_alerts_385": 2,
+    "matched_zero_ordinary_metrics": {
+      "precision": 0.9355,
+      "recall": 0.9355,
+      "F1": 0.9355,
+      "AP": 0.9251,
+      "episode_precision": 0.875,
+      "episode_recall": 1.0
+    },
+    "automated_cut_metrics": {
+      "precision": 0.8788,
+      "recall": 0.9355,
+      "F1": 0.9063,
+      "AP": 0.9251,
+      "episode_precision": 0.7,
+      "episode_recall": 1.0
+    }
+  },
+  "alternative_variants": {
+    "high_ap_h2": "C3_rank_fisher (Isolation Forest H2)",
+    "lifecycle_managed_v4": "C4_complementary_managed (Isolation Forest H3)",
+    "low_ordinary_burden_stress": "C3_rank_fisher (Local Outlier Factor H3)"
+  },
+  "rejected_components": {
+    "contactless_compression": "Rejected (DL-38); original contactless monetary magnitudes preserved",
+    "auto_promote_contactless_limit": "Rejected (DL-35); limit violations remain separate transaction-level evidence",
+    "autoencoder_dl": "Rejected for deployment; no generalization gain over Isolation Forest / OCSVM at 15x-60x higher fit latency",
+    "unguarded_adaptive_updates": "Rejected; absorbs sustained incidents into baseline and collapses recall"
+  },
+  "held_out_stress_seeds": [50101, 61213, 72337, 83449],
+  "reference_update_policy": "Prospective controlled reference updates excluding quarantined/pending candidate dates; retain frozen ML weights unless full episode-level clearance is completed."
+}

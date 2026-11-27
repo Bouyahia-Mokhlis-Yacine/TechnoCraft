@@ -7,8 +7,7 @@ import { getMeta, getOverview } from '@/lib/api';
 import { fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 import { CHANNEL_INK, CHANNEL_VAR, SEVERITIES } from '@/lib/labels';
 import { CountUp, FilterForm } from '@/components/client';
-import { listClusters } from '@/lib/insights';
-import { addDays } from '@/lib/model';
+import { ForecastEvidence } from '@/components/satim-evidence';
 import { Bubbles, ForecastBars, KpiChart, PairBars } from '@/components/charts';
 import { KpiEditor } from '@/components/kpi-editor';
 import { DEFAULT_KPIS, evaluate, parse } from '@/lib/formula';
@@ -44,7 +43,14 @@ async function Overview({ searchParams }: { searchParams: SP }) {
   const user = await currentUser();
   const kpis = user?.kpis ?? DEFAULT_KPIS;
   const ICON: Record<string, typeof Receipt> = { transactions: Receipt, 'accepted-value': Banknote, 'attempted-value': CreditCard, 'decline-rate': Ban, 'merchants-flagged': Store, 'open-incidents': Siren };
-  const NOTE: Record<string, string> = { transactions: prior, 'accepted-value': 'accepted payments', 'attempted-value': 'all non-refund payments', 'decline-rate': 'of all events', 'merchants-flagged': 'flagged in the period' };
+  const partial = (n: number) => `Partial · ${fmtInt(n)} amounts unavailable`;
+  const NOTE: Record<string, string> = {
+    transactions: prior,
+    'accepted-value': k.acceptedValue.missingEvents ? partial(k.acceptedValue.missingEvents) : 'accepted payments',
+    'attempted-value': k.attemptedValue.missingEvents ? partial(k.attemptedValue.missingEvents) : 'all non-refund payments',
+    'decline-rate': k.declineRate.value === null ? 'no transactions' : `Cancellation rate ${fmtPct(k.cancellationRate.value ?? 0)}`,
+    'merchants-flagged': 'flagged in the period',
+  };
   const cards = kpis.map((c) => {
     const f = parse(c.formula);
     const at = (v: typeof o.measures.cur | null) => (f.ok && v ? evaluate(f.tree, v) : null);
@@ -59,13 +65,13 @@ async function Overview({ searchParams }: { searchParams: SP }) {
       series: c.chart === 'number' || !f.ok ? [] : o.measures.daily.map((v) => evaluate(f.tree, v)),
     };
   });
-  const clusters = (listClusters()?.clusters ?? []).filter((c) => c.date >= addDays(o.scope.to, -13) && c.date <= o.scope.to).length;
   const totalMix = o.channelMix.reduce((s, c) => s + c.value, 0) || 1;
   const multi = o.selectedChannels.length > 1;
 
   return (
     <>
       <PageHeader title="Network overview"><KpiEditor initial={kpis} /></PageHeader>
+      <p className="muted">{meta.run.parity.sealed ? 'Historical competition archive' : 'Unsealed replay preview'} · data through {fmtDay(meta.asOf)} · batch {meta.run.batch_status}</p>
 
       <FilterForm>
         <label className="field">From<input type="date" name="from" defaultValue={o.scope.from} min={meta.firstDate} max={meta.asOf} /></label>
@@ -106,9 +112,9 @@ async function Overview({ searchParams }: { searchParams: SP }) {
           <section className="panel m-rise" style={css({ '--i': 7 })}>
             <div className="panel-head"><div><h2>Signals</h2><p>Last 14 days</p></div></div>
             <div className="signal-stats">
-              <Link href="/intelligence" className="sig"><b className="num">{o.advisories.length}</b><span>network advisor{o.advisories.length === 1 ? 'y' : 'ies'}</span><ArrowRight aria-hidden /></Link>
-              <Link href="/intelligence" className="sig"><b className="num">{clusters}</b><span>collective anomal{clusters === 1 ? 'y' : 'ies'}</span><ArrowRight aria-hidden /></Link>
-              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>on watch, below the alert threshold{o.watchlist.length ? ` · ${o.watchlist.slice(0, 3).map((w) => w.merchant).join(', ')}` : ''}</span></div>
+              <Link href="/intelligence" className="sig"><b className="num">{meta.run.models.v3 ? o.advisories.length : '—'}</b><span>V3 collective advisories</span><ArrowRight aria-hidden /></Link>
+              <Link href="/intelligence#ml-candidates" className="sig"><b className="num">{o.mlCandidates ?? '—'}</b><span>V4 investigation candidates</span><ArrowRight aria-hidden /></Link>
+              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>under V2 observation at data cutoff</span></div>
             </div>
           </section>
 
@@ -141,6 +147,7 @@ async function Overview({ searchParams }: { searchParams: SP }) {
             <section className="panel m-rise" style={css({ '--i': 5 })}>
               <div className="panel-head"><div><div className="title-info"><h2>Next 7 days</h2><InfoTip id="info-forecast">An advisory forecast with its 80 % interval: a statistical reference, not a target, and it never raises alerts. MAE is the average daily error on past weeks, next to a seasonal naive forecast.</InfoTip></div><p>Advisory forecast · 80 % interval</p></div><span className="chip">MAE {fmtNum(o.backtest.mae_model, 0)} vs {fmtNum(o.backtest.mae_seasonal_naive, 0)} naive</span></div>
               <ForecastBars points={o.forecast} />
+              <ForecastEvidence forecast={o.forecastDetail} merchant={p.merchant} />
             </section>
           )}
         </div>

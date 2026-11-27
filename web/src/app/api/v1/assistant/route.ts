@@ -10,6 +10,7 @@ import { appendTurn, getConversation } from '@/lib/conversations';
 import { fail, userOf } from '@/lib/http';
 import { describePage } from '@/lib/page-context';
 import { sanitizeSelections } from '@/lib/selection';
+import { hasSensitiveIdentifier } from '@/lib/privacy';
 
 export async function POST(req: NextRequest) {
   const user = userOf(req);
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
   if (typeof body.question !== 'string' || !body.question.trim()) return fail(422, 'invalid_payload', 'Expected { question }.');
   if (body.question.length > 500) return fail(422, 'too_long', 'Keep questions under 500 characters.');
+  if (hasSensitiveIdentifier(body.question) || hasSensitiveIdentifier(JSON.stringify([body.page, body.selection]))) {
+    return fail(422, 'private_identifier', 'Remove payment card identifiers before sending.');
+  }
   const id = typeof body.conversation_id === 'string' ? body.conversation_id : null;
   const conv = getConversation(user.id, id);
   if (id && !conv) return fail(404, 'not_found', 'Conversation not found.');

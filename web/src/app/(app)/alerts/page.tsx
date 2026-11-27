@@ -57,7 +57,7 @@ async function Alerts({ searchParams }: { searchParams: SP }) {
         </div>
       ) : <EmptyState title="No alert matches these filters">Try a wider period or reset the filters.</EmptyState>}
       <Pager page={res.page} pageSize={res.pageSize} total={res.total} params={p} path="/alerts" />
-      <MethodNote>Score = strongest signal’s −log₁₀ p (capped at 12). A day opens an alert at {meta.run.policy.high}; neighbouring days join at {meta.run.policy.low}. The gauge shows the normal range (band), the expected level (tick) and the observed value (dot).</MethodNote>
+      <MethodNote>Official V2 combines instantaneous probabilistic and persistent count evidence at the frozen cutoff {meta.run.policy.high}. The gauge shows the predictive interval, expected level and observed value. V3 advisories and V4 investigation candidates are available under Intelligence.</MethodNote>
     </>
   );
 }

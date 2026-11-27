@@ -21,9 +21,10 @@ export function fmtShort(v: number | null, unit: Unit) {
  * the observed value a dot coloured by severity. Far from the tick = far from normal.
  */
 export function Gauge({ observed, expected, lo = null, hi = null, unit, severity = 'normal', size = 'sm', label, tone = 'surface' }: {
-  observed: number; expected: number | null; lo?: number | null; hi?: number | null; unit: Unit;
+  observed: number | null; expected: number | null; lo?: number | null; hi?: number | null; unit: Unit;
   severity?: Severity | 'normal'; size?: 'sm' | 'lg'; label: string; tone?: 'surface' | 'hero';
 }) {
+  if (observed === null) return <span className="muted">Observation unavailable</span>;
   const max = Math.max(observed, expected ?? 0, hi ?? 0) * 1.15 || 1;
   const pc = (v: number) => `${Math.min(100, Math.max(0, (v / max) * 100))}%`;
   return (
@@ -44,7 +45,7 @@ export function Gauge({ observed, expected, lo = null, hi = null, unit, severity
 }
 
 /** Table cell: tiny gauge plus "0 / 18". */
-export function GaugeCell(p: { observed: number; expected: number | null; lo?: number | null; hi?: number | null; unit: Unit; severity?: Severity | 'normal'; label: string }) {
+export function GaugeCell(p: { observed: number | null; expected: number | null; lo?: number | null; hi?: number | null; unit: Unit; severity?: Severity | 'normal'; label: string }) {
   if (p.expected === null) return <span className="gauge-cell num"><b>{fmtShort(p.observed, p.unit)}</b></span>;
   return (
     <span className="gauge-cell">
@@ -74,15 +75,15 @@ export function PriorityStack({ total, parts }: { total: number; parts: { key: s
   return (
     <div className="prio-stack">
       <div className="ps-row"><b className="ps-total num">{total}<small>/100</small></b>
-      <div className="ps-bar" role="img" aria-label={`Priority ${total} of 100: ${pts.map((p) => `${p.label} ${fmtNum(p.pts, 0)} of ${p.weight * 100}`).join(', ')}`}>
-        {pts.map((p, i) => <span key={p.key} className={`ps-seg ps-${p.key} m-grow-x`} style={css({ width: `${p.pts}%`, '--i': i })} title={`${p.label}: ${fmtNum(p.pts, 0)} of ${p.weight * 100} points`} />)}
+      <div className="ps-bar" role="img" aria-label={`Priority ${total} of 100: ${pts.map((p) => `${p.label} ${fmtNum(p.pts, 0)} of ${fmtNum(p.weight * 100, 1)}`).join(', ')}`}>
+        {pts.map((p, i) => <span key={p.key} className={`ps-seg ps-${p.key} m-grow-x`} style={css({ width: `${p.pts}%`, '--i': i })} title={`${p.label}: ${fmtNum(p.pts, 0)} of ${fmtNum(p.weight * 100, 1)} points`} />)}
       </div></div>
       <ul className="ps-legend">
         {pts.map((p) => (
           <li key={p.key}>
             <i className={`ps-sw ps-${p.key}`} aria-hidden />
             <span><b>{p.label}</b><small>{p.detail}</small></span>
-            <span className="num ps-pts"><b>{fmtNum(p.pts, 0)}</b><small>/{p.weight * 100}</small></span>
+            <span className="num ps-pts"><b>{fmtNum(p.pts, 0)}</b><small>/{fmtNum(p.weight * 100, 1)}</small></span>
           </li>
         ))}
       </ul>
@@ -114,14 +115,14 @@ export function MerchantTiles({ items }: { items: { id: string; k: number; n: nu
 }
 
 /** Rates side by side on one scale (this channel vs expected vs the rest). */
-export function RateBars({ rows, tone = 'surface' }: { rows: { label: string; value: number; hot?: boolean }[]; tone?: 'surface' | 'hero' }) {
-  const max = Math.max(...rows.map((r) => r.value), 0.0001);
+export function RateBars({ rows, tone = 'surface' }: { rows: { label: string; value: number | null; hot?: boolean }[]; tone?: 'surface' | 'hero' }) {
+  const max = Math.max(...rows.map((r) => r.value ?? 0), 0.0001);
   return (
     <div className={`rate-bars rb-${tone}`}>
       {rows.map((r, i) => (
         <div key={r.label} className={`rb${r.hot ? ' hot' : ''}`}>
           <span className="rb-label">{r.label}</span>
-          <span className="rb-track"><span className="rb-fill m-grow-x" style={css({ width: `${Math.max(1.5, (r.value / max) * 100)}%`, '--i': i })} /></span>
+          <span className="rb-track"><span className="rb-fill m-grow-x" style={css({ width: `${((r.value ?? 0) / max) * 100}%`, '--i': i })} /></span>
           <b className="num">{fmtShort(r.value, 'ratio')}</b>
         </div>
       ))}
