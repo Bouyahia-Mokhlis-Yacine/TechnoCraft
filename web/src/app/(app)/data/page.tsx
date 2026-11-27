@@ -4,7 +4,8 @@ import type { Metadata } from 'next';
 import { getMeta } from '@/lib/api';
 import { fmtDate, fmtInt, fmtNum } from '@/lib/format';
 import { readAll } from '@/lib/reviews';
-import { ROLES, can, currentUser } from '@/lib/session';
+import { can, currentUser } from '@/lib/session';
+import { nameOf } from '@/lib/accounts';
 import { PageHeader } from '@/components/ui';
 import { HitDots, MethodNote, Pipeline } from '@/components/visuals';
 
@@ -19,7 +20,7 @@ async function Data() {
   const user = await currentUser();
   const r = getMeta().run;
   const v = r.validation, c = r.cleaning;
-  const audit = can(user?.role, 'audit') ? readAll().slice(-40).reverse() : null;
+  const audit = can(user, 'audit') ? readAll().slice(-40).reverse() : null;
   return (
     <>
       <PageHeader title="Data & runs" />
@@ -90,7 +91,7 @@ async function Data() {
           {audit && (
             <section className="panel m-rise" style={css({ '--i': 2 })}>
               <div className="panel-head"><div><h2>Audit ledger</h2><p>Last 40 events · append-only</p></div></div>
-              {audit.length ? <ol className="history">{audit.map((e) => <li key={e.event_id}><b>{e.action}</b> · {e.target} by {ROLES[e.actor].name} · {new Date(e.ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}{e.reason && e.action !== 'export' && <q>{e.reason}</q>}</li>)}</ol> : <p className="muted">No event yet.</p>}
+              {audit.length ? <ol className="history">{audit.map((e) => <li key={e.event_id}><b>{e.action}</b> · {e.target} by {nameOf(e.actor)} · {new Date(e.ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}{e.reason && e.action !== 'export' && <q>{e.reason}</q>}</li>)}</ol> : <p className="muted">No event yet.</p>}
             </section>
           )}
         </div>

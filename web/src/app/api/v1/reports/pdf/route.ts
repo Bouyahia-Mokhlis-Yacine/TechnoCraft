@@ -11,18 +11,18 @@ import { can, COOKIE } from '@/lib/session';
 export async function GET(req: NextRequest) {
   const user = userOf(req);
   if (!user) return fail(401, 'unauthenticated', 'Sign in to download reports.');
-  if (!can(user.role, 'export')) return fail(403, 'forbidden', 'Your role cannot export.');
+  if (!can(user, 'export')) return fail(403, 'forbidden', 'Your account cannot export.');
   const p = params(req), meta = getMeta();
   // a report the assistant composed: /reports/<id>, only for its owner
   if (p.id) {
-    const r = getReport(user.role, p.id);
+    const r = getReport(user.id, p.id);
     if (!r) return fail(404, 'not_found', 'Report not found.');
     let doc: Buffer;
     try { doc = await renderReportPdf(process.env.PDF_ORIGIN ?? req.nextUrl.origin, req.cookies.get(COOKIE)!.value, `/reports/${r.id}`); } catch (e) {
       console.warn('[reports] PDF engine unavailable:', e instanceof Error ? e.message.split('\n')[0] : e);
       return Response.redirect(new URL(`/reports/${r.id}?print=1`, req.nextUrl.origin), 303); // no browser here: the print dialog instead
     }
-    appendEvent({ actor: user.role, action: 'export', target: 'export:report-pdf', run_id: meta.run.run_id, reason: `id=${r.id}`, prior: 'new', next: 'new', escalated: false, version: 0 });
+    appendEvent({ actor: user.id, action: 'export', target: 'export:report-pdf', run_id: meta.run.run_id, reason: `id=${r.id}`, prior: 'new', next: 'new', escalated: false, version: 0 });
     const slug = r.spec.title.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'report';
     return new Response(new Uint8Array(doc), { headers: { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="pai-${slug}-${meta.run.run_id}.pdf"`, 'cache-control': 'no-store' } });
   }
@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     console.warn('[reports] PDF engine unavailable, opening the print dialog instead:', e instanceof Error ? e.message.split('\n')[0] : e);
     return Response.redirect(new URL(`/reports?${briefQuery(brief)}&print=1`, req.nextUrl.origin), 303);
   }
-  appendEvent({ actor: user.role, action: 'export', target: `export:report-pdf`, run_id: meta.run.run_id, reason: briefQuery(brief), prior: 'new', next: 'new', escalated: false, version: 0 });
+  appendEvent({ actor: user.id, action: 'export', target: `export:report-pdf`, run_id: meta.run.run_id, reason: briefQuery(brief), prior: 'new', next: 'new', escalated: false, version: 0 });
   const name = `pai-${type}-brief-${type === 'alerts' ? `${brief.from ?? 'week'}-${brief.to ?? meta.asOf}` : brief.merchant ?? brief.date}-${meta.run.run_id}.pdf`;
   return new Response(new Uint8Array(pdf), { headers: { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } });
 }

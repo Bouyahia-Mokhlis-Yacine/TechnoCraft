@@ -31,44 +31,25 @@ export function ChartTip({ children }: { children: React.ReactNode }) {
 
 /** `selected` false dims a slice that is outside the current filter; `toggleHref` adds or removes it
  *  from a multiple selection (Ctrl / ⌘ / Shift-click, or the tick box on its legend row). */
-type Slice = { label: string; value: number; color: string; href?: string; detail?: string; extra?: React.ReactNode; selected?: boolean; toggleHref?: string };
+type Slice = { label: string; value: number; color: string; ink?: string; href?: string; detail?: string; extra?: React.ReactNode; selected?: boolean; toggleHref?: string };
 
 /** Pie + legend that highlight each other; a slice or row with href drills down on click, and with
  *  `clearHref` a button clears the selection. */
 export function InteractivePie({ rows, size = 230, clearHref, clearLabel = 'Show all' }: { rows: Slice[]; size?: number; clearHref?: string; clearLabel?: string }) {
   const router = useRouter();
   const [on, setOn] = useState<number | null>(null);
-  const total = rows.reduce((s, r) => s + r.value, 0) || 1, r = size / 2 - 10, c = size / 2;
-  const starts = rows.map((_, i) => -Math.PI / 2 + (rows.slice(0, i).reduce((s, x) => s + x.value, 0) / total) * Math.PI * 2);
+  const total = rows.reduce((s, r) => s + r.value, 0) || 1;
   const push = (h: string) => router.push(h, { scroll: false });
   const go = (i: number, e?: React.MouseEvent | React.KeyboardEvent) => {
     const x = rows[i], multi = !!e && (e.ctrlKey || e.metaKey || e.shiftKey);
     if (multi && x.toggleHref) push(x.toggleHref); else if (x.href) push(x.href);
   };
   const filtered = rows.some((x) => x.selected === false);
-  const picked = rows.filter((x) => x.selected !== false);
-  const share = picked.reduce((s, x) => s + x.value, 0) / total;
-  const cur = on === null ? null : rows[on];
   return (
     <>
-      <div className="pie-wrap">
+      <div className="pie-wrap xpie-wrap">
         {clearHref && <button type="button" className="pie-clear" onClick={() => push(clearHref)}>{clearLabel}<X aria-hidden /></button>}
-        <svg className="pie m-pop" viewBox={`0 0 ${size} ${size}`} role="img" aria-label={rows.map((x) => `${x.label} ${Math.round((x.value / total) * 100)} %`).join(', ')} onMouseLeave={() => setOn(null)}>
-          {rows.map((s, i) => {
-            const a0 = starts[i], a1 = a0 + (s.value / total) * Math.PI * 2, large = a1 - a0 > Math.PI ? 1 : 0, mid = (a0 + a1) / 2;
-            const d = rows.length === 1 ? `M${c},${c - r} A${r},${r} 0 1 1 ${c - 0.01},${c - r} Z`
-              : `M${c},${c} L${c + r * Math.cos(a0)},${c + r * Math.sin(a0)} A${r},${r} 0 ${large} 1 ${c + r * Math.cos(a1)},${c + r * Math.sin(a1)} Z`;
-            const pop = on === i ? `translate(${Math.cos(mid) * 8}px, ${Math.sin(mid) * 8}px)` : undefined;
-            return (
-              <path key={s.label} d={d} fill={s.color} className={`slice${on !== null && on !== i ? ' dim' : ''}${s.selected === false ? ' off' : ''}${s.href ? ' link' : ''}`} style={{ transform: pop }}
-                onMouseEnter={() => setOn(i)} onClick={(e) => go(i, e)} aria-label={`${s.label}: ${s.value}${s.selected === false ? ' (not selected)' : ''}`}>
-                {s.toggleHref && <title>{`${s.label}\nClick: only this · Ctrl / ⌘ / Shift-click: add or remove`}</title>}
-              </path>
-            );
-          })}
-        </svg>
-        {cur ? <div className="pie-center" aria-hidden><b>{Math.round((cur.value / total) * 100)} %</b><span>{cur.label.split(' (')[0]}</span></div>
-          : filtered && <div className="pie-center" aria-hidden><b>{Math.round(share * 100)} %</b><span>{picked.length === 1 ? picked[0].label.split(' (')[0] : `${picked.length} selected`}</span></div>}
+        <ExplodedPie rows={rows} size={size} total={total} on={on} setOn={setOn} go={go} />
       </div>
       <div className="mix-rows" onMouseLeave={() => setOn(null)}>
         {rows.map((s, i) => (
@@ -87,5 +68,68 @@ export function InteractivePie({ rows, size = 230, clearHref, clearLabel = 'Show
         ))}
       </div>
     </>
+  );
+}
+
+/* ── Exploded pie: wedges separated by an even gap, softly rounded corners, the share printed
+   inside the larger slices. Angles stay proportional to the counts; slices too small for a label
+   show their value in the legend and on hover. The hovered slice moves out a little. */
+const TAU = Math.PI * 2;
+function wedge(cx: number, cy: number, R: number, a0: number, a1: number, gap: number, corner: number): string {
+  const f = (n: number) => n.toFixed(2), d = a1 - a0;
+  if (d >= TAU - 1e-6) return `M${f(cx - R)},${f(cy)} A${f(R)},${f(R)} 0 1 1 ${f(cx + R)},${f(cy)} A${f(R)},${f(R)} 0 1 1 ${f(cx - R)},${f(cy)} Z`;
+  const half = gap / 2, mid = (a0 + a1) / 2;
+  // both straight edges move in by half the gap: their meeting point slides out along the bisector
+  const apexDist = d < Math.PI ? half / Math.sin(d / 2) : half;
+  const ax = cx + apexDist * Math.cos(mid), ay = cy + apexDist * Math.sin(mid);
+  const delta = Math.asin(Math.min(1, half / R)), s0 = a0 + delta, s1 = a1 - delta;
+  if (s1 <= s0) return '';
+  const P = (t: number) => [cx + R * Math.cos(t), cy + R * Math.sin(t)] as const;
+  const [p0x, p0y] = P(s0), [p1x, p1y] = P(s1);
+  const len0 = Math.hypot(p0x - ax, p0y - ay), len1 = Math.hypot(p1x - ax, p1y - ay);
+  const r = Math.max(0, Math.min(corner, len0 / 3, len1 / 3, ((s1 - s0) * R) / 3));
+  const u0 = [(p0x - ax) / len0, (p0y - ay) / len0], u1 = [(p1x - ax) / len1, (p1y - ay) / len1];
+  const [c0x, c0y] = P(s0 + r / R), [c1x, c1y] = P(s1 - r / R);
+  const large = s1 - s0 - (2 * r) / R > Math.PI ? 1 : 0;
+  return [
+    `M${f(ax + u0[0] * r)},${f(ay + u0[1] * r)}`,
+    `L${f(p0x - u0[0] * r)},${f(p0y - u0[1] * r)}`, `Q${f(p0x)},${f(p0y)} ${f(c0x)},${f(c0y)}`,
+    `A${f(R)},${f(R)} 0 ${large} 1 ${f(c1x)},${f(c1y)}`,
+    `Q${f(p1x)},${f(p1y)} ${f(p1x - u1[0] * r)},${f(p1y - u1[1] * r)}`,
+    `L${f(ax + u1[0] * r)},${f(ay + u1[1] * r)}`, `Q${f(ax)},${f(ay)} ${f(ax + u0[0] * r)},${f(ay + u0[1] * r)}`, 'Z',
+  ].join(' ');
+}
+
+function ExplodedPie({ rows, size, total, on, setOn, go }: {
+  rows: Slice[]; size: number; total: number; on: number | null; setOn: (i: number | null) => void; go: (i: number, e?: React.MouseEvent) => void;
+}) {
+  const R = size / 2 - 10, c = size / 2, gap = Math.max(4, size * 0.026), corner = size * 0.04;
+  const before = (i: number) => rows.slice(0, i).reduce((s, x) => s + x.value, 0) / total;
+  const slices = rows.map((r, i) => {
+    const a0 = -Math.PI / 2 + before(i) * TAU, a1 = -Math.PI / 2 + before(i + 1) * TAU;
+    return { r, i, a0, a1, mid: (a0 + a1) / 2, share: r.value / total };
+  }).filter((x) => x.r.value > 0);
+  const single = slices.length === 1;
+  return (
+    <svg className="pie xpie m-pop" viewBox={`0 0 ${size} ${size}`} role="img" onMouseLeave={() => setOn(null)}
+      aria-label={rows.map((x) => `${x.label} ${Math.round((x.value / total) * 100)} %`).join(', ')}>
+      {slices.map(({ r, i, a0, a1, mid, share }) => {
+        const out = on === i ? size * 0.025 : 0, dx = Math.cos(mid) * out, dy = Math.sin(mid) * out;
+        // a label only where it fits: big enough share and arc
+        const fits = single || (share >= 0.07 && (a1 - a0) * R * 0.62 > size * 0.11);
+        const lr = single ? 0 : R * (share > 0.3 ? 0.56 : 0.64);
+        return (
+          <g key={r.label} className={`xslice${on !== null && on !== i ? ' dim' : ''}${r.selected === false ? ' off' : ''}${r.href ? ' link' : ''}`}
+            style={{ transform: `translate(${dx.toFixed(2)}px, ${dy.toFixed(2)}px)` }} onMouseEnter={() => setOn(i)} onClick={(e) => go(i, e)}>
+            <title>{`${r.label}: ${r.detail ?? r.value}${r.toggleHref ? '\nClick: only this · Ctrl / ⌘ / Shift-click: add or remove' : ''}`}</title>
+            <path d={wedge(c, c, R, a0, a1, single ? 0 : gap, corner)} style={{ fill: r.color }} />
+            {fits && (
+              <text x={(c + lr * Math.cos(mid)).toFixed(2)} y={(c + lr * Math.sin(mid)).toFixed(2)} textAnchor="middle" dominantBaseline="central"
+                style={{ fill: r.ink ?? '#fff', fontSize: size * (share > 0.25 ? 0.085 : 0.068) }} className="xpct">{Math.round(share * 100)} %</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
   );
 }

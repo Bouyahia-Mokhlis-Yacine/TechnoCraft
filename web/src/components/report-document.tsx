@@ -1,3 +1,4 @@
+import Image from 'next/image';
 // One report the assistant composed, as a document: header, sections, footer. Used by the report
 // page, its PDF and the live preview shown in the conversation.
 import { ReportSection } from '@/components/report-sections';
@@ -9,7 +10,7 @@ export function ReportDocument({ r, version }: { r: StoredReport; version?: numb
   return (
     <article className="panel report m-rise">
       <header className="report-head">
-        <div><span className="muted">SATIM · Payment Anomaly Intelligence</span><h2 dir="auto">{spec.title}</h2>{spec.subtitle && <p dir="auto">{spec.subtitle}</p>}</div>
+        <div><span className="report-brand"><Image src="/brand/satim-emblem.png" alt="" width={22} height={22} /><b>SATIM</b> · Anomaly Intelligence</span><h2 dir="auto">{spec.title}</h2>{spec.subtitle && <p dir="auto">{spec.subtitle}</p>}</div>
         <dl><dt>Engine run</dt><dd>{meta.run} ({meta.version})</dd><dt>Data as of</dt><dd>{fmtDate(meta.asOf)} · batch {meta.batch}</dd><dt>Prepared</dt><dd>{fmtDate((r.updated ?? r.created).slice(0, 10))} by the assistant · version {v}</dd></dl>
       </header>
       {sections.map((s, i) => <ReportSection key={i} s={s} />)}

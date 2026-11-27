@@ -219,6 +219,29 @@ export function Sparkline({ values, delay = 0 }: { values: number[]; delay?: num
   return <svg className="spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-hidden><polyline className="m-draw" style={css({ '--delay': `${delay}ms` })} pathLength={1} points={pts} /></svg>;
 }
 
+/** The small chart on a KPI card: the formula's value per day. Gaps (no value that day) stay empty. */
+export function KpiChart({ values, type, label }: { values: (number | null)[]; type: 'line' | 'area' | 'bars'; label: string }) {
+  const nums = values.filter((v): v is number => v !== null);
+  if (nums.length < 2) return null;
+  const max = Math.max(...nums, type === 'bars' ? 0 : -Infinity), min = type === 'bars' ? Math.min(0, ...nums) : Math.min(...nums);
+  const W = 120, H = 32, y = (v: number) => H - 2 - ((v - min) / (max - min || 1)) * (H - 6), x = (i: number) => (i / Math.max(values.length - 1, 1)) * W;
+  if (type === 'bars') {
+    const bw = W / values.length;
+    return (
+      <svg className="kpi-chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
+        {values.map((v, i) => v === null ? null : <rect key={i} x={i * bw + bw * 0.15} width={bw * 0.7} y={Math.min(y(v), y(0))} height={Math.max(1, Math.abs(y(0) - y(v)))} rx={Math.min(2, bw * 0.2)} />)}
+      </svg>
+    );
+  }
+  const pts = values.map((v, i) => (v === null ? null : `${x(i).toFixed(1)},${y(v).toFixed(1)}`)).filter(Boolean).join(' ');
+  return (
+    <svg className={`kpi-chart ${type}`} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={label}>
+      {type === 'area' && <polygon points={`${pts} ${x(values.length - 1)},${H} 0,${H}`} />}
+      <polyline points={pts} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 /** 24 rounded hourly columns: that day (solid) over the usual profile (outline). */
 export function HourBars({ rows }: { rows: Compare[] }) {
   const max = Math.max(...rows.flatMap((r) => [r.observed, r.usual]), 1);

@@ -41,6 +41,7 @@ functions, the backend runs it with the existing engine code, and the model reph
 
 # 2. On the machine that runs the backend: open the tunnel
 ./llm/tunnel.sh                          # -> model reachable at http://127.0.0.1:18000/v1
+./llm/tunnel.sh --watch                  # or: keep it up, reopening it within 20 s when it drops
 
 # 3. Check the whole loop (tools, languages, refusals, 8 concurrent users)
 python3 llm/smoke_test.py
@@ -139,7 +140,7 @@ These rules are what made the model safe in testing:
 
    If the answer fails either check, show the deterministic answer instead.
 4. **Keep the evidence.** Show the `evidence` links and the `scope` line from the tool results under the model's text.
-5. **Fallback.** If the model is unset, unreachable, too slow or rejected, answer with the existing `answer()`. The app must keep working offline, without the HPC.
+5. **No fallback answer.** If the model is unset, unreachable, too slow or rejected, the API returns `503` and the chat shows the error. Rules tuned to this dataset could give false figures on new data, so they never answer in the model's place. The rest of the platform works without the HPC.
 
 ### In the app
 
@@ -184,7 +185,7 @@ Measured through the tunnel by `smoke_test.py`, on 2026-11-27:
   - An Arabic-script refusal can come back in Darija in Latin script.
   - The one remaining English refusal in the benchmark (closing an incident) is caught by the write guard before the model.
 - **Availability.**
-  - The model depends on the notebook and the tunnel. If either is down the app falls back, so treat the model as an enhancement, not a dependency.
+  - The model depends on the notebook and the tunnel. If either is down the assistant shows an error (the rest of the platform keeps working), so check the tunnel before a demo.
   - The shared GPU slice can be taken by another tenant if the notebook is recreated. See `llm-benchmark/REPORT.md` for why that matters for speed.
 
 ## 6. Troubleshooting

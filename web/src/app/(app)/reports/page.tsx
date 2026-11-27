@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { ReportsSkeleton } from '@/components/skeletons';
 import { Suspense } from 'react';
 import { Download } from 'lucide-react';
@@ -31,7 +32,7 @@ async function Reports({ searchParams }: { searchParams: SP }) {
   const merchant = p.merchant && meta.merchants.includes(p.merchant) ? p.merchant : meta.merchants[0];
   const al = alertScope(p);
   const user = await currentUser();
-  const mine = user ? listReports(user.role).slice(0, 8) : [];
+  const mine = user ? listReports(user.id).slice(0, 8) : [];
   const pdf = `/api/v1/reports/pdf?${new URLSearchParams(type === 'merchant' ? { type, merchant } : type === 'alerts' ? { type, ...al.query } : { type, date })}`;
   return (
     <>
@@ -112,7 +113,7 @@ function ReportHead({ title, scope }: { title: string; scope: string }) {
   const meta = getMeta();
   return (
     <header className="report-head">
-      <div><span className="muted">SATIM · Payment Anomaly Intelligence</span><h2>{title}</h2><p>{scope}</p></div>
+      <div><span className="report-brand"><Image src="/brand/satim-emblem.png" alt="" width={22} height={22} /><b>SATIM</b> · Anomaly Intelligence</span><h2>{title}</h2><p>{scope}</p></div>
       <dl><dt>Engine run</dt><dd>{meta.run.run_id} ({meta.run.policy.version})</dd><dt>Data as of</dt><dd>{fmtDate(meta.asOf)} · batch {meta.run.batch_status}</dd></dl>
     </header>
   );

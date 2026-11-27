@@ -8,6 +8,20 @@ import { AssistantDock } from '@/components/assistant-dock';
 import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
 import { fmtDay } from '@/lib/format';
 import { TYPES } from '@/lib/labels';
+import { PAGES } from '@/lib/accounts';
+import { currentUser } from '@/lib/session';
+
+/** The sidebar menu: only the account's pages. */
+async function UserNav() {
+  const user = await currentUser();
+  return <NavLinks incidents={openIncidentCount()} allow={user ? user.pages.map((k) => PAGES[k].path) : []} admin={!!user?.admin} />;
+}
+
+/** Shown only when the account can open what it links to (assistant, incidents, data). */
+async function IfPage({ page, children }: { page: keyof typeof PAGES; children: React.ReactNode }) {
+  const user = await currentUser();
+  return user && (user.admin || user.pages.includes(page)) ? children : null;
+}
 
 /** Top of the queue: reads the review ledger, so it renders per request. */
 async function Spotlight() {
@@ -32,40 +46,38 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="app">
         <aside className="sidebar" style={{ viewTransitionName: 'sidebar' }}>
           <div className="side-head">
-          <Link href="/" className="brand" aria-label="Payment Anomaly Intelligence, overview">
+          <Link href="/" className="brand" aria-label="SATIM Anomaly Intelligence, overview">
             <span className="brand-tile">
-              <svg viewBox="0 0 32 32" aria-hidden shapeRendering="crispEdges">
-                <path className="m-draw" pathLength={1} d="M4 19H9V15H12V21H15V10H19V19H28" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="square" />
-                <rect className="m-pixel" style={{ '--delay': '700ms' } as React.CSSProperties} x="14" y="5" width="6" height="6" fill="#93b4dc" />
-              </svg>
+              <Image src="/brand/satim-emblem.png" alt="" width={40} height={40} priority />
             </span>
-            <span className="brand-name">Anomaly<br />Intelligence</span>
+            <span className="brand-name"><b className="brand-satim">SATIM</b><span>Anomaly Intelligence</span></span>
           </Link>
           <SidebarToggle />
           </div>
 
-          <Suspense fallback={<NavFallback />}><NavLinks incidents={openIncidentCount()} /></Suspense>
+          <Suspense fallback={<NavFallback />}><UserNav /></Suspense>
 
-          <div className="spot">
-            <span className="spot-logo"><Image src="/brand/satim-logo.png" alt="SATIM" width={92} height={28} /></span>
-            <Suspense fallback={<b>Loading queue…</b>}><Spotlight /></Suspense>
-          </div>
+          <Suspense fallback={null}><IfPage page="incidents">
+            <div className="spot"><Spotlight /></div>
+          </IfPage></Suspense>
 
           {/* Data status (FR-11, FR-20): which run, how fresh, complete or not. Lives in the sidebar foot. */}
-          <Link href="/data" className="side-status" title="Run details and data audit">
-            <Database aria-hidden />
-            <span>
-              <b>Run {meta.run.run_id}</b>
-              <small>Engine {meta.run.policy.version} · as of {fmtDay(meta.asOf)}</small>
-            </span>
-            <i className={`status-dot ${meta.run.batch_status === 'complete' ? 'ok' : 'warn'}`} aria-label={`Batch ${meta.run.batch_status}`} />
-          </Link>
+          <Suspense fallback={null}><IfPage page="data">
+            <Link href="/data" className="side-status" title="Run details and data audit">
+              <Database aria-hidden />
+              <span>
+                <b>Run {meta.run.run_id}</b>
+                <small>Engine {meta.run.policy.version} · as of {fmtDay(meta.asOf)}</small>
+              </span>
+              <i className={`status-dot ${meta.run.batch_status === 'complete' ? 'ok' : 'warn'}`} aria-label={`Batch ${meta.run.batch_status}`} />
+            </Link>
+          </IfPage></Suspense>
         </aside>
         <main id="content" className="content">
           {children}
         </main>
       </div>
-      <Suspense fallback={null}><AssistantDock /></Suspense>
+      <Suspense fallback={null}><IfPage page="assistant"><AssistantDock /></IfPage></Suspense>
     </>
   );
 }

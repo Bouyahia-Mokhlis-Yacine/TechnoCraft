@@ -10,7 +10,7 @@ import { can } from '@/lib/session';
 export async function GET(req: NextRequest, ctx: RouteContext<'/api/v1/export/[kind]'>) {
   const user = userOf(req);
   if (!user) return fail(401, 'unauthenticated', 'Sign in to export.');
-  if (!can(user.role, 'export')) return fail(403, 'forbidden', 'Your role cannot export.');
+  if (!can(user, 'export')) return fail(403, 'forbidden', 'Your account cannot export.');
   const { kind } = await ctx.params;
   const p = params(req), run = model().snap.run.run_id;
   let body: string;
@@ -25,6 +25,6 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/v1/export/[k
     body = csv(['incident_id', 'rank', 'priority', 'merchant_id', 'type', 'severity', 'lifecycle', 'review_status', 'owner', 'onset', 'end', 'days', 'affected_events', 'value_exposure_dzd'],
       r.map((i) => [i.id, i.rank, i.priority, i.merchant, i.type, i.severity, i.lifecycle, i.review.status, i.review.owner, i.onset, i.end, i.days, i.affectedEvents, i.valueExposure]));
   } else return fail(404, 'not_found', 'Unknown export.');
-  appendEvent({ actor: user.role, action: 'export', target: `export:${kind}`, run_id: run, reason: new URLSearchParams(p).toString(), prior: 'new', next: 'new', escalated: false, version: 0 });
+  appendEvent({ actor: user.id, action: 'export', target: `export:${kind}`, run_id: run, reason: new URLSearchParams(p).toString(), prior: 'new', next: 'new', escalated: false, version: 0 });
   return new Response(body, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="pai-${kind}-${run}.csv"` } });
 }

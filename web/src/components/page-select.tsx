@@ -30,7 +30,8 @@ export function describeElement(target: Element): Selection {
   const el = target.closest(PICKABLE) ?? target;
   const tipEl = el.closest('[data-tip]');
   const tip = tipEl ? clean(tipEl.getAttribute('data-tip'), 300) : undefined;
-  const date = (el.closest('[data-date]') ?? el.querySelector('[data-date]'))?.getAttribute('data-date') ?? undefined;
+  // only the element's own date (a chart bar): a whole panel holds many bars and is not about one day
+  const date = el.closest('[data-date]')?.getAttribute('data-date') ?? undefined;
   const panel = panelTitle(el);
   const text = clean(el instanceof HTMLElement ? el.innerText : el.getAttribute('aria-label') ?? el.textContent);
   if (el.tagName === 'TR') {

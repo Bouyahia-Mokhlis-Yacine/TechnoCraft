@@ -9,7 +9,8 @@ import { fmtCompactDzd, fmtDate, fmtDay, fmtInt, fmtNum } from '@/lib/format';
 import { REVIEW, TYPES, observedVsExpected } from '@/lib/labels';
 import { GaugeCell, Gauge, NextSteps, PriorityStack, fmtShort } from '@/components/visuals';
 import { PLAYBOOK } from '@/lib/model';
-import { ROLES, currentUser } from '@/lib/session';
+import { allowed, currentUser } from '@/lib/session';
+import { nameOf } from '@/lib/accounts';
 import { ReviewPanel } from '@/components/client';
 import { DayBars, ProgressRows } from '@/components/charts';
 import { LifecycleChip, PageHeader, ReviewChip, SeverityBadge, TypeLabel } from '@/components/ui';
@@ -62,12 +63,12 @@ async function IncidentView({ params }: { params: Params }) {
 
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>Review</h2><p>{REVIEW[i.review.status]} · {i.review.owner ?? 'no owner'}</p></div></div>
-            <ReviewPanel id={i.id} version={i.review.version} status={i.review.status} allowed={user ? ROLES[user.role].can : []} />
+            <ReviewPanel id={i.id} version={i.review.version} status={i.review.status} allowed={allowed(user)} />
             <h3 className="sub-h">History</h3>
             {i.review.history.length ? (
               <ol className="history">
                 {[...i.review.history].reverse().map((e) => (
-                  <li key={e.event_id}><b>{e.action}</b> by {ROLES[e.actor].name} · {new Date(e.ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
+                  <li key={e.event_id}><b>{e.action}</b> by {nameOf(e.actor)} · {new Date(e.ts).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}
                     <span className="muted"> · {REVIEW[e.prior]} → {REVIEW[e.next]}{e.owner ? ` · owner ${e.owner}` : ''}</span>{e.reason && <q>{e.reason}</q>}</li>
                 ))}
               </ol>

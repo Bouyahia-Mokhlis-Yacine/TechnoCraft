@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { Suspense } from 'react';
-import { ChevronLeft, ChevronRight, Download, SearchX, type LucideIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Info, SearchX, type LucideIcon } from 'lucide-react';
 import { signOut } from '@/app/actions';
 import { type AnomalyType, type Lifecycle, type Ranked, type ReviewStatus, type Severity } from '@/lib/api';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES, observedVsExpected } from '@/lib/labels';
 import { fmtDay } from '@/lib/format';
-import { currentUser, ROLES } from '@/lib/session';
+import { currentUser } from '@/lib/session';
 import { BackButton, HeaderActions } from './client';
 
 export function SeverityBadge({ severity, beat = false }: { severity: Severity | 'normal'; beat?: boolean }) {
@@ -33,7 +33,7 @@ export function Delta({ text, tone }: { text: string; tone: 'good' | 'bad' | 'fl
 
 async function Account() {
   const user = await currentUser();
-  return <HeaderActions roleName={user ? ROLES[user.role].name : null} signOut={signOut} />;
+  return <HeaderActions roleName={user ? user.name : null} signOut={signOut} />;
 }
 
 export function PageHeader({ title, crumbs, children }: { title: React.ReactNode; crumbs?: React.ReactNode; children?: React.ReactNode }) {
@@ -96,4 +96,14 @@ export function flat(sp: Record<string, string | string[] | undefined>) {
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(sp)) { const s = Array.isArray(v) ? v[0] : v; if (s) out[k] = s; }
   return out;
+}
+
+/** Compact definitions beside a card title: an (i) button whose note shows on hover and keyboard focus. */
+export function InfoTip({ id, label = 'About this card', children }: { id: string; label?: string; children: React.ReactNode }) {
+  return (
+    <span className="info">
+      <button type="button" className="info-btn" aria-label={label} aria-describedby={id}><Info aria-hidden /></button>
+      <span role="tooltip" id={id} className="info-pop">{children}</span>
+    </span>
+  );
 }

@@ -17,7 +17,7 @@ export default function EmbedReport({ params, searchParams }: { params: P; searc
 
 async function Doc({ params, searchParams }: { params: P; searchParams: SP }) {
   const [{ id }, sp, user] = await Promise.all([params, searchParams, currentUser()]);
-  const r = user ? getReport(user.role, id) : null;
+  const r = user ? getReport(user.id, id) : null;
   if (!r) notFound();
   const v = Number(sp.v) || undefined;
   return <div className="embed-report"><ReportDocument r={r} version={v} /></div>;

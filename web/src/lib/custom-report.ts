@@ -13,7 +13,6 @@ import { simulate, type Baseline } from './simulate';
 import { fmtCompactDzd, fmtDelta, fmtInt, fmtNum, fmtPct } from './format';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES, observedVsExpected } from './labels';
 import { runsDir } from './snapshot';
-import type { Role } from './session';
 
 /* ── spec (what the model sends, what is stored) ─────────────────────── */
 export const SECTION_KINDS = ['kpis', 'activity', 'channel_mix', 'alerts', 'incidents', 'incident', 'merchant', 'compare', 'top_declines', 'shortfall', 'forecast', 'network_signals', 'engine_quality', 'simulation', 'text'] as const;
@@ -32,7 +31,7 @@ export interface SectionSpec {
 }
 export interface ReportSpec { title: string; subtitle?: string; sections: SectionSpec[] }
 /** `history` keeps earlier versions (oldest first); `version` = history.length + 1. */
-export interface StoredReport { id: string; owner: Role; created: string; updated?: string; run_id: string; spec: ReportSpec; version?: number; history?: ReportSpec[] }
+export interface StoredReport { id: string; owner: string; created: string; updated?: string; run_id: string; spec: ReportSpec; version?: number; history?: ReportSpec[] }
 
 const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
 const date = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
@@ -92,19 +91,19 @@ const write = (r: StoredReport) => {
   fs.renameSync(`${f}.tmp`, f);
   return r;
 };
-export function saveReport(owner: Role, spec: ReportSpec): StoredReport {
+export function saveReport(owner: string, spec: ReportSpec): StoredReport {
   const now = new Date().toISOString();
   return write({ id: crypto.randomBytes(8).toString('hex'), owner, created: now, updated: now, run_id: model().snap.run.run_id, spec, version: 1, history: [] });
 }
 /** A change the user asked for: the new spec becomes the current version, the old one is kept. */
-export function updateReport(owner: Role, id: string, spec: ReportSpec): StoredReport | null {
+export function updateReport(owner: string, id: string, spec: ReportSpec): StoredReport | null {
   const r = getReport(owner, id);
   if (!r) return null;
   const history = [...(r.history ?? []), r.spec].slice(-30);
   return write({ ...r, spec, history, version: (r.version ?? 1) + 1, updated: new Date().toISOString(), run_id: model().snap.run.run_id });
 }
 /** Back to the previous version (the undone one is dropped). */
-export function undoReport(owner: Role, id: string): StoredReport | null {
+export function undoReport(owner: string, id: string): StoredReport | null {
   const r = getReport(owner, id);
   if (!r || !r.history?.length) return null;
   const history = r.history.slice(0, -1);
@@ -116,11 +115,11 @@ export function specAt(r: StoredReport, v?: number): ReportSpec {
   if (!v || v >= cur) return r.spec;
   return r.history?.[v - 1] ?? r.spec;
 }
-export function getReport(owner: Role, id: string | undefined): StoredReport | null {
+export function getReport(owner: string, id: string | undefined): StoredReport | null {
   if (!id || !ID.test(id)) return null;
   try { const r = JSON.parse(fs.readFileSync(path.join(/*turbopackIgnore: true*/ dir(), `${id}.json`), 'utf8')) as StoredReport; return r.owner === owner ? r : null; } catch { return null; }
 }
-export function listReports(owner: Role): StoredReport[] {
+export function listReports(owner: string): StoredReport[] {
   let names: string[] = [];
   try { names = fs.readdirSync(dir()).filter((n) => n.endsWith('.json')); } catch { return []; }
   return names.map((n) => getReport(owner, n.slice(0, -5))).filter((r): r is StoredReport => !!r).sort((a, b) => b.created.localeCompare(a.created));

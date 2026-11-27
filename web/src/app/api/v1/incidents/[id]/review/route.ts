@@ -17,9 +17,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/v1/incident
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
   const action = body.action as Action;
   if (!ACTIONS.includes(action) || typeof body.version !== 'number') return fail(422, 'invalid_payload', 'Expected { action, reason, version }.');
-  if (!can(user.role, action)) return fail(403, 'forbidden', `Your role cannot ${action} incidents.`);
+  if (!can(user, action)) return fail(403, 'forbidden', `Your account cannot ${action} incidents.`);
   try {
-    const state = applyReview({ target: id, run_id: model().snap.run.run_id, actor: user.role, action, reason: String(body.reason ?? ''), owner: body.owner ? String(body.owner).slice(0, 80) : undefined, version: body.version });
+    const state = applyReview({ target: id, run_id: model().snap.run.run_id, actor: user.id, action, reason: String(body.reason ?? ''), owner: body.owner ? String(body.owner).slice(0, 80) : undefined, version: body.version });
     return Response.json({ incident: id, review: { status: state.status, owner: state.owner, escalated: state.escalated, version: state.version } });
   } catch (e) {
     if (e instanceof ReviewError) return fail(e.status, e.status === 409 ? 'stale_version' : 'invalid_transition', e.message);

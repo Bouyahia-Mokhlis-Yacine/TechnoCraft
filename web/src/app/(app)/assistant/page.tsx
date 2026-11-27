@@ -22,8 +22,8 @@ export default function AssistantPage({ searchParams }: { searchParams: SP }) {
 async function Assistant({ searchParams }: { searchParams: SP }) {
   const p = flat(await searchParams);
   const user = await currentUser();
-  const conversations = user ? listConversations(user.role) : [];
-  const conversation = user ? getConversation(user.role, p.c) : null;
+  const conversations = user ? listConversations(user.id) : [];
+  const conversation = user ? getConversation(user.id, p.c) : null;
   const folded = (await cookies()).get('pai-rail')?.value === 'folded';
   return (
     <div className="assistant-page">

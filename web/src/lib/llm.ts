@@ -5,13 +5,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { answer, detectLang, PROHIBITED, type Lang, type Reply } from './assistant';
-import { addDays, model } from './model';
+import { model } from './model';
 import { appToolDefs, isAppTool, runAppTool, type Display } from './assistant-tools';
 import type { Turn } from './conversations';
 import type { PageContext } from './page-context';
 import { selectionBlock, type Selection } from './selection';
 import { buildReport, composeToolDef, getReport, reportSummary, saveReport, unwrittenText, updateReport, validateSpec, type StoredReport } from './custom-report';
-import type { Role } from './session';
 
 const URL_ = process.env.LLM_URL?.replace(/\/+$/, '');
 const MODEL = process.env.LLM_MODEL ?? 'assistant';
@@ -52,7 +51,6 @@ const QUESTION: Record<string, (a: Args) => string> = {
   activity_shortfall: (a) => `Which merchants had the largest activity shortfall ${per(a)}`,
   next_checks: (a) => `What should I check first${mer(a)}`,
 };
-const BROAD = new Set(['help', 'kpis', 'merchant', 'unsupported', 'page']); // rule intents that match loosely (page = the page summary fallback)
 const NEEDS_MERCHANT = new Set(['explain_merchant', 'merchant_health']);
 
 function runTool(name: string, raw: string, lang: Lang): { result: unknown; display?: Display } {
@@ -117,34 +115,31 @@ async function chat(messages: Msg[], tools: Tool[], signal: AbortSignal, force?:
 
 export const llmEnabled = () => !!URL_;
 
+/** Is the model reachable right now? Cached a few seconds; 'off' when LLM_URL is not set. */
+let statusCache: { at: number; v: 'online' | 'offline' } | null = null;
+export async function modelStatus(): Promise<'online' | 'offline' | 'off'> {
+  if (!URL_) return 'off';
+  if (statusCache && Date.now() - statusCache.at < 10_000) return statusCache.v;
+  let v: 'online' | 'offline' = 'offline';
+  try { const r = await fetch(`${URL_}/models`, { signal: AbortSignal.timeout(2000), cache: 'no-store' }); v = r.ok ? 'online' : 'offline'; } catch { v = 'offline'; }
+  statusCache = { at: Date.now(), v };
+  return v;
+}
+
 const PAGE_TOOL = { type: 'function' as const, function: { name: 'page_context', description: 'What the user is looking at right now: the page, its filters and the figures behind each panel and chart, under the names shown on screen. Call it whenever the question is about "this", "here", this page, this chart or one of its panels.', parameters: { type: 'object', properties: {}, required: [], additionalProperties: false } } };
+// "this", "hada", "ça" with nothing newly selected: the user still means what they selected just before
+const DEICTIC = /\b(this|that|these|those|it|here|hada|hadi|hadou|hna|ca|cela|ce|cette|ces|celui|celle|ici)\b|هذا|هذه|هاد|هادي|هنا/;
+
 const SELECTION_NOTE = `\nThe question may come with parts of the page the user selected (text, a chart bar, a table row, a card or a panel), listed after it. Answer about those parts first, in plain words: what they show and whether anything is unusual. Use day_detail for a selected bar or row with a date, explain_merchant, incident_detail or merchant_health for an id in it, and page_context for the panel around it.`;
 const pageNote = (p: PageContext) => `\n\nThe user is asking from the page "${p.title}" (panels: ${p.panels.join(', ')}). Questions about "this", "here", this page, a chart or one of these panels refer to it: call page_context and explain from its figures, in plain words, what the panel shows and what stands out.`;
-// "explain this chart", "que veut dire ce graphique", "chno ma3na hada"...
-const ABOUT_PAGE = /\b(this|these|here|chart|graph|page|screen|panel|bars?|pie|explain|interpret|mean|stands? out|ce|cet|cette|ces|ici|graphique|courbe|tableau|ecran|explique|interprete|signifie|hada|hadi|hna|ma3na)\b|هذا|هذه|هاد|هنا|معنى/;
-
 const CASE_ACTION = /\b(close|assign|acknowledge|escalate|reopen|ferme[rz]?|cloture[rz]?|assigne[rz]?|acquitte[rz]?|escalade[rz]?)\b/;
 const REPORT_WORD = /\b(report|rapport|section|title|titre|chart|graph|graphique|table|tableau|summary|resume|pdf|brief)\b/;
 // a change to the report being worked on ("add…", "remove…", "ajoute…", "zid…")
 const CHANGE = /\b(add|remove|delete|drop|replace|change|rename|move|reorder|shorten|shorter|longer|translate|put|include|exclude|swap|ajoute[rz]?|enleve[rz]?|supprime[rz]?|remplace[rz]?|change[rz]?|deplace[rz]?|raccourci[rs]?|tradui[st]|mets|inclu[st]|zid|na7i|beddel)\b/;
 // asks for a file: never answer it with a page summary
 const WANTS_FILE = /\b(pdf|reports?|rapports?|brief|csv|exports?|exporte[rz]?|telecharg\w*|download)\b/;
-function fileFallback(lang: Lang, base: Reply): Reply {
-  const r = model().snap.run, from = addDays(r.as_of, -6), fr = lang === 'fr';
-  return {
-    ...base, intent: 'report', refused: undefined, table: undefined,
-    text: [fr ? 'Je n’ai pas pu préparer un rapport sur mesure cette fois. Ces rapports sont prêts à télécharger :' : 'I could not prepare a tailored report this time. These reports are ready to download:'],
-    evidence: [
-      { label: fr ? 'Alertes de la semaine (PDF)' : 'This week’s alerts (PDF)', href: `/api/v1/reports/pdf?type=alerts&from=${from}&to=${r.as_of}` },
-      { label: fr ? 'Synthèse hebdomadaire (PDF)' : 'Weekly brief (PDF)', href: `/api/v1/reports/pdf?type=weekly&date=${r.as_of}` },
-      { label: fr ? 'Tous les rapports' : 'All reports', href: '/reports' },
-    ],
-    scope: `${fr ? 'Périmètre' : 'Scope'}: ${from} – ${r.as_of} · ${fr ? 'exécution moteur' : 'engine run'} ${r.run_id}`,
-  };
-}
-
 /** The report a change request refers to: the one on screen, else the latest one in this conversation. */
-function activeReport(owner: Role, page: PageContext | null, history: Turn[]): StoredReport | null {
+function activeReport(owner: string, page: PageContext | null, history: Turn[]): StoredReport | null {
   const onPage = page?.path.match(/^\/reports\/([a-f0-9]{16})/)?.[1];
   if (onPage) return getReport(owner, onPage);
   for (let i = history.length - 1; i >= 0; i--) { const t = history[i]; if (t.role === 'assistant' && t.reply.report) return getReport(owner, t.reply.report.id); }
@@ -152,7 +147,7 @@ function activeReport(owner: Role, page: PageContext | null, history: Turn[]): S
 }
 
 /** compose_report: validate the spec, fill it from the engine, check the model's own text, save it. */
-function compose(raw: string, sources: string, owner: Role | null, lang: Lang): { result: unknown; display?: Display } {
+function compose(raw: string, sources: string, owner: string | null, lang: Lang): { result: unknown; display?: Display } {
   let args: Record<string, unknown>;
   try { args = JSON.parse(raw || '{}'); } catch { return { result: { error: 'Arguments must be JSON.' } }; }
   if (!owner) return { result: { error: 'Reports need a signed-in account.' } };
@@ -186,25 +181,27 @@ function historyMessages(history: Turn[]): Msg[] {
   return out;
 }
 
+/** Why the assistant could not answer. There is no substitute answer: a figure from rules written
+ *  for an earlier dataset could be wrong, so the user sees an error instead. */
+export class ModelError extends Error {
+  constructor(public code: 'model_off' | 'model_offline' | 'model_rejected', message: string) { super(message); }
+}
+
 /** The assistant entry point: guards, then the model with the conversation so far and the tools,
- *  then the output check; the deterministic answer whenever any step fails. */
-export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: Role | null = null): Promise<Reply> {
+ *  then the output check. Throws ModelError when the model is missing, unreachable or unverified. */
+export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: string | null = null): Promise<Reply> {
   const q = question.trim().slice(0, 500);
-  // the rules see the ids inside the selection too ("why?" on a selected MER-6434 row)
-  const selIds = [...new Set(selection.flatMap((x) => `${x.text ?? ''} ${x.tip ?? ''} ${Object.values(x.table ?? {}).join(' ')} ${(x.links ?? []).join(' ')}`.match(/\b(?:MER-\d{4}|INC-\d{4}-\d{4})\b/g) ?? []))].slice(0, 2);
+  if (!selection.length && page && DEICTIC.test(norm(q))) {
+    const lastUser = [...history].reverse().find((t) => t.role === 'user');
+    const samePage = lastUser?.role === 'user' && lastUser.page?.href.split('?')[0] === page.path.split('?')[0];
+    if (lastUser?.role === 'user' && samePage && lastUser.selection?.length) selection = lastUser.selection;
+  }
   let guarded = answer(q);
   // "remove the incidents section" edits a report, it is not a case action: only real case actions stay refused
   if (guarded.refused === 'write' && owner && !CASE_ACTION.test(norm(q)) && (REPORT_WORD.test(norm(q)) || activeReport(owner, page, history))) guarded = answer('summary');
-  let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`) : guarded;
-  if (guarded.refused && guarded.refused !== 'unsupported') rules = guarded;
-  if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
-  // on another page, a question about "this chart" that the rules cannot place gets the page summary
-  else if (page && (BROAD.has(rules.intent) || rules.refused === 'unsupported') && (selection.length || ABOUT_PAGE.test(norm(q)))) {
-    const run = model().snap.run;
-    rules = { ...rules, intent: 'page', refused: undefined, text: page.summary, table: undefined, evidence: [], scope: `Scope: ${page.title} · engine run ${run.run_id}` };
-  }
-  // guards first: refused questions never reach the model
-  if (!URL_ || rules.refused === 'prohibited' || rules.refused === 'card_data' || rules.refused === 'write') return { ...rules, source: 'rules' };
+  // guards first: refused questions never reach the model (a refusal states no figure)
+  if (guarded.refused === 'prohibited' || guarded.refused === 'card_data' || guarded.refused === 'write') return { ...guarded, source: 'rules' };
+  if (!URL_) throw new ModelError('model_off', 'The assistant needs its language model, and none is configured (LLM_URL).');
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
@@ -238,15 +235,11 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
       force = undefined;
       if (!msg) { console.warn('[assistant] model returned no message'); break; }
       if (!msg.tool_calls?.length) {
-        // no tool called (refusal or clarifying question) although the rules recognise a precise
-        // question: the rules' answer, with evidence, beats a clarifying question
-        // (first question only: on a follow-up the rules cannot see what "it" or "that" refers to)
-        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) break;
         const text = clean(msg.content ?? '');
         if (!text) { console.warn('[assistant] model returned an empty answer'); break; }
         // a file was asked for but none was made: the answer would point at a link that does not exist
         if (wantsFile && !madeFile) {
-          if (nudged || round === rounds - 1) { console.warn('[assistant] file requested but no file tool called'); rules = fileFallback(lang, rules); break; }
+          if (nudged || round === rounds - 1) { console.warn('[assistant] file requested but no file tool called'); break; }
           nudged = true;
           // second chance with the tool imposed: the model only chooses the scope
           force = /\b(csv|exports?|exporte[rz]?)\b/.test(norm(q)) ? 'export_data' : owner ? 'compose_report' : 'generate_report';
@@ -271,7 +264,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         const evidence = [...new Map(used.flatMap((r) => r.evidence).map((e) => [e.href, e])).values()];
         return {
           lang, intent: lead?.intent ?? 'model', text: text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean),
-          table: used.find((r) => r.table)?.table, evidence, scope: lead?.scope ?? '', suggestions: rules.suggestions, source: 'model', report: [...used].reverse().find((r) => r.report)?.report,
+          table: used.find((r) => r.table)?.table, evidence, scope: lead?.scope ?? '', suggestions: guarded.suggestions, source: 'model', model: 'online', report: [...used].reverse().find((r) => r.report)?.report,
         };
       }
       if (process.env.LLM_DEBUG) console.warn(`[assistant] round ${round + 1}: ${msg.tool_calls.map((t) => `${t.function?.name}(${t.function?.arguments})`).join(', ')}`);
@@ -294,12 +287,15 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const made = [...used].reverse().find((d) => d.report);
     if (made?.report) {
       const fr = detectLang(q) === 'fr';
-      return { lang: detectLang(q), intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', report: made.report };
+      return { lang: detectLang(q), intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: guarded.suggestions, source: 'model', model: 'online', report: made.report };
     }
   } catch (e) {
-    console.warn('[assistant] model unavailable, using the rules:', e instanceof Error ? e.message : e);
+    console.warn('[assistant] model unavailable:', e instanceof Error ? e.message : e);
+    statusCache = { at: Date.now(), v: 'offline' };
+    throw new ModelError('model_offline', 'The language model is unreachable right now. Try again in a moment.');
   } finally {
     clearTimeout(timer);
   }
-  return { ...rules, source: 'rules' };
+  // reachable, but no answer passed the checks: say so rather than show an unverified one
+  throw new ModelError('model_rejected', 'The assistant could not produce a verified answer. Try rephrasing the question.');
 }

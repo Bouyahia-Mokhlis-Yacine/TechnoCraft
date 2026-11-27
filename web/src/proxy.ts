@@ -1,13 +1,22 @@
-// Optimistic gate: no session cookie → sign-in page. Real checks happen on the server for every
-// write and export (session.ts / route handlers); this only spares an unauthenticated round trip.
+// Gate for every page and API call: a valid session, and the page in the account's list. Writes
+// and exports are checked again in their route handlers (session.ts `can`).
 import { NextResponse, type NextRequest } from 'next/server';
+import { COOKIE, canSee, decode, homeOf } from '@/lib/session';
 
 export function proxy(req: NextRequest) {
-  if (!req.cookies.get('pai_session')) {
-    if (req.nextUrl.pathname.startsWith('/api/')) return NextResponse.json({ error: { code: 'unauthenticated', message: 'Sign in first.' } }, { status: 401 });
+  const path = req.nextUrl.pathname, api = path.startsWith('/api/');
+  const user = decode(req.cookies.get(COOKIE)?.value);
+  if (!user) {
+    if (api) return NextResponse.json({ error: { code: 'unauthenticated', message: 'Sign in first.' } }, { status: 401 });
     const url = new URL('/login', req.url);
-    url.searchParams.set('next', req.nextUrl.pathname + req.nextUrl.search);
-    return NextResponse.redirect(url);
+    url.searchParams.set('next', path + req.nextUrl.search);
+    const res = NextResponse.redirect(url);
+    res.cookies.delete(COOKIE);   // expired, edited or deleted account
+    return res;
+  }
+  if (!canSee(user, path)) {
+    if (api) return NextResponse.json({ error: { code: 'forbidden', message: 'Your account does not have access to this page.' } }, { status: 403 });
+    return NextResponse.redirect(new URL(homeOf(user), req.url));
   }
   return NextResponse.next();
 }

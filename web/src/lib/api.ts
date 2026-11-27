@@ -1,5 +1,6 @@
 // Page-facing data contract. Everything is derived from the V2 engine snapshot (snapshot.ts) and
 // the review ledger (reviews.ts); nothing here alters an official flag or score.
+import type { Values } from './formula';
 import { aggregate, addDays, channelSet, fmtUnit, model, sevRank, type Advisory, type Anomaly, type AnomalyType, type Incident, type Lifecycle, type Scope, type Severity } from './model';
 import { caseState, readAll, type ReviewEvent, type ReviewStatus } from './reviews';
 import type { ForecastPoint, MerchantDay } from './snapshot';
@@ -90,6 +91,16 @@ export function getOverview(f: OverviewFilters) {
   const incidents = rankedIncidents().filter((i) => inScope(i.merchant, i.category));
   const openInScope = incidents.filter((i) => i.open);
   const affected = new Set(anomalies.map((a) => a.merchant)).size;
+  const priorAnomalies = prev ? m.anomalies.filter((a) => a.date >= priorScope.from && a.date <= priorScope.to && inScope(a.merchant, a.category)) : null;
+  // the named measures KPI formulas are built from (lib/formula.ts), for the period, the prior period and each day
+  const base = (t: { events: number; accepted: number; declined: number; cancelled: number; refunded: number; acceptedValue: number; attemptedValue: number }) =>
+    ({ transactions: t.events, accepted: t.accepted, declined: t.declined, cancelled: t.cancelled, refunded: t.refunded, accepted_value: t.acceptedValue, attempted_value: t.attemptedValue });
+  const measures: { cur: Values; prior: Values | null; daily: Values[] } = {
+    cur: { ...base(cur.totals), alerts: anomalies.length, merchants_flagged: affected, open_incidents: openInScope.length, critical_incidents: openInScope.filter((i) => i.severity === 'critical').length, days: len },
+    // incidents are a state "now": no prior value and no daily history
+    prior: prev && priorAnomalies ? { ...base(prev.totals), alerts: priorAnomalies.length, merchants_flagged: new Set(priorAnomalies.map((a) => a.merchant)).size, days: len } : null,
+    daily: cur.days.map((d) => { const day = anomalies.filter((a) => a.date === d.date); return { ...base(d), alerts: day.length, merchants_flagged: new Set(day.map((a) => a.merchant)).size, days: 1 }; }),
+  };
   const rateOf = (a: { declined: number; events: number } | undefined) => (a && a.events ? a.declined / a.events : null);
   // expected per day only without a channel filter: the engine's reference is per merchant, not per channel (FR-24)
   const expected = (date: string) => f.channel ? undefined : [...m.byMerchant.values()].reduce((s, ds) => {
@@ -103,7 +114,7 @@ export function getOverview(f: OverviewFilters) {
       acceptedValue: { value: cur.totals.acceptedValue, prior: prev?.totals.acceptedValue ?? null },
       attemptedValue: { value: cur.totals.attemptedValue, prior: prev?.totals.attemptedValue ?? null },
       declineRate: { value: rateOf(cur.totals), prior: rateOf(prev?.totals) },
-      affectedMerchants: { value: affected, prior: prev ? new Set(m.anomalies.filter((a) => a.date >= priorScope.from && a.date <= priorScope.to && inScope(a.merchant, a.category)).map((a) => a.merchant)).size : null },
+      affectedMerchants: { value: affected, prior: priorAnomalies ? new Set(priorAnomalies.map((a) => a.merchant)).size : null },
       openIncidents: { value: openInScope.length, critical: openInScope.filter((i) => i.severity === 'critical').length },
     },
     trend: cur.days.map((d): SeriesPoint => ({ date: d.date, value: d.events, usual: expected(d.date), anomalies: anomalies.filter((a) => a.date === d.date).length, holiday: holidayName(d.date) })),
@@ -117,6 +128,7 @@ export function getOverview(f: OverviewFilters) {
     watchlist: m.watchlist.filter((w) => !f.merchant || w.merchant === f.merchant),
     forecast: f.merchant ? m.snap.forecast.merchants[f.merchant] ?? [] : f.category || f.channel ? null : m.snap.forecast.network,
     backtest: m.snap.forecast.backtest,
+    measures,
   };
 }
 

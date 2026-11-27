@@ -32,6 +32,11 @@ export const CHANNEL_VAR: Record<string, string> = {
   'Bank Transfer / Virement': 'var(--ch-transfer)',
   Unknown: 'var(--ch-unknown)',
 };
+/** Text colour on each channel colour (labels drawn inside a slice). */
+export const CHANNEL_INK: Record<string, string> = {
+  'E-commerce (CIB / Edahabia)': 'var(--ch-ecommerce-ink)', 'TPE / POS Terminal': 'var(--ch-pos-ink)', 'Mobile App': 'var(--ch-mobile-ink)',
+  'Contactless / NFC': 'var(--ch-contactless-ink)', 'Bank Transfer / Virement': 'var(--ch-transfer-ink)', Unknown: 'var(--ch-unknown-ink)',
+};
 export const STATUS_VAR: Record<string, string> = { Accepted: 'var(--st-accepted)', Declined: 'var(--st-declined)', Cancelled: 'var(--st-cancelled)', Refunded: 'var(--st-refunded)' };
 
 export type Kind = 'int' | 'dzd' | 'pct';

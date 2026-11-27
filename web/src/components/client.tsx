@@ -3,11 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft } from 'lucide-react';
+import { Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
 import { countUp, toggleTheme } from '@design/motion.js';
-import { fmtCompactDzd, fmtInt, fmtPct } from '@/lib/format';
+import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 
-const FORMAT = { int: fmtInt, dzd: fmtCompactDzd, pct: (n: number) => fmtPct(n) };
+const FORMAT = { int: fmtInt, num: (n: number) => fmtNum(n, 2), dzd: fmtCompactDzd, pct: (n: number) => fmtPct(n) };
 
 /** KPI figure that counts up once. The server HTML already holds the final value. */
 export function CountUp({ value, kind }: { value: number; kind: keyof typeof FORMAT }) {
@@ -34,11 +34,14 @@ const SECTIONS = [
     { href: '/data', label: 'Data & runs', icon: Database, badge: false },
   ] },
 ];
-const ALL = SECTIONS.flatMap((s) => s.items);
+const ADMIN_SECTION = { title: 'Admin', items: [{ href: '/admin', label: 'Accounts', icon: UsersRound, badge: false }] };
 
 /** Sidebar: the pill glides to the active item (shared-element motion, 450ms ease-out). */
-export function NavLinks({ incidents }: { incidents: number }) {
+/** Only the pages the account was given; the administrator also gets Accounts. */
+export function NavLinks({ incidents, allow, admin }: { incidents: number; allow: string[]; admin: boolean }) {
   const path = usePathname();
+  const sections = [...SECTIONS, ...(admin ? [ADMIN_SECTION] : [])].map((s) => ({ ...s, items: s.items.filter((n) => admin || allow.includes(n.href)) })).filter((s) => s.items.length);
+  const ALL = sections.flatMap((s) => s.items);
   const active = ALL.findIndex((n) => (n.href === '/' ? path === '/' : path.startsWith(n.href)));
   const refs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [top, setTop] = useState<number | null>(null);
@@ -52,7 +55,7 @@ export function NavLinks({ incidents }: { incidents: number }) {
   return (
     <nav className="nav" aria-label="Main">
       {top !== null && <span className="nav-pill" style={{ transform: `translateY(${top}px)` }} />}
-      {SECTIONS.map((s) => (
+      {sections.map((s) => (
         <div key={s.title} className="nav-group">
           <span className="nav-title">{s.title}</span>
           {s.items.map((n) => {
@@ -70,8 +73,9 @@ export function NavLinks({ incidents }: { incidents: number }) {
   );
 }
 
+/** While the account loads: an empty rail, so no page the account cannot see ever flashes. */
 export function NavFallback() {
-  return <nav className="nav" aria-label="Main">{SECTIONS.map((s) => <div key={s.title} className="nav-group"><span className="nav-title">{s.title}</span>{s.items.map((n) => <Link key={n.href} href={n.href} className="nav-item"><n.icon aria-hidden /><span>{n.label}</span></Link>)}</div>)}</nav>;
+  return <nav className="nav" aria-label="Main" />;
 }
 
 /** Round icon buttons + the signed-in role, top right of every page. */
@@ -143,7 +147,7 @@ export function ReviewPanel({ id, version, status, allowed }: { id: string; vers
     { a: 'close', label: 'Close', show: status !== 'closed' },
     { a: 'reopen', label: 'Reopen', show: status === 'closed' },
   ].filter((o) => o.show && allowed.includes(o.a));
-  if (!offer.length) return <p className="muted">Your role can read this incident but not change it.</p>;
+  if (!offer.length) return <p className="muted">Your account can read this incident but not change it.</p>;
   const needsReason = action === 'close' || action === 'escalate' || action === 'comment';
   const send = (a: string) => start(async () => {
     setError(null);
@@ -225,4 +229,23 @@ export function AutoPrint() {
     return () => clearTimeout(t);
   }, [asked]);
   return null;
+}
+
+/** Table whose rows open their `data-href` when an ordinary cell (or its padding) is clicked. The
+ *  link inside the row stays the keyboard and "open in new tab" route; controls keep their own clicks. */
+export function ClickRows({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
+  const target = (e: React.MouseEvent) => {
+    const t = e.target as Element;
+    if (t.closest('a, button, input, select, textarea, label, summary, [role="button"], [role="checkbox"]')) return null;
+    if (window.getSelection()?.toString()) return null;              // selecting text, not opening
+    return t.closest('tr[data-href]')?.getAttribute('data-href') ?? null;
+  };
+  return (
+    <div className="click-rows"
+      onClick={(e) => { const href = target(e); if (!href) return; if (e.metaKey || e.ctrlKey) window.open(href, '_blank', 'noopener'); else router.push(href); }}
+      onAuxClick={(e) => { if (e.button !== 1) return; const href = target(e); if (href) { e.preventDefault(); window.open(href, '_blank', 'noopener'); } }}>
+      {children}
+    </div>
+  );
 }

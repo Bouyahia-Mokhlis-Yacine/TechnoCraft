@@ -1,10 +1,11 @@
 // POST /api/v1/assistant { question, conversation_id? }: read-only, allowlisted (SRS FR-45–47). With
 // LLM_URL set, a local model on our own HPC answers from allowlisted tools and sees the earlier turns
-// of the conversation (llm/README.md); otherwise, or if it fails, the deterministic assistant answers.
+// of the conversation (llm/README.md). Without the model, or when its answer fails the checks, the
+// request fails with 503: no substitute answer is ever shown.
 // `page` ({ path, search }) is the page the question was asked from (assistant dock): the model can
 // read that page's figures; `selection` holds parts of it the user selected. Every turn is saved in the caller's conversation. No third-party API.
 import type { NextRequest } from 'next/server';
-import { ask } from '@/lib/llm';
+import { ask, ModelError } from '@/lib/llm';
 import { appendTurn, getConversation } from '@/lib/conversations';
 import { fail, userOf } from '@/lib/http';
 import { describePage } from '@/lib/page-context';
@@ -18,15 +19,17 @@ export async function POST(req: NextRequest) {
   if (typeof body.question !== 'string' || !body.question.trim()) return fail(422, 'invalid_payload', 'Expected { question }.');
   if (body.question.length > 500) return fail(422, 'too_long', 'Keep questions under 500 characters.');
   const id = typeof body.conversation_id === 'string' ? body.conversation_id : null;
-  const conv = getConversation(user.role, id);
+  const conv = getConversation(user.id, id);
   if (id && !conv) return fail(404, 'not_found', 'Conversation not found.');
   const question = body.question.trim();
   // asked from another page through the dock: the server rebuilds that page's figures itself
   const path = typeof body.page?.path === 'string' && /^\/[\w\-/%.]*$/.test(body.page.path) && body.page.path.length < 120 && !body.page.path.startsWith('/api') ? body.page.path : null;
   const search = typeof body.page?.search === 'string' && body.page.search.length < 400 ? body.page.search.replace(/^\?/, '') : '';
-  const page = path && path !== '/assistant' ? describePage(path, search, user.role) : null;
+  const page = path && path !== '/assistant' ? describePage(path, search, user.id) : null;
   const selection = page ? sanitizeSelections(body.selection) : [];
-  const reply = await ask(question, conv?.turns ?? [], page, selection, user.role);
-  const saved = appendTurn(user.role, conv?.id, question, reply, page ? { title: page.title, href: page.link.href } : undefined, selection);
+  let reply;
+  try { reply = await ask(question, conv?.turns ?? [], page, selection, user.id); }
+  catch (e) { if (e instanceof ModelError) return fail(503, e.code, e.message); throw e; }
+  const saved = appendTurn(user.id, conv?.id, question, reply, page ? { title: page.title, href: page.link.href } : undefined, selection);
   return Response.json({ ...reply, conversation: { id: saved.id, title: saved.title, updated: saved.updated }, page: page ? { title: page.title, href: page.link.href } : null });
 }

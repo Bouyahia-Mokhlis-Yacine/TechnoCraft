@@ -62,6 +62,10 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
   const [folded, setFolded] = useState(foldedAtLoad);     // folded to the left, wide screens (remembered in a cookie)
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // is the language model reachable? (checked on open and refreshed by every answer)
+  const [modelState, setModelState] = useState<'online' | 'offline' | 'off' | null>(null);
+  const checkModel = () => fetch('/api/v1/assistant/status').then((r) => r.json()).then((d) => setModelState(d.model ?? null)).catch(() => {});
+  useEffect(() => { checkModel(); }, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const asked = useRef(false);
 
@@ -90,6 +94,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
         setList((l) => [{ id: saved.id, title: saved.title, updated: saved.updated, questions: (l.find((x) => x.id === saved.id)?.questions ?? 0) + 1 }, ...l.filter((x) => x.id !== saved.id)]);
       }
       onReply?.(reply);
+      if (reply.model) setModelState(reply.model);
       const id = seq++, total = wordsOf(reply);
       setMsgs((m) => [...m, { id, role: 'assistant', reply, shown: reduced() ? total : 0, total }]);
       if (!reduced()) {
@@ -220,6 +225,12 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
         </div>
         <div className="chat-dock">
           <div className="chat-col">
+            {(modelState === 'offline' || modelState === 'off') && (
+              <p className={`model-note ${modelState}`} role="status">
+                <i aria-hidden />{modelState === 'offline' ? 'Language model offline: the assistant can’t answer until it’s back.' : 'No language model configured: the assistant can’t answer.'}
+                {modelState === 'offline' && <button type="button" onClick={checkModel}>Retry</button>}
+              </p>
+            )}
             {attachments.length > 0 && (
               <div className="chat-attach" aria-label="Selected on the page">
                 {attachments.map((a, i) => (

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getMeta, listMerchants } from '@/lib/api';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from '@/lib/format';
-import { FilterForm } from '@/components/client';
+import { ClickRows, FilterForm } from '@/components/client';
 import { Sparkline } from '@/components/charts';
 import { GaugeCell } from '@/components/visuals';
 import { CHANNEL_VAR } from '@/lib/labels';
@@ -45,11 +45,11 @@ async function Merchants({ searchParams }: { searchParams: SP }) {
 
       {rows.length ? (
         <div className="panel table-panel m-rise">
-          <table className="data tight">
+          <ClickRows><table className="data tight">
             <thead><tr><th>Merchant</th><th>Main channel</th><th className="r">Tx / day</th><th className="r">Value / day</th><th className="r">Declines</th><th className="r">Latest / expected</th><th className="r">Health</th><th>Open</th><th style={{ width: 110 }}>Last 30 days</th></tr></thead>
             <tbody>
               {rows.map((m, i) => (
-                <tr key={m.id}>
+                <tr key={m.id} data-href={`/merchants/${m.id}`}>
                   <td><Link className="cell-link" href={`/merchants/${m.id}`}><span className="inc-cell"><span><b>{m.id}</b> {m.isNew && <span className="chip">New</span>} {m.learning && <span className="chip" title="Still building its reference: count alerts start after 7 days of history">Learning</span>}</span><small className="muted">{m.category}</small></span></Link></td>
                   <td>{(() => { const [ch, share] = m.topChannel.split(' · '); return <span className="ch-cell" title={m.topChannel}><i className="dot" style={{ background: CHANNEL_VAR[ch] ?? 'var(--ch-unknown)' }} />{ch.split(' (')[0].split(' / ')[0]}<span className="muted num">{share}</span></span>; })()}</td>
                   <td className="r num">{fmtNum(m.avgDaily, 1)}</td>
@@ -62,7 +62,7 @@ async function Merchants({ searchParams }: { searchParams: SP }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></ClickRows>
         </div>
       ) : <EmptyState title="No merchant matches">Check the spelling or reset the filters.</EmptyState>}
     </>

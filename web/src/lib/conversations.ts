@@ -5,11 +5,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Reply } from './assistant';
 import { runsDir } from './snapshot';
-import type { Role } from './session';
 import type { Selection } from './selection';
 
 export type Turn = { role: 'user'; text: string; at: string; page?: { title: string; href: string }; selection?: Selection[] } | { role: 'assistant'; reply: Reply; at: string };
-export interface Conversation { id: string; owner: Role; title: string; created: string; updated: string; turns: Turn[] }
+export interface Conversation { id: string; owner: string; title: string; created: string; updated: string; turns: Turn[] }
 export interface ConversationInfo { id: string; title: string; updated: string; questions: number }
 
 const dir = () => path.join(/*turbopackIgnore: true*/ runsDir(), 'conversations');
@@ -21,12 +20,12 @@ const read = (id: string): Conversation | null => {
 };
 
 /** The conversation, if it belongs to this account. */
-export function getConversation(owner: Role, id: string | undefined | null): Conversation | null {
+export function getConversation(owner: string, id: string | undefined | null): Conversation | null {
   const c = id ? read(id) : null;
   return c && c.owner === owner ? c : null;
 }
 
-export function listConversations(owner: Role): ConversationInfo[] {
+export function listConversations(owner: string): ConversationInfo[] {
   let names: string[] = [];
   try { names = fs.readdirSync(dir()).filter((n) => n.endsWith('.json')); } catch { return []; }
   return names.map((n) => read(n.slice(0, -5))).filter((c): c is Conversation => !!c && c.owner === owner)
@@ -37,7 +36,7 @@ export function listConversations(owner: Role): ConversationInfo[] {
 const titleOf = (q: string) => { const t = q.replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 57).trimEnd()}…` : t; };
 
 /** Append one question and its reply; creates the conversation when `id` is missing or not the owner's. */
-export function appendTurn(owner: Role, id: string | undefined | null, question: string, reply: Reply, page?: { title: string; href: string }, selection?: Selection[]): Conversation {
+export function appendTurn(owner: string, id: string | undefined | null, question: string, reply: Reply, page?: { title: string; href: string }, selection?: Selection[]): Conversation {
   const now = new Date().toISOString();
   const c = getConversation(owner, id) ?? { id: crypto.randomBytes(8).toString('hex'), owner, title: titleOf(question), created: now, updated: now, turns: [] };
   c.turns.push({ role: 'user', text: question, at: now, ...(page ? { page } : {}), ...(selection?.length ? { selection } : {}) }, { role: 'assistant', reply, at: now });
@@ -49,13 +48,13 @@ export function appendTurn(owner: Role, id: string | undefined | null, question:
   return c;
 }
 
-export function deleteConversation(owner: Role, id: string): boolean {
+export function deleteConversation(owner: string, id: string): boolean {
   if (!getConversation(owner, id)) return false;
   fs.rmSync(file(id), { force: true });
   return true;
 }
 
-export function renameConversation(owner: Role, id: string, title: string): Conversation | null {
+export function renameConversation(owner: string, id: string, title: string): Conversation | null {
   const c = getConversation(owner, id);
   if (!c) return null;
   c.title = titleOf(title) || c.title;

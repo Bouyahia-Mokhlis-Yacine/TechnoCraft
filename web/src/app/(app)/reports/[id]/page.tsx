@@ -21,7 +21,7 @@ export default function CustomReportPage({ params }: { params: P }) {
 async function CustomReport({ params }: { params: P }) {
   const { id } = await params;
   const user = await currentUser();
-  const r = user ? getReport(user.role, id) : null;
+  const r = user ? getReport(user.id, id) : null;
   if (!r) notFound();
   return (
     <>

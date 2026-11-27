@@ -8,7 +8,7 @@ import { notFound } from 'next/navigation';
 import { ArrowRight, Ban, Banknote, CircleCheck, CircleHelp, Eye, OctagonAlert, Receipt, Siren } from 'lucide-react';
 import { getMerchant, type HealthLevel } from '@/lib/api';
 import { fmtDay, fmtNum } from '@/lib/format';
-import { CHANNEL_VAR, STATUS_VAR, TYPES } from '@/lib/labels';
+import { CHANNEL_INK, CHANNEL_VAR, STATUS_VAR, TYPES } from '@/lib/labels';
 import { CountUp } from '@/components/client';
 import { DayBars, ForecastBars, ProgressRows } from '@/components/charts';
 import { EmptyState, IconTile, LifecycleChip, PageHeader, ReviewChip, SeverityBadge } from '@/components/ui';
@@ -111,7 +111,7 @@ async function Merchant({ params }: { params: Params }) {
           )}
           <section className="panel tinted mix m-rise" style={css({ '--i': 6 })}>
             <div className="panel-head flush"><div><h2>Channel mix</h2></div></div>
-            <InteractivePie size={200} rows={m.channels.map((c) => ({ label: c.label, value: c.value, color: CHANNEL_VAR[c.label] ?? 'var(--ch-unknown)', href: `/transactions?merchant=${m.id}&channel=${encodeURIComponent(c.label)}` }))} />
+            <InteractivePie size={200} rows={m.channels.map((c) => ({ label: c.label, value: c.value, color: CHANNEL_VAR[c.label] ?? 'var(--ch-unknown)', ink: CHANNEL_INK[c.label] ?? 'var(--ch-unknown-ink)', href: `/transactions?merchant=${m.id}&channel=${encodeURIComponent(c.label)}` }))} />
           </section>
           <section className="panel m-rise" style={css({ '--i': 7 })}>
             <div className="panel-head"><div><h2>Status mix</h2></div></div>

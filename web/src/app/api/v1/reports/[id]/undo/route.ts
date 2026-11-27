@@ -6,6 +6,6 @@ import { fail, userOf } from '@/lib/http';
 export async function POST(req: NextRequest, ctx: RouteContext<'/api/v1/reports/[id]/undo'>) {
   const user = userOf(req);
   if (!user) return fail(401, 'unauthenticated', 'Sign in first.');
-  const r = undoReport(user.role, (await ctx.params).id);
+  const r = undoReport(user.id, (await ctx.params).id);
   return r ? Response.json({ id: r.id, version: r.version }) : fail(404, 'not_found', 'Nothing to undo.');
 }

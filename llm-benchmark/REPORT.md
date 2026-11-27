@@ -69,6 +69,35 @@ Each tool returns the real text that the deterministic assistant produces for en
 
 ## 4. Results
 
+### All models at a glance
+
+Both question sets are combined (56 questions) for every model that reached set B, and set A only (32 questions) for the rest. "Fully correct" means right tool, right arguments, right language, no stray number, no prohibited term and the required content present. It uses strict automatic scoring, so a few scorer artifacts count as misses (see the footnotes below and in section 7).
+
+| Model | Runs on | Fully correct | Routing | Language | Numbers | Prohibited terms | Median s | Max s |
+|---|---|---|---|---|---|---|---|---|
+| **Gemma 4 26B A4B FP8 + rule 8 (chosen)** | HPC | **51/56** | 95% | 98% | 98% | **0** | **0.75** | **1.25** |
+| Gemma 4 26B A4B FP8 (base prompt) | HPC | 50/56 | 96% | 95% | 100% | 0 | 0.77 | 1.23 |
+| DeepSeek V4 Pro (+ rule 8) | API | 53/56 | 100% | 100% | 96% | 1 | 5.72 | 19.55 |
+| DeepSeek V4.1 Flash (+ rule 8) | API | 50/56 | 98% | 98% | 93% | 1 | 2.52 | 5.12 |
+| Gemma 4 31B FP8 | HPC | 51/56 | 96% | 100% | 100% | 3 | 1.92 | 3.80 |
+| Gemma 4 31B 4-bit | HPC | 49/56 | 96% | 100% | 100% | 4 | 1.52 | 2.86 |
+| Qwen3.8 27B FP8 | HPC | 51/56 | 98% | 100% | 98% | 4 | 2.75 | 8.06 |
+| Jais 3 32B FP8 | HPC | 44/56 | 88% | 100% | 89% | 3 | 2.33 | 6.73 |
+| Qwen3.6 35B A3B FP8 | HPC | 28/32 | 91% | 94% | 100% | 1 | 0.78 | 1.94 |
+| Granite 4.2 30B FP8 | HPC | 23/32 | 91% | 91% | 94% | 1 | 2.30 | 9.42 |
+| Nemotron 3 Nano 30B A3B | HPC | 19/32 | 78% | 78% | 91% | 1 | 0.68 | 2.07 |
+| Gemma 4 12B | HPC² | 28/32 | 94% | 91% | 100% | 1 | 2.83 | 24.28 |
+| Qwen3.5 9B | HPC² | 26/32 | 94% | 97% | 100% | 2 | 2.95 | 5.08 |
+| Ministral 3 14B | HPC² | 23/32 | 88% | 94% | 88% | 3 | 3.01 | 4.94 |
+| gpt-oss-20b | HPC² | 21/32 | 94% | 75% | 100% | 0 | 1.31 | 4.58 |
+
+**How the rows were measured**
+
+- **HPC rows** were measured on the notebook itself.
+- **HPC²** means the model ran on a GPU slice shared with another user, so its times are slower than they should be. Accuracy is not affected.
+- **DeepSeek rows** were measured from the laptop over the internet. Through the same laptop path, the 26B took 0.80 s median and 1.38 s max.
+- **Rule 8** (section 4, final configuration) was used for the chosen 26B and for the DeepSeek rows. The other open models ran with the base prompt.
+
 ### Set A: 32 questions
 
 | Model | Routing | Args | Language | Numbers | Prohibited terms | Median s | Max s |

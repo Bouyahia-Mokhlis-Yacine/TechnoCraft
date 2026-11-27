@@ -5,7 +5,7 @@ import '@design/motion.css';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: { default: 'Payment Anomaly Intelligence', template: '%s · PAI' },
+  title: { default: 'SATIM · Anomaly Intelligence', template: '%s · SATIM' },
   description: 'SATIM operational monitoring: merchant activity, incidents and plain-language explanations.',
 };
 

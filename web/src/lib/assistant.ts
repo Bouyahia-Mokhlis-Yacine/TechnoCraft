@@ -14,6 +14,8 @@ export interface Reply {
   source?: 'model' | 'rules';
   /** a report the assistant composed or changed in this answer (previewed under it) */
   report?: { id: string; version: number; title: string };
+  /** language model: answered / configured but unreachable / not configured (unknown for guarded refusals) */
+  model?: 'online' | 'offline' | 'off';
 }
 
 const MAX_ROWS = 6;

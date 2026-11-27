@@ -1,14 +1,14 @@
 // Small helpers for the /api/v1 route handlers (SRS §13): auth, safe errors with a request id.
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
-import { COOKIE, decode, type Role } from './session';
+import { COOKIE, decode, type User } from './session';
 
 export function fail(status: number, code: string, message: string) {
   // Safe error: code, message, request id. Never a stack trace or the input values (SRS §13).
   return Response.json({ error: { code, message, request_id: crypto.randomUUID() } }, { status });
 }
 
-export function userOf(req: NextRequest): { role: Role } | null {
+export function userOf(req: NextRequest): User | null {
   return decode(req.cookies.get(COOKIE)?.value);
 }
 
