@@ -63,6 +63,6 @@ export function ReportSection({ s }: { s: BuiltSection }) {
         </div> : <p className="muted">No network-wide signal in this period.</p>}{note}
       </section>);
     case 'engine_quality': return <section className="report-sec">{head}<dl className="report-dl">{s.rows.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>{note}</section>;
-    case 'simulation': return <section className="report-sec">{head}<p className="report-prose"><b>Scenario (an assumption):</b> {s.scenario}</p><dl className="report-dl">{s.rows.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>{s.flagged.length > 0 && <p className="muted">Would be flagged: {s.flagged.slice(0, 12).join(', ')}{s.flagged.length > 12 ? '…' : ''}</p>}{note}</section>;
+    case 'simulation': return <section className="report-sec">{head}<p className="report-prose"><b>Scenario (an assumption):</b> {s.scenario}</p><dl className="report-dl">{s.rows.map((r) => <div key={r.label}><dt>{r.label}</dt><dd>{r.value}</dd></div>)}</dl>{note}</section>;
   }
 }

@@ -1,12 +1,13 @@
+import { ImpactEvidence, symptomLabel } from '@/components/satim-evidence';
 import { ReportsSkeleton } from '@/components/skeletons';
 import { Suspense } from 'react';
 import { Download } from 'lucide-react';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { dailyBrief, getMerchant, getMeta, listAnomalies } from '@/lib/api';
+import { dailyBrief, getIncident, getMerchant, getMeta, listAnomalies } from '@/lib/api';
 import { fmtCompactDzd, fmtDate, fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES, observedVsExpected } from '@/lib/labels';
-import { addDays, PLAYBOOK } from '@/lib/model';
+import { addDays, model, PLAYBOOK } from '@/lib/model';
 import { listReports } from '@/lib/custom-report';
 import { currentUser } from '@/lib/session';
 import { FileText } from 'lucide-react';
@@ -14,7 +15,7 @@ import { AutoPrint, FilterForm, PrintButton } from '@/components/client';
 import { EmptyState, ExportLink, PageHeader, SeverityBadge, flat } from '@/components/ui';
 import { DayBars, ForecastBars, PairBars } from '@/components/charts';
 import { weeklyBrief } from '@/lib/insights';
-import { GaugeCell, RateBars } from '@/components/visuals';
+import { GaugeCell } from '@/components/visuals';
 
 export const metadata: Metadata = { title: 'Reports' };
 type SP = Promise<Record<string, string | string[] | undefined>>;
@@ -26,21 +27,22 @@ export default function ReportsPage({ searchParams }: { searchParams: SP }) {
 async function Reports({ searchParams }: { searchParams: SP }) {
   const p = flat(await searchParams);
   const meta = getMeta();
-  const type = p.type === 'merchant' ? 'merchant' : p.type === 'weekly' ? 'weekly' : p.type === 'alerts' ? 'alerts' : 'daily';
+  const type = p.type === 'merchant' ? 'merchant' : p.type === 'weekly' ? 'weekly' : p.type === 'alerts' ? 'alerts' : p.type === 'incident' ? 'incident' : 'daily';
   const date = p.date && p.date >= meta.firstDate && p.date <= meta.asOf ? p.date : meta.asOf;
   const merchant = p.merchant && meta.merchants.includes(p.merchant) ? p.merchant : meta.merchants[0];
   const al = alertScope(p);
+  const incident = p.incident ? getIncident(p.incident) : null;
   const user = await currentUser();
   const mine = user ? listReports(user.role).slice(0, 8) : [];
-  const pdf = `/api/v1/reports/pdf?${new URLSearchParams(type === 'merchant' ? { type, merchant } : type === 'alerts' ? { type, ...al.query } : { type, date })}`;
+  const pdf = `/api/v1/reports/pdf?${new URLSearchParams(type === 'merchant' ? { type, merchant } : type === 'alerts' ? { type, ...al.query } : type === 'incident' && incident ? { type, incident: incident.incident.id } : { type, date })}`;
   return (
     <>
       <AutoPrint />
       <div className="no-print"><PageHeader title="Reports"><a className="btn btn-secondary" href={pdf}><Download aria-hidden />Download PDF</a><PrintButton /></PageHeader></div>
       <div className="no-print">
         <FilterForm>
-          <label className="field">Brief<select name="type" defaultValue={type}><option value="daily">Daily operational brief</option><option value="weekly">Weekly management brief</option><option value="merchant">Merchant health brief</option><option value="alerts">Alerts brief</option></select></label>
-          {type === 'alerts' ? <>
+          <label className="field">Brief<select name="type" defaultValue={type}><option value="daily">Daily operational brief</option><option value="weekly">Weekly management brief</option><option value="merchant">Merchant health brief</option><option value="alerts">Alerts brief</option>{incident && <option value="incident">Incident brief</option>}</select></label>
+          {type === 'incident' && incident ? <input type="hidden" name="incident" value={incident.incident.id} /> : type === 'alerts' ? <>
             <label className="field">From<input type="date" name="from" defaultValue={al.from} min={meta.firstDate} max={meta.asOf} /></label>
             <label className="field">To<input type="date" name="to" defaultValue={al.to} min={meta.firstDate} max={meta.asOf} /></label>
             <label className="field">Severity<select name="severity" defaultValue={al.severity ?? ''}><option value="">All severities</option>{(['critical', 'high', 'medium', 'low'] as const).map((v) => <option key={v} value={v}>{SEVERITIES[v].label}</option>)}</select></label>
@@ -58,7 +60,7 @@ async function Reports({ searchParams }: { searchParams: SP }) {
           ))}</div>
         </section>
       )}
-      {type === 'daily' ? <Daily date={date} /> : type === 'weekly' ? <Weekly end={date} /> : type === 'alerts' ? <AlertsBrief {...al} /> : <MerchantBrief id={merchant} />}
+      {type === 'daily' ? <Daily date={date} /> : type === 'weekly' ? <Weekly end={date} /> : type === 'alerts' ? <AlertsBrief {...al} /> : type === 'incident' ? (incident ? <IncidentBrief details={incident} /> : <EmptyState title="Incident unavailable" />) : <MerchantBrief id={merchant} />}
     </>
   );
 }
@@ -102,6 +104,7 @@ function AlertsBrief({ from, to, severity, merchant, channel }: ReturnType<typeo
         <h3>What each alert means</h3>
         <ul className="report-notes">{rows.map((a) => <li key={a.id}><b>{a.merchant} · {fmtDay(a.date)}</b> {a.explanation} <span className="muted">Next check: {a.check}</span></li>)}</ul>
       </> : <EmptyState title="No alert in this scope" />}
+      <RunEvidence from={from} to={to} merchant={merchant} />
       <p className="report-foot">Engine {getMeta().run.policy.version} · alert threshold {getMeta().run.policy.high} · causes not confirmed · no card data.</p>
       <div className="no-print row"><ExportLink kind="anomalies" params={Object.fromEntries(Object.entries({ from, to, severity, merchant, channel }).filter(([, v]) => v)) as Record<string, string>} label="These alerts (CSV)" /></div>
     </article>
@@ -113,9 +116,38 @@ function ReportHead({ title, scope }: { title: string; scope: string }) {
   return (
     <header className="report-head">
       <div><span className="muted">SATIM · Payment Anomaly Intelligence</span><h2>{title}</h2><p>{scope}</p></div>
-      <dl><dt>Engine run</dt><dd>{meta.run.run_id} ({meta.run.policy.version})</dd><dt>Data as of</dt><dd>{fmtDate(meta.asOf)} · batch {meta.run.batch_status}</dd></dl>
+      <dl><dt>Engine run</dt><dd>{meta.run.run_id} ({meta.run.policy.version})</dd><dt>Historical cutoff</dt><dd>{fmtDate(meta.asOf)} · batch {meta.run.batch_status} · {meta.run.parity.sealed ? 'sealed replay' : 'unsealed preview'}</dd></dl>
     </header>
   );
+}
+
+function IncidentBrief({ details }: { details: NonNullable<ReturnType<typeof getIncident>> }) {
+  const { incident, anomalies, advisory } = details;
+  return <article className="panel report">
+    <ReportHead title={'Incident brief · ' + incident.id} scope={incident.merchant + ' · ' + incident.onset + ' to ' + incident.end} />
+    <p>Model lifecycle {LIFECYCLE[incident.lifecycle]} · operator review {REVIEW[incident.review.status]}</p>
+    <h3>Official V2 evidence</h3>
+    <ul className="report-notes">{anomalies.map((a) => <li key={a.id}><b>{a.date}</b> {a.explanation} {a.check}</li>)}</ul>
+    {advisory && <p>V3 advisory · {advisory.channel} · {symptomLabel(advisory.symptom)}. The shared cause remains unverified.</p>}
+    <ImpactEvidence record={incident.evidence} />
+    <RunEvidence from={incident.onset} to={incident.end} merchant={incident.merchant} />
+  </article>;
+}
+
+function RunEvidence({ from, to, merchant }: { from: string; to: string; merchant?: string }) {
+  const s = model().snap;
+  const candidates = s.hybrid?.rows.filter((r) => r.investigation_candidate && r.date >= from && r.date <= to
+    && (!merchant || r.merchant_id === merchant)).length;
+  const breaches = s.transactions.ts.reduce((count, ts, i) => {
+    const day = ts.slice(0, 10);
+    return count + Number(day >= from && day <= to && s.transactions.contactless_limit[i] &&
+      (!merchant || s.transactions.merchants[s.transactions.merchant[i]] === merchant));
+  }, 0);
+  return <div className="report-foot">
+    <p>V4 ML investigation candidates {candidates ?? 'unavailable'} · advisory ranking.</p>
+    <p>Contactless limit evidence {breaches} retained events above 2,500 DZD. High breach prevalence reflects synthetic data generation.</p>
+    <p>Archive batch coverage is assumed. Monetary comparisons require complete qualifying amounts.</p>
+  </div>;
 }
 
 function Daily({ date }: { date: string }) {
@@ -125,7 +157,7 @@ function Daily({ date }: { date: string }) {
       <ReportHead title={`Daily operational brief · ${fmtDate(date)}`} scope={`Whole network · compared with ${b.overview.priorScope ? fmtDate(b.overview.priorScope.from) : 'no prior day'}`} />
       <div className="report-kpis">
         <div><span>Transactions</span><b>{fmtInt(k.events.value)}</b><small>{k.events.prior !== null ? `${fmtDelta(k.events.value, k.events.prior)} vs prior day` : 'N/A'}</small></div>
-        <div><span>Accepted value</span><b>{fmtCompactDzd(k.acceptedValue.value)}</b><small>{k.acceptedValue.prior !== null ? `${fmtDelta(k.acceptedValue.value, k.acceptedValue.prior)} vs prior day` : 'N/A'}</small></div>
+        <div><span>Accepted value</span><b>{fmtCompactDzd(k.acceptedValue.value)}</b><small>{k.acceptedValue.prior !== null && k.acceptedValue.value !== null ? `${fmtDelta(k.acceptedValue.value, k.acceptedValue.prior)} vs prior day` : 'N/A'}</small></div>
         <div><span>Decline rate</span><b>{k.declineRate.value === null ? 'N/A' : fmtPct(k.declineRate.value)}</b><small>{k.declineRate.prior !== null ? `prior day ${fmtPct(k.declineRate.prior)}` : 'N/A'}</small></div>
         <div><span>Flagged merchant-days</span><b>{b.anomalies.length}</b><small>{b.opened.length} incident(s) opened</small></div>
       </div>
@@ -149,7 +181,7 @@ function Daily({ date }: { date: string }) {
         <h3>Network advisories</h3>
         {b.advisories.map((a) => (
           <div key={a.id} className="report-adv"><span className="ref-label">{a.channel}<small>{a.members.filter((m) => m.affected).length} merchants corroborated · advisory only</small></span>
-            <RateBars rows={[{ label: 'Declined', value: a.observed_rate, hot: true }, { label: 'Expected', value: a.expected_rate }]} /></div>
+            <p>{fmtInt(a.observed)} observed vs {fmtNum(a.expected, 1)} expected · {symptomLabel(a.symptom)}</p></div>
         ))}
       </>)}
 
@@ -161,13 +193,14 @@ function Daily({ date }: { date: string }) {
 
       <p className="report-foot">Engine {getMeta().run.policy.version} · causes not confirmed · exposure is an estimate, not a loss · no card data.</p>
       <div className="no-print row"><ExportLink kind="anomalies" params={{ from: date, to: date }} label="Alerts of the day (CSV)" /><ExportLink kind="incidents" params={{ scope: 'all' }} label="All incidents (CSV)" /></div>
+      <RunEvidence from={date} to={date} />
     </article>
   );
 }
 
 function Weekly({ end }: { end: string }) {
   const b = weeklyBrief(end), k = b.overview.kpis;
-  const d = (v: number, p: number | null) => (p !== null ? `${fmtDelta(v, p)} vs prior week` : 'no prior week');
+  const d = (v: number | null, p: number | null) => (p !== null && v !== null ? `${fmtDelta(v, p)} vs prior week` : 'no prior week');
   return (
     <article className="panel report m-rise">
       <ReportHead title={`Weekly management brief · ${fmtDay(b.from)} – ${fmtDate(b.to)}`} scope="Whole network · compared with the previous 7 days" />
@@ -188,13 +221,11 @@ function Weekly({ end }: { end: string }) {
         <h3>Merchants flagged most often</h3>
         <div className="health-chips">{b.topMerchants.map(([id, n]) => <span key={id} className="hc hc-issue"><i aria-hidden />{id}<small>{n} flagged day{n > 1 ? 's' : ''}</small></span>)}</div>
       </>)}
-      {(b.advisories.length > 0 || b.clusters.length > 0) && (<>
-        <h3>Network-wide signals</h3>
-        <div className="ref-rows">
-          {b.advisories.map((a) => <div key={a.id} className="ref-row"><span className="ref-label">{a.channel}: high declines<small>{fmtDate(a.date)} · advisory</small></span><span className="muted num">{fmtPct(a.observed_rate, 0)} vs {fmtPct(a.expected_rate, 1)}</span></div>)}
-          {b.clusters.map((c) => <div key={c.id} className="ref-row"><span className="ref-label">{c.kind === 'declines' ? `${c.channel}: ${c.members.length} merchants with excess declines` : `${c.members.length} merchants with a joint activity drop`}<small>{fmtDate(c.date)} · collective anomaly</small></span><span className="muted num">{fmtInt(c.observed)} vs {fmtInt(c.expected)} expected</span></div>)}
-        </div>
-      </>)}
+      {b.advisories.length > 0 && <>
+        <h3>V3 collective advisories</h3>
+        <ul className="report-notes">{b.advisories.map((a) => <li key={a.id}>{fmtDate(a.date)} · {a.channel} · {symptomLabel(a.symptom)} · {fmtInt(a.observed)} observed vs {fmtNum(a.expected, 1)} expected</li>)}</ul>
+      </>}
+      <RunEvidence from={b.from} to={b.to} />
       {b.forecast && (<>
         <h3>Next 7 days · advisory forecast</h3>
         <div style={{ maxWidth: 560 }}><ForecastBars points={b.forecast} height={180} /></div>
@@ -233,6 +264,7 @@ function MerchantBrief({ id }: { id: string }) {
       </>)}
       <p className="report-foot">For coordination with the acquiring bank · causes not confirmed · no card data.</p>
       <div className="no-print row"><ExportLink kind="transactions" params={{ merchant: m.id }} /></div>
+      <RunEvidence from={m.firstSeen} to={getMeta().asOf} merchant={m.id} />
     </article>
   );
 }

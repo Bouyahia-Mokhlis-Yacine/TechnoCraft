@@ -1,10 +1,10 @@
 // "Ask the Dashboard" (SRS FR-45–47): a local, read-only assistant. Every answer is built from the
 // engine snapshot through an allowlist of queries below; nothing leaves the machine, no free-form
 // query reaches the data, and nothing can change a flag, score or review.
-import { getOverview, listAdvisories, merchantHealth, rankedIncidents, type Ranked } from './api';
+import { getOverview, listAdvisories, listTransactions, merchantHealth, rankedIncidents, type Ranked } from './api';
 import { addDays, model, PLAYBOOK, type Anomaly } from './model';
 import { incidentHypotheses } from './insights';
-import { fmtCompactDzd, fmtInt, fmtPct } from './format';
+import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from './format';
 
 export type Lang = 'en' | 'fr';
 export interface Reply {
@@ -166,9 +166,10 @@ function channels(c: Ctx, out: Reply) {
   if (ads.length) {
     for (const a of ads) {
       const aff = a.members.filter((m) => m.affected).length;
+      const symptom = a.symptom.replaceAll('_', ' ');
       out.text.push(c.lang === 'fr'
-        ? `${fmtD(a.date, 'fr')} : ${a.channel}, ${fmtPct(a.observed_rate, 0)} de refus contre ${fmtPct(a.expected_rate, 1)} attendus ; ${aff} commerçants touchés en même temps (avis ${a.id}, à titre indicatif).`
-        : `${fmtD(a.date, 'en')}: ${a.channel}, ${fmtPct(a.observed_rate, 0)} declined against ${fmtPct(a.expected_rate, 1)} expected; ${aff} merchants affected at the same time (advisory ${a.id}, advisory only).`);
+        ? [fmtD(a.date, 'fr'), a.channel, symptom, fmtInt(a.observed) + ' observés / ' + fmtNum(a.expected, 1) + ' attendus', aff + ' commerçants corroborés', 'avis V3'].join(' · ')
+        : [fmtD(a.date, 'en'), a.channel, symptom, fmtInt(a.observed) + ' observed / ' + fmtNum(a.expected, 1) + ' expected', aff + ' merchants corroborated', 'V3 advisory'].join(' · '));
       out.evidence.push({ label: a.id, href: `/intelligence/${a.id}` });
     }
   } else out.text.push(c.lang === 'fr' ? 'Aucun comportement anormal simultané par canal détecté sur la période.' : 'No concurrent abnormal channel behaviour was detected in the period.');
@@ -179,7 +180,7 @@ function channels(c: Ctx, out: Reply) {
 function incidents(c: Ctx, out: Reply) {
   const open: Ranked[] = rankedIncidents().filter((i) => i.open && (!c.merchant || i.merchant === c.merchant));
   if (!open.length) { out.text.push(c.lang === 'fr' ? 'Aucun incident ouvert.' : 'There is no open incident.'); return; }
-  const exp = open.reduce((s, i) => s + i.valueExposure, 0);
+  const exp = open.some((i) => i.valueExposure === null) ? null : open.reduce((s, i) => s + (i.valueExposure ?? 0), 0);
   out.text.push(c.lang === 'fr'
     ? `${open.length} incident(s) ouvert(s), exposition estimée ${fmtCompactDzd(exp)} (estimation, pas une perte constatée). Classés par priorité :`
     : `${open.length} open incident(s), estimated exposure ${fmtCompactDzd(exp)} (an estimate, not a measured loss). Ranked by priority:`);
@@ -195,9 +196,15 @@ function forecast(c: Ctx, out: Reply) {
   const pts = c.merchant ? f.merchants[c.merchant] : f.network;
   if (!pts) { out.text.push(c.lang === 'fr' ? `Pas de prévision pour ${c.merchant}.` : `No forecast for ${c.merchant}.`); return; }
   out.text.push(c.lang === 'fr'
-    ? `Prévision indicative ${c.merchant ? `pour ${c.merchant}` : 'du réseau'} à partir du ${fmtD(f.as_of, 'fr')}, intervalle à 80 %. Rétro-test : erreur moyenne ${fmtInt(f.backtest.mae_model)} contre ${fmtInt(f.backtest.mae_seasonal_naive)} pour la référence naïve, couverture ${fmtPct(f.backtest.interval_coverage, 0)}.`
-    : `Advisory forecast ${c.merchant ? `for ${c.merchant}` : 'for the network'} from ${fmtD(f.as_of, 'en')}, 80 % interval. Backtest: mean error ${fmtInt(f.backtest.mae_model)} vs ${fmtInt(f.backtest.mae_seasonal_naive)} for the seasonal-naive benchmark, coverage ${fmtPct(f.backtest.interval_coverage, 0)}.`);
-  out.table = { head: c.lang === 'fr' ? ['Jour', 'Attendu', 'Intervalle'] : ['Day', 'Expected', 'Interval'], rows: pts.map((p) => [fmtD(p.date, c.lang), fmtInt(p.expected), `${p.lo}–${p.hi}`]) };
+    ? `Prévision indicative ${c.merchant ? `pour ${c.merchant}` : 'du réseau'} à partir du ${fmtD(f.origin, 'fr')}, intervalle à 80 %. Rétro-test : erreur moyenne ${fmtInt(f.backtest.mae_model)} contre ${fmtInt(f.backtest.mae_seasonal_naive)} pour la référence naïve, couverture ${fmtPct(f.backtest.interval_coverage, 0)}.`
+    : `Advisory forecast ${c.merchant ? `for ${c.merchant}` : 'for the network'} from ${fmtD(f.origin, 'en')}, 80 % interval. Backtest: mean error ${fmtInt(f.backtest.mae_model)} vs ${fmtInt(f.backtest.mae_seasonal_naive)} for the seasonal-naive benchmark, coverage ${fmtPct(f.backtest.interval_coverage, 0)}.`);
+  out.table = { head: c.lang === 'fr' ? ['Jour', 'Transactions · intervalle', 'Valeur acceptée', 'Refus'] : ['Day', 'Transactions · interval', 'Accepted value', 'Rejections'],
+    rows: f.detail.days.map((day) => {
+      const x = c.merchant ? day.merchants[c.merchant] : day.network;
+      const count = x.transactions;
+      return [fmtD(day.date, c.lang), count ? fmtInt(count.mean) + ' · ' + count.intervals['80'].join('–') : 'n/a',
+        fmtCompactDzd(x.accepted_value?.mean ?? null), fmtNum(x.rejections?.mean ?? null)];
+    }) };
   out.evidence.push({ label: c.merchant ?? 'Overview', href: c.merchant ? `/merchants/${c.merchant}` : '/' });
 }
 
@@ -246,8 +253,61 @@ function nextCheck(c: Ctx, out: Reply) {
   out.text.push(T[c.lang].cause);
 }
 
+function hybrid(c: Ctx, out: Reply) {
+  const hybrid = model().snap.hybrid;
+  if (!hybrid) { out.text.push('V4 advisory evidence is unavailable for this run.'); return; }
+  const rows = hybrid.rows.filter((r) => (c.merchant ? r.merchant_id === c.merchant : r.investigation_candidate)
+    && r.date >= c.from && r.date <= c.to).sort((a, b) => b.v4_advisory_score - a.v4_advisory_score);
+  out.text.push(c.lang === 'fr' ? 'Classement consultatif V4. Le rang décrit la rareté historique du score ML.' :
+    'V4 advisory ranking. The ordinary tail rank describes the rarity of Isolation Forest evidence.');
+  if (!rows.length) out.text.push(c.lang === 'fr' ? 'Aucun résultat pour ce périmètre.' : 'No matching evidence in this period.');
+  out.table = { head: ['Merchant', 'Date', 'Fusion score', 'Ordinary ML tail rank', 'Candidate'],
+    rows: rows.slice(0, MAX_ROWS).map((r) => [r.merchant_id, r.date, fmtNum(r.v4_advisory_score, 3), fmtPct(r.v4_ordinary_rank, 2), r.investigation_candidate ? 'Yes' : '—']) };
+  out.evidence.push({ label: 'V4 investigation evidence', href: '/intelligence#ml-candidates' });
+}
+
+function domain(c: Ctx, out: Reply) {
+  const rule = model().snap.domain_rules.contactless;
+  const scope = { from: c.from, to: c.to, merchant: c.merchant ?? undefined };
+  const breaches = listTransactions({ ...scope, contactless: 'breach' }, 1).total;
+  const known = breaches + listTransactions({ ...scope, contactless: 'within' }, 1).total;
+  out.text.push(c.lang === 'fr'
+    ? fmtInt(breaches) + ' paiements sans contact sur ' + fmtInt(known) + ' montants valides dépassent ' + fmtInt(rule.limit_dzd) + ' DZD. La fréquence élevée reflète les données synthétiques.'
+    : fmtInt(breaches) + ' of ' + fmtInt(known) + ' contactless events with valid amounts exceed ' + fmtInt(rule.limit_dzd) + ' DZD. ' + rule.limitation);
+  out.evidence.push({ label: 'Contactless evidence', href: '/transactions?' + new URLSearchParams({
+    from: c.from, to: c.to, contactless: 'breach', ...(c.merchant ? { merchant: c.merchant } : {}),
+  }) });
+}
+
+function quality(c: Ctx, out: Reply) {
+  const r = model().snap.run;
+  const rows = [['Retained events', r.cleaning.retained_events], ['Exact duplicates', r.cleaning.exact_duplicate],
+    ['Negative amounts excluded from monetary metrics', r.cleaning.negative_amount], ['Missing amounts', r.cleaning.missing_amount]] as const;
+  out.text.push((c.lang === 'fr' ? 'Archive disponible au ' : 'Archive data through ') + r.as_of + ' · ' + r.batch_status + ' · ' + r.preprocessing_version + '.');
+  out.table = { head: ['Archive quality audit', 'Rows'], rows: rows.map(([label, n]) => [label, fmtInt(n)]) };
+  out.evidence.push({ label: 'Data audit', href: '/data' });
+}
+
+function impact(c: Ctx, out: Reply) {
+  const id = c.q.match(/MER-\d{4}:\d{4}-\d{2}-\d{2}/i)?.[0]?.toUpperCase();
+  const rows = rankedIncidents().filter((i) => id ? i.id === id : (!c.merchant || i.merchant === c.merchant) && i.onset <= c.to && i.end >= c.from);
+  out.text.push(c.lang === 'fr' ? 'Estimation de l’activité brute potentiellement affectée.' : 'Estimated gross payment activity affected by the observed incidents.');
+  if (!rows.length) out.text.push(c.lang === 'fr' ? 'Aucun incident correspondant.' : 'No matching incident.');
+  out.table = { head: ['Incident', 'Expected transactions', 'Observed transactions', 'Value shortfall', 'Excess rejections'],
+    rows: rows.slice(0, MAX_ROWS).map((i) => {
+      const x = i.evidence.impact.cumulative;
+      return [i.id, fmtInt(x.transactions.expected ?? null), fmtInt(x.transactions.observed),
+        fmtCompactDzd(x.accepted_value.shortfall ?? null), fmtInt(x.rejections.excess ?? null)];
+    }) };
+  out.evidence.push(...rows.slice(0, MAX_ROWS).map((i) => ({ label: i.id, href: '/incidents/' + i.id })));
+}
+
 const INTENTS: { name: string; test: (c: Ctx) => boolean; run: (c: Ctx, o: Reply) => void; what: (c: Ctx) => string }[] = [
   { name: 'help', test: (c) => /^(help|aide|\?)$|what can you|que (peux|sais)-tu|que pouvez/.test(c.n), run: () => {}, what: () => 'help' },
+  { name: 'hybrid', test: (c) => /\b(v4|ml|isolation forest|investigation candidate)\b/.test(c.n), run: hybrid, what: (c) => c.merchant ?? 'V4 advisory' },
+  { name: 'domain', test: (c) => /(contactless|nfc|sans contact)/.test(c.n) && /(limit|breach|violation|seuil|plafond)/.test(c.n), run: domain, what: (c) => c.merchant ?? 'contactless channel' },
+  { name: 'quality', test: (c) => /(data quality|data audit|negative amount|missing amount|qualite des donnees)/.test(c.n), run: quality, what: () => 'whole archive' },
+  { name: 'impact', test: (c) => /(business impact|payment impact|gross affected|value shortfall|impact economique)/.test(c.n), run: impact, what: (c) => c.merchant ?? 'incident impact' },
   { name: 'cause', test: (c) => CAUSE.test(c.n), run: cause, what: (c) => c.channel ?? c.merchant ?? 'network' },
   { name: 'explain', test: (c) => !!c.merchant && /(why|pourquoi|3lach|flag|signal|explain|expliqu)/.test(c.n), run: explainMerchant, what: (c) => c.merchant! },
   { name: 'summary', test: (c) => /(summary|resume|overview|recap|bilan)/.test(c.n), run: summary, what: () => 'network' },

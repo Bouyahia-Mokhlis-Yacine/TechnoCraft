@@ -154,7 +154,7 @@ export type Built =
   | { kind: 'forecast'; scope: string; points: { date: string; expected: number; lo: number; hi: number }[]; backtest: string }
   | { kind: 'network_signals'; scope: string; advisories: { id: string; day: string; channel: string; rate: string; expected: string; merchants: number }[]; clusters: { day: string; kind: string; channel: string; merchants: number; observed: number; expected: number; rr: string; p: string }[] }
   | { kind: 'engine_quality'; rows: { label: string; value: string }[] }
-  | { kind: 'simulation'; scenario: string; rows: { label: string; value: string }[]; flagged: string[] }
+  | { kind: 'simulation'; scenario: string; rows: { label: string; value: string }[] }
   | { kind: 'text'; body: string };
 export type BuiltSection = Built & { title: string; note?: string };
 
@@ -171,7 +171,7 @@ function buildOne(s: SectionSpec): Built {
   switch (s.kind) {
     case 'kpis': {
       const w = windowOf(s), o = getOverview({ ...w, merchant: s.merchant, channel: s.channel, category: s.category }), k = o.kpis;
-      const d = (v: number, p: number | null) => (p ? `${fmtDelta(v, p)} vs previous period` : 'no previous period');
+      const d = (v: number | null, p: number | null) => (p && v !== null ? `${fmtDelta(v, p)} vs previous period` : 'no previous period');
       return { kind: 'kpis', scope: scopeText(w, s), cards: [
         { label: 'Transactions', value: fmtInt(k.events.value), note: d(k.events.value, k.events.prior) },
         { label: 'Accepted value', value: fmtCompactDzd(k.acceptedValue.value), note: d(k.acceptedValue.value, k.acceptedValue.prior) },
@@ -251,7 +251,7 @@ function buildOne(s: SectionSpec): Built {
       return { kind: 'engine_quality', rows: [
         { label: 'Precision (labelled period)', value: fmtPct(v.precision) }, { label: 'Recall', value: fmtPct(v.recall) }, { label: 'Caught / false alerts / missed days', value: `${v.tp} / ${v.fp} / ${v.fn}` },
         { label: 'Episodes found', value: `${Math.round(v.episode_recall * v.true_episodes)} of ${v.true_episodes}` }, { label: 'Alert threshold', value: String(r.policy.high) },
-        { label: 'Forecast error (model vs naive)', value: `${fmtNum(bt.mae_model, 1)} vs ${fmtNum(bt.mae_seasonal_naive, 1)}` }, { label: 'Rows cleaned', value: `${fmtInt(r.cleaning.rows_raw)} → ${fmtInt(r.cleaning.rows_clean)}` },
+        { label: 'Forecast error (model vs naive)', value: `${fmtNum(bt.mae_model, 1)} vs ${fmtNum(bt.mae_seasonal_naive, 1)}` }, { label: 'Rows cleaned', value: `${fmtInt(r.cleaning.raw_rows)} → ${fmtInt(r.cleaning.retained_events)}` },
         { label: 'Data as of', value: `${r.as_of} (${r.batch_status})` },
       ] };
     }
@@ -260,9 +260,9 @@ function buildOne(s: SectionSpec): Built {
       const b = baseCache.b, channel = s.channel ?? (s.mode === 'declines' ? b.channels[0] : '');
       const sc = { mode: s.mode ?? 'outage', channel, category: s.category ?? '', weekend: s.day_type === 'weekend' ? 1 : 0, start: s.start_hour ?? 10, hours: s.hours ?? 3, rate: s.decline_rate ?? 40 } as const;
       const res = simulate(b, sc);
-      return { kind: 'simulation', flagged: res.flagged,
+      return { kind: 'simulation',
         scenario: `${sc.mode === 'outage' ? 'Outage' : `Decline surge to ${sc.rate} %`} on ${channel || 'all channels'}${sc.category ? ` · ${sc.category}` : ''} · ${sc.weekend ? 'Friday–Saturday' : 'weekday'} · ${sc.start}:00 to ${Math.min(24, sc.start + sc.hours)}:00`,
-        rows: [{ label: sc.mode === 'outage' ? 'Transactions lost (estimate)' : 'Extra declines (estimate)', value: fmtInt(Math.round(res.affected)) }, { label: 'Value at risk (estimate)', value: fmtCompactDzd(res.value) }, { label: 'Merchants touched', value: `${res.touched} of ${res.cohort}` }, { label: 'Merchants the engine would flag', value: String(res.flagged.length) }, ...(res.advisory === null ? [] : [{ label: 'Network advisory', value: res.advisory ? 'would open' : 'would not open' }])] };
+        rows: [{ label: sc.mode === 'outage' ? 'Transactions lost (estimate)' : 'Extra declines (estimate)', value: fmtInt(res.affected) }, { label: 'Value at risk (estimate)', value: fmtCompactDzd(res.value) }, { label: 'Merchants touched', value: `${res.touched} of ${res.cohort}` }] };
     }
     case 'text': return { kind: 'text', body: s.body ?? '' };
   }

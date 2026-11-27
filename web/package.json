@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "engine": "cd .. && .venv/bin/python -m engine.export"
+    "engine": "node scripts/engine.mjs"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",

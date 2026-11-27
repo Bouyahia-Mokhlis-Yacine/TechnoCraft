@@ -81,7 +81,7 @@ function merchant(id: string): Omit<PageContext, 'path' | 'link'> | null {
 function incident(id: string): Omit<PageContext, 'path' | 'link'> | null {
   const d = getIncident(id);
   if (!d) return null;
-  const i = d.incident, f = i.factors;
+  const i = d.incident, f = i.evidence.priority_explanation.criteria;
   const causes = incidentHypotheses(i).slice(0, 4);
   return {
     title: `Incident ${i.id}`,
@@ -222,7 +222,7 @@ function data(): Omit<PageContext, 'path' | 'link'> {
       validation: { precision: fmtPct(v.precision), recall: fmtPct(v.recall), f1: fmtPct(v.f1), caught_days: v.tp, false_alert_days: v.fp, missed_days: v.fn, episodes: `${Math.round(v.episode_recall * v.true_episodes)} of ${v.true_episodes}`, labelled_until: r.train_end },
       calibration: (r.calibration ?? []).map((c) => ({ score_band: `${c.lo}–${c.hi}`, days: c.n, real_anomalies: c.positives, rate: c.rate === null ? 'n/a' : fmtPct(c.rate, 0) })),
     },
-    summary: [`Run ${r.run_id}, data as of ${fmtDay(r.as_of)} (${r.batch_status}). On the labelled period the engine caught ${v.tp} anomaly days with ${v.fp} false alert(s) and missed ${v.fn}: precision ${fmtPct(v.precision)}, recall ${fmtPct(v.recall)}.`, `Cleaning: ${fmtInt(r.cleaning.rows_raw)} raw rows to ${fmtInt(r.cleaning.rows_clean)} clean rows (${r.cleaning.exact_duplicates_removed} duplicates removed).`],
+    summary: [`Run ${r.run_id}, data as of ${fmtDay(r.as_of)} (${r.batch_status}). On the labelled period the engine caught ${v.tp} anomaly days with ${v.fp} false alert(s) and missed ${v.fn}: precision ${fmtPct(v.precision)}, recall ${fmtPct(v.recall)}.`, `Cleaning: ${fmtInt(r.cleaning.raw_rows)} raw rows to ${fmtInt(r.cleaning.retained_events)} clean rows (${r.cleaning.exact_duplicate} duplicates removed).`],
   };
 }
 

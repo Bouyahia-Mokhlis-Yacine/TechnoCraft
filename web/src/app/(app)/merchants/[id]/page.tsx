@@ -1,5 +1,6 @@
 import { MerchantSkeleton } from '@/components/skeletons';
 import { InteractivePie } from '@/components/charts-client';
+import { ForecastEvidence } from '@/components/satim-evidence';
 import { GaugeCell, HealthMeter } from '@/components/visuals';
 import { healthScore } from '@/lib/insights';
 import { Suspense } from 'react';
@@ -49,7 +50,7 @@ async function Merchant({ params }: { params: Params }) {
           <div key={k.label} className={`kpi m-rise${i === 0 ? ' hero' : ''}`} style={css({ '--i': i })}>
             <IconTile icon={k.icon} tone={i === 0 ? 'hero' : 'plain'} />
             <span className="kpi-label">{k.label}</span>
-            <span className="kpi-line"><CountUp value={k.value} kind={k.kind} /><span className="kpi-note">{k.note}</span></span>
+            <span className="kpi-line">{k.value === null ? 'n/a' : <CountUp value={k.value} kind={k.kind} />}<span className="kpi-note">{k.note}</span></span>
           </div>
         ))}
       </div>
@@ -65,8 +66,9 @@ async function Merchant({ params }: { params: Params }) {
       <div className="ov">
         <div className="stack">
           <section className="panel m-rise" style={css({ '--i': 5 })}>
-            <div className="panel-head"><div><h2>Health</h2><p>Last 7 days · missing data shows as unknown</p></div></div>
+            <div className="panel-head"><div><h2>Operational checklist</h2><p>Heuristic index · last 7 days</p></div></div>
             <HealthMeter {...health} />
+            <p className="ns-foot">{m.reference.history_days} eligible prior days. {m.reference.warming_up ? 'Count intervals use pooled merchant history.' : 'Count intervals use the merchant’s own weekday-adjusted activity.'}</p>
             <div className="health-grid tiles">
               {m.health.map((h) => {
                 const H = HEALTH[h.level];
@@ -107,6 +109,7 @@ async function Merchant({ params }: { params: Params }) {
             <section className="panel m-rise" style={css({ '--i': 5 })}>
               <div className="panel-head"><div><h2>Next 7 days</h2><p>Advisory forecast · 80 % interval</p></div></div>
               <ForecastBars points={m.forecast} />
+              <ForecastEvidence forecast={m.forecastDetail} merchant={m.id} />
             </section>
           )}
           <section className="panel tinted mix m-rise" style={css({ '--i': 6 })}>

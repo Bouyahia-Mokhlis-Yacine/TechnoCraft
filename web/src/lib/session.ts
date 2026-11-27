@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { cookies } from 'next/headers';
+import { connection } from 'next/server';
 import { runsDir } from './snapshot';
 
 export type Role = 'analyst' | 'supervisor' | 'reader' | 'admin';
@@ -47,6 +48,7 @@ export function decode(value: string | undefined): { role: Role } | null {
 }
 
 export async function currentUser(): Promise<{ role: Role } | null> {
+  await connection();
   return decode((await cookies()).get(COOKIE)?.value);
 }
 

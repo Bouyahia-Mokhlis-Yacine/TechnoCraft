@@ -5,7 +5,7 @@ flags and scores (same code path as predict.py), merchant-day evidence with expe
 collective channel advisories, a 7-day advisory forecast with backtest, train-period validation
 and the cleaning audit. Card numbers never enter it (NFR-01).
 
-Run:  python -m engine.export      ->  runs/<run_id>/snapshot.json  and  runs/latest.json
+The historical build function is retained for comparing prototype results.
 """
 import hashlib
 import json
@@ -199,14 +199,7 @@ def build() -> dict:
 
 
 def main():
-    snap = build()
-    rid = snap["run"]["run_id"]
-    out = RUNS / rid
-    out.mkdir(parents=True, exist_ok=True)
-    (out / "snapshot.json").write_text(json.dumps(snap, sort_keys=True, separators=(",", ":")))
-    (RUNS / "latest.json").write_text(json.dumps({"run_id": rid, "path": f"{rid}/snapshot.json"}))
-    print(f"run {rid}: {len(snap['merchant_days'])} merchant-days, {snap['run']['flagged_days']} flagged, "
-          f"{len(snap['advisories'])} advisories, {len(snap['transactions']['ts'])} transactions")
+    raise SystemExit('The prototype exporter is archived. Run python -m engine.export.')
 
 
 if __name__ == "__main__":

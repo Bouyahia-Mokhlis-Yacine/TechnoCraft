@@ -39,6 +39,6 @@ export const fmtKind = (v: number, kind: Kind) => (kind === 'dzd' ? fmtDzd(v) : 
 
 const fmtU = (v: number | null, u: 'tx' | 'ratio' | 'DZD') => (v === null ? 'n/a' : u === 'DZD' ? fmtDzd(v) : u === 'ratio' ? fmtPct(v, 0) : fmtInt(v));
 /** "12 tx vs 41 expected" */
-export function observedVsExpected(a: { observed: number; expected: number | null; unit: 'tx' | 'ratio' | 'DZD' }) {
+export function observedVsExpected(a: { observed: number | null; expected: number | null; unit: 'tx' | 'ratio' | 'DZD' }) {
   return a.unit === 'tx' ? `${fmtInt(a.observed)} tx vs ${a.expected === null ? 'n/a' : fmtInt(a.expected)} expected` : `${fmtU(a.observed, a.unit)} vs ${fmtU(a.expected, a.unit)} expected`;
 }

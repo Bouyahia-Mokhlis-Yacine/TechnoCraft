@@ -5,6 +5,7 @@ import { fail, userOf } from '@/lib/http';
 import { model } from '@/lib/model';
 import { applyReview, ReviewError, type Action } from '@/lib/reviews';
 import { can } from '@/lib/session';
+import { hasSensitiveIdentifier } from '@/lib/privacy';
 
 const ACTIONS: Action[] = ['comment', 'acknowledge', 'assign', 'escalate', 'close', 'reopen'];
 
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<'/api/v1/incident
   const action = body.action as Action;
   if (!ACTIONS.includes(action) || typeof body.version !== 'number') return fail(422, 'invalid_payload', 'Expected { action, reason, version }.');
   if (!can(user.role, action)) return fail(403, 'forbidden', `Your role cannot ${action} incidents.`);
+  if (hasSensitiveIdentifier(String(body.reason ?? '')) || hasSensitiveIdentifier(String(body.owner ?? ''))) {
+    return fail(422, 'private_identifier', 'Remove payment card identifiers from the review.');
+  }
   try {
     const state = applyReview({ target: id, run_id: model().snap.run.run_id, actor: user.role, action, reason: String(body.reason ?? ''), owner: body.owner ? String(body.owner).slice(0, 80) : undefined, version: body.version });
     return Response.json({ incident: id, review: { status: state.status, owner: state.owner, escalated: state.escalated, version: state.version } });

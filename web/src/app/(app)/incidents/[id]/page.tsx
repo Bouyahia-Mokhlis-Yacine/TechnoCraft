@@ -8,7 +8,7 @@ import { getIncident } from '@/lib/api';
 import { fmtCompactDzd, fmtDate, fmtDay, fmtInt, fmtNum } from '@/lib/format';
 import { REVIEW, TYPES, observedVsExpected } from '@/lib/labels';
 import { GaugeCell, Gauge, NextSteps, PriorityStack, fmtShort } from '@/components/visuals';
-import { PLAYBOOK } from '@/lib/model';
+import { ImpactEvidence } from '@/components/satim-evidence';
 import { ROLES, currentUser } from '@/lib/session';
 import { ReviewPanel } from '@/components/client';
 import { DayBars, ProgressRows } from '@/components/charts';
@@ -25,9 +25,10 @@ async function IncidentView({ params }: { params: Params }) {
   const data = getIncident(decodeURIComponent((await params).id));
   if (!data) notFound();
   const user = await currentUser();
-  const { incident: i, anomalies, timeline, advisory, policy } = data;
+  const { incident: i, anomalies, timeline, advisory } = data;
   const peak = anomalies.reduce((p, a) => (a.score > p.score ? a : p));
-  const play = PLAYBOOK[i.type];
+  const triage = i.evidence.priority_explanation;
+  const weightTotal = Object.values(triage.weights).reduce((a, b) => a + b, 0);
   const hyps = incidentHypotheses(i);
 
   return (
@@ -36,6 +37,7 @@ async function IncidentView({ params }: { params: Params }) {
         crumbs={<><Link transitionTypes={['nav-back']} href="/incidents">Incidents</Link><span>/</span><span>{i.id}</span></>}
         title={`${TYPES[i.type].label} at ${i.merchant}`}
       >
+        <Link className="btn btn-secondary" href={"/reports?type=incident&incident=" + encodeURIComponent(i.id)}>Incident brief</Link>
         <Link className="btn btn-secondary" href={`/assistant?q=${encodeURIComponent(`Why was ${i.merchant} flagged, and what should I check?`)}`}>Ask about it</Link>
       </PageHeader>
 
@@ -48,15 +50,15 @@ async function IncidentView({ params }: { params: Params }) {
             <Gauge tone="hero" size="lg" observed={i.latest.observed} expected={i.latest.expected} lo={i.latest.lo} hi={i.latest.hi} unit={i.latest.unit} severity={i.severity} label={i.latest.explanation} />
             <div className="figures small">
               <div><b>{i.priority}</b><span>priority</span></div>
-              <div><b>{i.days}</b><span>flagged day{i.days > 1 ? 's' : ''}</span></div>
-              <div><b>{fmtInt(i.affectedEvents)}</b><span>events affected</span></div>
-              <div><b>{fmtCompactDzd(i.valueExposure)}</b><span>exposure estimate</span></div>
+              <div><b>{i.days}</b><span>days from first to last alert</span></div>
+              <div><b>{fmtInt(i.affectedEvents)}</b><span>estimated affected events</span></div>
+              <div><b>{fmtCompactDzd(i.valueExposure)}</b><span>gross value shortfall estimate</span></div>
             </div>
           </section>
 
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>Next check</h2></div></div>
-            <NextSteps owner={play.owner} steps={play.steps} href={advisory ? { to: `/intelligence/${advisory.id}`, label: `Network advisory · ${advisory.members.filter((m) => m.affected).length} merchants` } : undefined} />
+            <NextSteps owner={i.evidence.responsible_role} steps={[i.evidence.first_action]} href={advisory ? { to: `/intelligence/${advisory.id}`, label: `Network advisory · ${advisory.members.filter((m) => m.affected).length} merchants` } : undefined} />
           </section>
 
 
@@ -76,16 +78,16 @@ async function IncidentView({ params }: { params: Params }) {
 
           <section className="panel m-rise" style={css({ '--i': 2 })}>
             <div className="panel-head"><div><h2>Why it ranks here</h2></div></div>
-            <PriorityStack total={i.priority} parts={[
-              { key: 'impact', label: 'Impact', weight: 0.4, value: i.factors.impact, detail: `${fmtInt(i.affectedEvents)} events · ${fmtCompactDzd(i.valueExposure)}` },
-              { key: 'urgency', label: 'Urgency', weight: 0.3, value: i.factors.urgency, detail: `${i.lifecycle} · ${i.days} day${i.days > 1 ? 's' : ''}` },
-              { key: 'evidence', label: 'Evidence', weight: 0.2, value: i.factors.evidence, detail: `peak score ${fmtNum(i.peakScore, 1)}` },
-              { key: 'action', label: 'Actionability', weight: 0.1, value: i.factors.actionability, detail: REVIEW[i.review.status] },
-            ]} />
+            <PriorityStack total={i.priority} parts={Object.entries(triage.criteria).map(([key, value]) => ({
+              key, value, label: key, weight: triage.weights[key] / weightTotal,
+              detail: triage.leading_mcda_factors.includes(key) ? 'Leading factor' : 'Operational criterion',
+            }))} />
+            <p className="ns-foot">Multi-criteria priority · {triage.preference_status}</p>
           </section>
         </div>
 
         <div className="stack">
+          <ImpactEvidence record={i.evidence} />
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>Timeline</h2><p>Daily transactions around the incident</p></div></div>
             <DayBars points={timeline} width={520} height={260} label={`Transactions for ${i.merchant} around incident ${i.id}`} />
@@ -107,7 +109,7 @@ async function IncidentView({ params }: { params: Params }) {
 
           <section className="panel m-rise" style={css({ '--i': 3 })}>
             <div className="panel-head"><div><h2>Evidence</h2><p>Strongest day · {fmtDate(peak.date)}</p></div></div>
-            <ProgressRows rows={peak.signals.map((s) => ({ label: s.label, value: Math.min(s.score, 12), max: 12, color: s.score >= policy.high ? 'var(--primary)' : 'var(--gray-400)', right: `score ${fmtNum(s.score, 1)}` }))} />
+            <ProgressRows rows={peak.signals.map((s) => ({ label: s.label, value: Math.min(s.score, 12), max: 12, color: 'var(--primary)', right: `score ${fmtNum(s.score, 1)}` }))} />
           </section>
 
 

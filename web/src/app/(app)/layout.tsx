@@ -2,18 +2,21 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
+import { redirect } from 'next/navigation';
 import { ArrowRight, Database } from 'lucide-react';
 import { NavFallback, NavLinks, NavTracker, SidebarToggle } from '@/components/client';
 import { AssistantDock } from '@/components/assistant-dock';
 import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
 import { fmtDay } from '@/lib/format';
 import { TYPES } from '@/lib/labels';
+import { currentUser } from '@/lib/session';
 
 /** Top of the queue: reads the review ledger, so it renders per request. */
 async function Spotlight() {
   await connection();
-  const top = rankedIncidents().find((i) => i.open);
-  if (!top) return <><b>All clear</b><p>No open incident right now.</p></>;
+  let top: ReturnType<typeof rankedIncidents>[number] | undefined;
+  try { top = rankedIncidents().find((i) => i.open); } catch { return <b>Run unavailable</b>; }
+  if (!top) return <><b>All clear</b><p>No open incident at the data cutoff.</p></>;
   return (
     <>
       <b>{top.severity === 'critical' ? 'Critical now' : 'Top of the queue'}</b>
@@ -23,8 +26,32 @@ async function Spotlight() {
   );
 }
 
+async function RunNavigation() {
+  await connection();
+  let count: number | undefined;
+  try { count = openIncidentCount(); } catch { return <NavFallback />; }
+  return <NavLinks incidents={count} />;
+}
+
+async function RunStatus() {
+  await connection();
+  let meta: ReturnType<typeof getMeta>;
+  try { meta = getMeta(); } catch { return <span className="side-status">Run unavailable</span>; }
+  return (
+    <Link href="/data" className="side-status" title="Run details and data audit">
+      <Database aria-hidden />
+      <span><b>{meta.run.parity.sealed ? 'Competition archive' : 'Unsealed replay preview'}</b>
+        <small>Data through {fmtDay(meta.asOf)} · batch {meta.run.batch_status}</small></span>
+    </Link>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const meta = getMeta();
+  return <Suspense fallback={null}><AuthorizedApp>{children}</AuthorizedApp></Suspense>;
+}
+
+async function AuthorizedApp({ children }: { children: React.ReactNode }) {
+  if (!await currentUser()) redirect('/login');
   return (
     <>
       <a className="skip" href="#content">Skip to content</a>
@@ -44,22 +71,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarToggle />
           </div>
 
-          <Suspense fallback={<NavFallback />}><NavLinks incidents={openIncidentCount()} /></Suspense>
+          <Suspense fallback={<NavFallback />}><RunNavigation /></Suspense>
 
           <div className="spot">
             <span className="spot-logo"><Image src="/brand/satim-logo.png" alt="SATIM" width={92} height={28} /></span>
             <Suspense fallback={<b>Loading queue…</b>}><Spotlight /></Suspense>
           </div>
 
-          {/* Data status (FR-11, FR-20): which run, how fresh, complete or not. Lives in the sidebar foot. */}
-          <Link href="/data" className="side-status" title="Run details and data audit">
-            <Database aria-hidden />
-            <span>
-              <b>Run {meta.run.run_id}</b>
-              <small>Engine {meta.run.policy.version} · as of {fmtDay(meta.asOf)}</small>
-            </span>
-            <i className={`status-dot ${meta.run.batch_status === 'complete' ? 'ok' : 'warn'}`} aria-label={`Batch ${meta.run.batch_status}`} />
-          </Link>
+          <Suspense fallback={null}><RunStatus /></Suspense>
         </aside>
         <main id="content" className="content">
           {children}

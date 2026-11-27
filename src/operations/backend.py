@@ -371,9 +371,6 @@ class OperationsBackend:
 def training_backend(root, *, amount_policy='archived_v2', draws=512,
                      count_model='gamma_poisson', impact_model='gamma_poisson'):
     """Offline platform demo with the official training roster and frozen prior epoch."""
-    if amount_policy == 'contactless_candidate':
-        from .contactless_backend import training_contactless_backend
-        return training_contactless_backend(root, draws=draws, count_model=count_model, impact_model=impact_model)
     if amount_policy != 'archived_v2':
         raise ValueError(f'Unknown amount policy {amount_policy!r}.')
     v1, v2 = load_configs(root)

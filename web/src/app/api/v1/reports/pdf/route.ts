@@ -1,7 +1,7 @@
 // GET /api/v1/reports/pdf?type=daily|weekly|merchant|alerts&date=&merchant=&from=&to=&severity=&channel= : the Reports page brief as a
 // PDF (FR-48), printed server-side from the same page. Logged in the audit ledger like CSV exports.
 import type { NextRequest } from 'next/server';
-import { getMeta } from '@/lib/api';
+import { getIncident, getMeta } from '@/lib/api';
 import { fail, params, userOf } from '@/lib/http';
 import { briefQuery, renderBriefPdf, renderReportPdf, type BriefParams } from '@/lib/pdf';
 import { getReport } from '@/lib/custom-report';
@@ -26,9 +26,10 @@ export async function GET(req: NextRequest) {
     const slug = r.spec.title.toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'report';
     return new Response(new Uint8Array(doc), { headers: { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="pai-${slug}-${meta.run.run_id}.pdf"`, 'cache-control': 'no-store' } });
   }
-  const type = p.type === 'weekly' || p.type === 'merchant' || p.type === 'alerts' ? p.type : 'daily';
+  const type = p.type === 'weekly' || p.type === 'merchant' || p.type === 'alerts' || p.type === 'incident' ? p.type : 'daily';
   const day = (d?: string) => (d && d >= meta.firstDate && d <= meta.asOf ? d : undefined);
-  const brief: BriefParams = type === 'merchant'
+  if (type === 'incident' && (!p.incident || !getIncident(p.incident))) return fail(404, 'not_found', 'Unknown incident.');
+  const brief: BriefParams = type === 'incident' ? { type, incident: p.incident } : type === 'merchant'
     ? { type, merchant: meta.merchants.includes(p.merchant) ? p.merchant : meta.merchants[0] }
     : type === 'alerts'
       ? { type, from: day(p.from), to: day(p.to), severity: ['critical', 'high', 'medium', 'low'].includes(p.severity) ? p.severity : undefined, merchant: meta.merchants.includes(p.merchant) ? p.merchant : undefined, channel: p.channel && p.channel.split(',').every((c) => meta.channels.includes(c)) ? p.channel : undefined }
@@ -42,6 +43,6 @@ export async function GET(req: NextRequest) {
     return Response.redirect(new URL(`/reports?${briefQuery(brief)}&print=1`, req.nextUrl.origin), 303);
   }
   appendEvent({ actor: user.role, action: 'export', target: `export:report-pdf`, run_id: meta.run.run_id, reason: briefQuery(brief), prior: 'new', next: 'new', escalated: false, version: 0 });
-  const name = `pai-${type}-brief-${type === 'alerts' ? `${brief.from ?? 'week'}-${brief.to ?? meta.asOf}` : brief.merchant ?? brief.date}-${meta.run.run_id}.pdf`;
+  const name = `pai-${type}-brief-${type === 'alerts' ? `${brief.from ?? 'week'}-${brief.to ?? meta.asOf}` : brief.merchant ?? brief.date ?? brief.incident?.replaceAll(':', '-')}-${meta.run.run_id}.pdf`;
   return new Response(new Uint8Array(pdf), { headers: { 'content-type': 'application/pdf', 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } });
 }

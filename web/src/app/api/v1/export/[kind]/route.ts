@@ -16,15 +16,21 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/v1/export/[k
   let body: string;
   if (kind === 'transactions') {
     const r = listTransactions(p).all;
-    body = csv(['timestamp', 'merchant_id', 'category', 'channel', 'status', 'amount', 'quality_flags'], r.map((t) => [t.ts, t.merchant, t.category, t.channel, t.status, t.amount, t.flags.join('|')]));
+    body = csv(['source_row', 'timestamp', 'merchant_id', 'category', 'channel', 'status', 'amount', 'quality_flags', 'contactless_limit'],
+      r.map((t) => [t.id, t.ts, t.merchant, t.category, t.channel, t.status, t.amount, t.flags.join('|'), Number(t.contactlessLimit)]));
+  } else if (kind === 'predictions') {
+    const snap = model().snap;
+    if (!snap.run.parity.sealed) return fail(409, 'unsealed_replay', 'The sealed submission parity check has not passed.');
+    body = csv(['merchant_id', 'date', 'is_anomaly', 'anomaly_score'],
+      snap.official_predictions.map((r) => [r.merchant_id, r.date, r.is_anomaly, r.anomaly_score]));
   } else if (kind === 'anomalies') {
     const r = listAnomalies(p).all;
-    body = csv(['merchant_id', 'date', 'type', 'severity', 'anomaly_score', 'indicator', 'observed', 'expected', 'incident_id', 'explanation'], r.map((a) => [a.merchant, a.date, a.type, a.severity, a.score.toFixed(4), a.indicator, a.observed, a.expected, a.incidentId, a.explanation]));
+    body = csv(['merchant_id', 'date', 'type', 'severity', 'anomaly_score', 'indicator', 'observed', 'expected', 'incident_id', 'explanation'], r.map((a) => [a.merchant, a.date, a.type, a.severity, a.score, a.indicator, a.observed, a.expected, a.incidentId, a.explanation]));
   } else if (kind === 'incidents') {
     const r = listIncidents({ ...p, scope: p.scope ?? 'all' });
     body = csv(['incident_id', 'rank', 'priority', 'merchant_id', 'type', 'severity', 'lifecycle', 'review_status', 'owner', 'onset', 'end', 'days', 'affected_events', 'value_exposure_dzd'],
       r.map((i) => [i.id, i.rank, i.priority, i.merchant, i.type, i.severity, i.lifecycle, i.review.status, i.review.owner, i.onset, i.end, i.days, i.affectedEvents, i.valueExposure]));
   } else return fail(404, 'not_found', 'Unknown export.');
-  appendEvent({ actor: user.role, action: 'export', target: `export:${kind}`, run_id: run, reason: new URLSearchParams(p).toString(), prior: 'new', next: 'new', escalated: false, version: 0 });
+  appendEvent({ actor: user.role, action: 'export', target: `export:${kind}`, run_id: run, reason: 'CSV export', prior: 'new', next: 'new', escalated: false, version: 0 });
   return new Response(body, { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="pai-${kind}-${run}.csv"` } });
 }

@@ -7,9 +7,8 @@ import { getMeta, getOverview } from '@/lib/api';
 import { fmtCompactDzd, fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from '@/lib/format';
 import { CHANNEL_VAR, SEVERITIES, fmtKind } from '@/lib/labels';
 import { CountUp, FilterForm } from '@/components/client';
+import { ForecastEvidence } from '@/components/satim-evidence';
 import { MethodNote } from '@/components/visuals';
-import { listClusters } from '@/lib/insights';
-import { addDays } from '@/lib/model';
 import { Bubbles, ForecastBars, PairBars } from '@/components/charts';
 import { Delta, EmptyState, IconTile, PageHeader, flat } from '@/components/ui';
 
@@ -40,19 +39,19 @@ async function Overview({ searchParams }: { searchParams: SP }) {
   const prior = o.priorScope ? `vs ${fmtDay(o.priorScope.from)}–${fmtDay(o.priorScope.to)}` : 'no prior period in the data';
   const cards = [
     { label: 'Transactions', icon: Receipt, value: k.events.value, kind: 'int' as const, d: change(k.events.value, k.events.prior), note: prior },
-    { label: 'Accepted value', icon: Banknote, value: k.acceptedValue.value, kind: 'dzd' as const, d: change(k.acceptedValue.value, k.acceptedValue.prior), note: 'accepted payments' },
-    { label: 'Attempted value', icon: CreditCard, value: k.attemptedValue.value, kind: 'dzd' as const, d: change(k.attemptedValue.value, k.attemptedValue.prior), note: 'all non-refund payments' },
-    { label: 'Decline rate', icon: Ban, value: k.declineRate.value ?? 0, kind: 'pct' as const, d: change(k.declineRate.value, k.declineRate.prior, true), note: k.declineRate.value === null ? 'no transactions' : 'of all events' },
+    { label: 'Accepted value', icon: Banknote, value: k.acceptedValue.value ?? k.acceptedValue.knownValue, kind: 'dzd' as const, d: change(k.acceptedValue.value, k.acceptedValue.prior), note: k.acceptedValue.missingEvents ? `Partial · ${fmtInt(k.acceptedValue.missingEvents)} amounts unavailable` : 'accepted payments' },
+    { label: 'Attempted value', icon: CreditCard, value: k.attemptedValue.value ?? k.attemptedValue.knownValue, kind: 'dzd' as const, d: change(k.attemptedValue.value, k.attemptedValue.prior), note: k.attemptedValue.missingEvents ? `Partial · ${fmtInt(k.attemptedValue.missingEvents)} amounts unavailable` : 'all non-refund payments' },
+    { label: 'Decline rate', icon: Ban, value: k.declineRate.value, kind: 'pct' as const, d: change(k.declineRate.value, k.declineRate.prior, true), note: k.declineRate.value === null ? 'no transactions' : `Cancellation rate ${fmtPct(k.cancellationRate.value)}` },
     { label: 'Merchants with alerts', icon: Store, value: k.affectedMerchants.value, kind: 'int' as const, d: change(k.affectedMerchants.value, k.affectedMerchants.prior, true), note: 'flagged in the period' },
     { label: 'Open incidents', icon: Siren, value: k.openIncidents.value, kind: 'int' as const, d: { text: k.openIncidents.critical ? `${k.openIncidents.critical} critical` : 'none critical', tone: (k.openIncidents.critical ? 'bad' : 'good') as Tone }, note: 'active or recovering' },
   ];
-  const clusters = (listClusters()?.clusters ?? []).filter((c) => c.date >= addDays(o.scope.to, -13) && c.date <= o.scope.to).length;
   const totalMix = o.channelMix.reduce((s, c) => s + c.value, 0) || 1;
   const multi = o.selectedChannels.length > 1;
 
   return (
     <>
       <PageHeader title="Network overview" />
+      <p className="muted">{meta.run.parity.sealed ? 'Historical competition archive' : 'Unsealed replay preview'} · data through {fmtDay(meta.asOf)} · batch {meta.run.batch_status}</p>
 
       <FilterForm>
         <label className="field">From<input type="date" name="from" defaultValue={o.scope.from} min={meta.firstDate} max={meta.asOf} /></label>
@@ -70,7 +69,7 @@ async function Overview({ searchParams }: { searchParams: SP }) {
                 <IconTile icon={c.icon} tone={i === 0 ? 'hero' : 'plain'} />
                 <Delta text={c.d.text} tone={c.d.tone} />
                 <span className="kpi-label">{c.label}</span>
-                <span className="kpi-line"><CountUp value={c.value} kind={c.kind} /></span>
+                <span className="kpi-line">{c.value === null ? 'n/a' : <CountUp value={c.value} kind={c.kind} />}</span>
                 <span className="kpi-note wide">{c.note}</span>
               </div>
             ))}
@@ -92,9 +91,9 @@ async function Overview({ searchParams }: { searchParams: SP }) {
           <section className="panel m-rise" style={css({ '--i': 7 })}>
             <div className="panel-head"><div><h2>Signals</h2><p>Last 14 days</p></div></div>
             <div className="signal-stats">
-              <Link href="/intelligence" className="sig"><b className="num">{o.advisories.length}</b><span>network advisor{o.advisories.length === 1 ? 'y' : 'ies'}</span><ArrowRight aria-hidden /></Link>
-              <Link href="/intelligence" className="sig"><b className="num">{clusters}</b><span>collective anomal{clusters === 1 ? 'y' : 'ies'}</span><ArrowRight aria-hidden /></Link>
-              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>on watch, below the alert threshold{o.watchlist.length ? ` · ${o.watchlist.slice(0, 3).map((w) => w.merchant).join(', ')}` : ''}</span></div>
+              <Link href="/intelligence" className="sig"><b className="num">{meta.run.models.v3 ? o.advisories.length : '—'}</b><span>V3 collective advisories</span><ArrowRight aria-hidden /></Link>
+              <Link href="/intelligence#ml-candidates" className="sig"><b className="num">{o.mlCandidates ?? '—'}</b><span>V4 investigation candidates</span><ArrowRight aria-hidden /></Link>
+              <div className="sig" title={o.watchlist.map((w) => `${w.merchant} · ${w.signal}`).join('\n')}><b className="num">{o.watchlist.length}</b><span>under V2 observation at data cutoff</span></div>
             </div>
           </section>
 
@@ -127,12 +126,13 @@ async function Overview({ searchParams }: { searchParams: SP }) {
             <section className="panel m-rise" style={css({ '--i': 5 })}>
               <div className="panel-head"><div><h2>Next 7 days</h2><p>Advisory forecast · 80 % interval</p></div><span className="chip">MAE {fmtNum(o.backtest.mae_model, 0)} vs {fmtNum(o.backtest.mae_seasonal_naive, 0)} naive</span></div>
               <ForecastBars points={o.forecast} />
+              <ForecastEvidence forecast={o.forecastDetail} merchant={p.merchant} />
             </section>
           )}
 
         </div>
       </div>
-      <MethodNote label="About these numbers">Values come from engine run {meta.run.run_id}. Accepted value {fmtCompactDzd(k.acceptedValue.value)} {o.priorScope ? `(${fmtKind(k.acceptedValue.prior ?? 0, 'dzd')} in the prior period)` : ''}. Expected levels and forecasts are statistical references, not targets. Priority = 100 × (0.4 impact + 0.3 urgency + 0.2 evidence + 0.1 actionability).</MethodNote>
+      <MethodNote label="About these numbers">Values come from engine run {meta.run.run_id}. Accepted value {fmtCompactDzd(k.acceptedValue.value)} {o.priorScope ? `(${fmtKind(k.acceptedValue.prior ?? 0, 'dzd')} in the prior period)` : ''}. Expected levels and forecasts use prior eligible activity. Cancellation rate {fmtPct(k.cancellationRate.value)} of retained events. The priority queue uses the evaluated operational criteria exposed in incident details.</MethodNote>
     </>
   );
 }
