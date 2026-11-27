@@ -2,6 +2,19 @@
 
 The TechnoCraft competition platform replays the supplied historical archive. The Python engine computes one versioned snapshot for the Next.js dashboard, reports and assistant. The same frozen V2 run generates the official 711-row prediction CSV.
 
+## Run the Live Monitoring workspace
+
+Use the project's Python and Node environments and an existing published platform snapshot. The replay service reads the training archive and serves isolated simulations. The frozen daily detector remains authoritative for the official competition submission.
+
+1. Generate a local shared token in PowerShell with `[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`. Set the same value as `LIVE_MONITORING_TOKEN` in both service terminals. Keep the token server-side.
+2. From the repository root, run `python -m src.live_monitoring.service`. It listens on `127.0.0.1:8765` and checkpoints to `runs/live-monitoring/replay.sqlite3`. Use `--state` to isolate verification or demonstration state.
+3. In the second terminal, change into `web` and run `npm run dev`. If the Python port is different, set `LIVE_MONITORING_URL` to its loopback address before starting Next.js.
+4. Sign in and open **Live Monitoring**. Choose a start and end date from 22 September through 24 October 2026, up to seven consecutive dates. The administrator can grant the **Live Monitoring** page and **Control live replay** action independently. Each account has its own replay.
+
+**Simulated Live Monitoring — Historical Replay** advances on the archive clock. It uses no production feed. Set both dates to **15 October 2026** and choose *POS interruption with same-day backlog* to inspect a warning that opened before daily closure. The synthetic truth panel records the injected change separately from detector output. Sparse scopes may show little or no early-warning evidence.
+
+The [research report](reports/live_monitoring_results.md) describes calibration, reproduction commands, independent validation, and current limitations. [Runtime architecture](docs/ARCHITECTURE.md#simulated-live-monitoring) describes the control and recovery contract.
+
 ## Run the sealed competition build
 
 Use **Python 3.12** and **Node.js 20.9 or newer**. The exact archive was reproduced on Windows x64 with the SciPy build pinned in `environment.sealed-win.yml`. Run from this repository root in a Conda-enabled PowerShell.

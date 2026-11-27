@@ -67,21 +67,27 @@ from src.live_monitoring.archive import Archive
 from src.live_monitoring.evaluation import locked_thresholds
 from src.live_monitoring.replay import Replay
 a = Archive()
-tape = a.tape('2026-10-03', '2026-10-03', 'backlog')
-replay = Replay(a, tape, locked_thresholds(a), close_daily=False)
+tape = a.tape('2026-10-15', '2026-10-15', 'backlog')
+thresholds = locked_thresholds(a)
+baseline = Replay(a, a.tape('2026-10-15', '2026-10-15'), thresholds, close_daily=False)
+replay = Replay(a, tape, thresholds, close_daily=False)
 traces = []
 for i in range(tape.size):
     replay.advance()
+    baseline.advance()
     traces.append(replay.signals.cusum[a.reference.index['channel','pos']].copy())
 points = pd.DataFrame(replay.snapshot(('channel','pos'))['points'])
+control = pd.DataFrame(baseline.snapshot(('channel','pos'))['points'])
 points['time'] = pd.to_datetime(points['time'])
 fig, axes = plt.subplots(2, 1, figsize=(10, 5), sharex=True)
-axes[0].plot(points.time, points.cumulative, label='Observed', color='#178f82')
+axes[0].plot(points.time, points.cumulative, label='Replay with backlog', color='#178f82')
+axes[0].plot(points.time, control.cumulative, ':', label='Ordinary control', color='#7355a1')
 axes[0].plot(points.time, points.cumulative_expected, '--', label='Expected', color='#5479bf')
 axes[0].set(ylabel='Transactions')
 axes[0].legend(frameon=False)
 axes[1].plot(points.time, np.asarray(traces)[:, 0], label='Downward')
 axes[1].plot(points.time, np.asarray(traces)[:, 1], label='Upward')
+axes[1].axhline(thresholds['selected'], color='#ab3c34', linestyle='--', label='Opening cutoff')
 axes[1].set(xlabel='Simulated event time', ylabel='CUSUM evidence')
 for ax in axes:
     ax.axvspan(tape.scenario.onset, tape.scenario.end, color='#eaa054', alpha=.28)
@@ -91,7 +97,7 @@ save(fig, 'same_day_backlog_and_cusum')
     ),
     "33_live_collective_detection": (
         "Live collective detection",
-        "The directional count scan and rejection subset scan use the existing likelihood functions. Each plotted point is the strongest subset for that channel and symptom at a finalized 15-minute close. The orange region is injected truth.",
+        "The directional count scan and rejection subset scan use the existing likelihood functions. The top panel shows eligible scores across all searched scopes. The bottom panel shows the affected channel's observed and expected totals even where the subset exposure filter withheld a scan. The orange region is injected e-commerce interruption truth.",
         """from src.live_monitoring.archive import Archive, BIN
 from src.live_monitoring.detection import Signals
 from src.live_monitoring.evaluation import locked_thresholds
@@ -99,24 +105,28 @@ a = Archive()
 t = a.tape('2026-10-03','2026-10-03','collective')
 s = Signals(t)
 rows = []
+activity = []
+channel = t.ref.index['channel','ecommerce']
 for i in range(t.size):
-    _, scans, *_ = s.tick(i)
-    for row in scans:
-        if row['scope'] == ('channel','ecommerce'):
+    _, scans, observed, *_ = s.tick(i)
+    activity.append((observed[channel, 0], t.mean[i, channel]))
+    if (i + 1) % 3 == 0:
+        for row in scans:
             rows.append({**row, 'time': t.start + (i+1)*BIN})
-rows = pd.DataFrame(rows)
+rows = pd.DataFrame(rows, columns=['scope', 'symptom', 'score', 'merchants', 'observed', 'expected', 'time'])
 fig, axes = plt.subplots(2, 1, figsize=(9, 5), sharex=True)
 for symptom, group in rows.groupby('symptom'):
-    axes[0].scatter(group.time, group.score, s=14, label=symptom)
-drops = rows[rows.symptom.eq('Shared activity shortfall')]
-axes[1].scatter(drops.time, drops.observed, s=15, label='Observed')
-axes[1].scatter(drops.time, drops.expected, s=15, marker='x', label='Expected')
+    axes[0].scatter(group.time, group.score, s=14, alpha=.6, label=symptom)
+counts = np.array(activity).reshape(-1, 3, 2).sum(axis=1)
+ends = [t.start + i * BIN for i in range(3, t.size + 1, 3)]
+axes[1].plot(ends, counts[:, 0], label='Observed', color='#178f82')
+axes[1].plot(ends, counts[:, 1], '--', label='Expected', color='#5479bf')
 axes[0].axhline(locked_thresholds(a)['collective'], color='#ab3c34', linestyle='--', label='Frozen cutoff')
 for ax in axes:
     ax.axvspan(t.scenario.onset, t.scenario.end, color='#eaa054', alpha=.28)
     ax.legend(frameon=False)
 axes[0].set(ylabel='Likelihood evidence')
-axes[1].set(xlabel='Simulated event time', ylabel='Subset transactions')
+axes[1].set(xlabel='Simulated event time', ylabel='E-commerce transactions')
 save(fig, 'collective_example')
 """,
     ),
@@ -134,7 +144,8 @@ ax.set(xticks=range(len(p.columns)), xticklabels=[f'{x:.0%}' for x in p.columns]
 fig.colorbar(m, ax=ax, label='Paired event recall')
 for i in range(len(p.index)):
     for j in range(len(p.columns)):
-        ax.text(j, i, f'{p.iloc[i,j]:.0%}', ha='center', va='center')
+        ax.text(j, i, f'{p.iloc[i,j]:.0%}', ha='center', va='center',
+                color='white' if p.iloc[i,j] >= .6 else 'black')
 save(fig, 'pos_duration_and_intensity')
 
 fig, axes = plt.subplots(1, 2, figsize=(11, 4))
@@ -144,9 +155,12 @@ axes[0].set(xlabel='Untouched ordinary warning days (14 available)')
 delays = s[s.hit].groupby('method').delay
 groups = [(name, x.dropna().tolist()) for name, x in delays if x.notna().any()]
 if groups:
-    axes[1].boxplot([x for _, x in groups], tick_labels=[k for k, _ in groups], vert=False)
+    axes[1].boxplot([x for _, x in groups], vert=False)
+    axes[1].set_yticks(range(1, len(groups) + 1), [k for k, _ in groups])
 axes[1].set(xlabel='Minutes to first incremental warning')
 save(fig, 'workload_and_detection_delay')
+budgets = pd.DataFrame(ordinary['budget_sensitivity']).T
+display(budgets[['all_notifications','notifications_per_day','fraction_time_warning']].round(4))
 display(pd.read_json(evidence / 'development_overlap.json'))
 external = evidence / 'external_aiops.json'
 if external.exists():

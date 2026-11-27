@@ -16,6 +16,9 @@ export type ReplaySnapshot = {
   min_date: string; max_date: string; default_date: string; speeds: number[]; presets: Record<string, string>;
   clock?: string; watermark?: string | null; speed?: number; start?: string; end?: string; preset?: string;
   scope?: Scope; scopes?: Scope[]; points?: ReplayPoint[]; progress?: number; feed?: string;
+  summary?: { transactions_per_minute: number | null; daily_rejection_rate: number | null;
+    minutes_since_event: number | null; active_individual: number; active_collective: number;
+    affected_merchants: number; affected_channels: number };
   last_event?: string | null; reference_days?: number; reference_events?: number; median_ticket?: number | null;
   reference_median_ticket?: number | null;
   minimum_amount_tail?: number | null;

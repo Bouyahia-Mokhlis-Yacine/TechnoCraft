@@ -37,3 +37,10 @@ The eight-day development block had 31 V2 flagged merchant-days. The archived op
 ## Extension decisions
 
 Forecasting supports capacity planning by making the origin, horizon and backtest visible. V3 and V4 support different investigations while preserving official V2 authority. The assistant reads the same snapshot as the dashboard and provides deterministic answers offline. Reports use known scope, preserve archived cutoff and expose the evidence category and data limit beside the result. Review actions update the human ledger, while model lifecycle and evidence remain reproducible.
+
+## Live Monitoring research trace
+
+- **B1 · Taxonomy.** The Live Monitoring workspace shows activity shortfalls and surges, rejection and cancellation evidence, and shared channel or category symptoms. `detection.Signals` provides statistical evidence. `replay.Replay` displays contactless threshold observations under Transaction domain evidence and frozen batch flags under Simulated daily closure.
+- **B2 · Users and access.** Analysts inspect observed activity, expected exposure, recovery timing and affected scopes at `/live`. Administrators control the page and action permissions at `/admin`. Read-only accounts can open the workspace. Replay controllers can operate an isolated, account-owned simulation through `POST /api/v1/live`.
+- **B3 · Value case.** The new workspace measures how early a reviewer could see a symptom and the work required to review it. The ordinary replay produced seven notifications in 14 days. The case study reports time in warning and simulated detection delay. Actual business losses, response time savings and incident costs require authorized telemetry and operator observation.
+- **B4 · Explanation.** Warning details include observed and expected values, evidence window, method, reference support, warning state, affected merchants where applicable, and a recommended investigation. They are supplied by the Python replay. The assistant reads the same facts through the live page context and identifies all evidence as replay evidence.

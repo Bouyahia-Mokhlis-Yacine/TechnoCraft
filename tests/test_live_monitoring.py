@@ -49,10 +49,16 @@ class LiveMonitoringTests(unittest.TestCase):
         scores, *_ = model.tick(5, scan=False)
         self.assertFalse(np.any(scores["selected"]))
         self.assertFalse(np.any(model.cusum))
+        replay = Replay(self.archive, empty, self.thresholds, close_daily=False)
+        for _ in range(8):
+            replay.advance()
+        self.assertEqual(replay.snapshot(limit=1)["feed"], "Incomplete interval")
 
     def test_tape_order_watermark_and_privacy(self):
         tape = self.archive.tape(self.day, self.day)
         self.assertTrue(tape.events.transaction_date.is_monotonic_increasing)
+        reversed_tape = Tape(tape.ref, tape.start, tape.end, tape.events.iloc[::-1], None, 0)
+        np.testing.assert_array_equal(reversed_tape.bins, tape.bins)
         self.assertEqual(len(tape.events), tape.offsets[-1])
         self.assertNotIn("masked_pan", tape.events)
         for start, end in zip(tape.offsets[:-1], tape.offsets[1:]):
@@ -92,6 +98,10 @@ class LiveMonitoringTests(unittest.TestCase):
         self.assertFalse(model.live)
         self.assertEqual(model.resolved[0]["state"], "Resolved")
         self.assertEqual(model.resolved[0]["opened"], "01")
+        model.update(key, "07", 1, 0, {"kind": "Collective advisory"})
+        for t in ("08", "09", "10"):
+            model.update(key, t, 0, 0)
+        self.assertFalse(model.live)
 
     def test_collective_scores_have_observed_expected_and_multiple_merchants(self):
         tape = self.archive.tape(self.day, self.day, "collective")
@@ -147,6 +157,19 @@ class LiveMonitoringTests(unittest.TestCase):
         self.assertEqual(daily["status"], "complete")
         self.assertEqual(daily["scored"], len(backlog.ref.merchants))
         self.assertEqual(before, fingerprints())
+
+    def test_individual_warning_reaches_recovery_after_score_falls(self):
+        date = "2026-10-15"
+        tape = self.archive.tape(date, date, "backlog")
+        replay = Replay(self.archive, tape, self.thresholds, close_daily=False)
+        for _ in range(SLOTS):
+            replay.advance()
+        pos = [row for row in replay.lifecycle.warnings() if row["scope"] == ("channel", "pos")
+               and row["symptom"] == "Activity shortfall"]
+        self.assertTrue(pos)
+        self.assertEqual(pos[0]["opened"], "2026-10-15T09:35:00")
+        self.assertEqual(pos[0]["state"], "Resolved")
+        self.assertTrue(any(item["state"] == "Recovering" for item in pos[0]["timeline"]))
 
 
 if __name__ == "__main__":

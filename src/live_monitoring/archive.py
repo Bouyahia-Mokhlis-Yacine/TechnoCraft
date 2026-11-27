@@ -236,10 +236,14 @@ class Tape:
     """Sorted archive intervals with an explicit completeness watermark."""
 
     def __init__(self, reference, start, end, events, scenario, changed):
+        if not events.transaction_date.is_monotonic_increasing:
+            events = events.sort_values("transaction_date", kind="stable").reset_index(drop=True)
         self.ref, self.start, self.end, self.events = reference, start, end, events
         self.scenario, self.changed = scenario, changed
         self.size = ((end - start).days + 1) * SLOTS
         self.bins = ((events.transaction_date - start) // BIN).to_numpy(dtype=int)
+        if len(self.bins) and (self.bins[0] < 0 or self.bins[-1] >= self.size):
+            raise ValueError("An event lies outside the declared replay dates.")
         self.offsets = np.searchsorted(self.bins, np.arange(self.size + 1))
         self.complete = np.ones(self.size, dtype=bool)
         self.mean = np.concatenate([reference.mean[d.weekday()] for d in pd.date_range(start, end)])

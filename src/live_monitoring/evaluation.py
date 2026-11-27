@@ -353,7 +353,8 @@ def collective_sensitivity(archive):
         pairs = np.zeros((tape.size, n_cells, 2))
         cells = np.array([tape.ref.cell_index[m, c] for m, c in zip(tape.events.merchant_id, tape.events.channel)])
         np.add.at(pairs[:, :, 0], (tape.bins, cells), 1)
-        np.add.at(pairs[:, :, 1], (tape.bins, cells), tape.events.transaction_status.eq("Declined"))
+        declined = tape.events.transaction_status.eq("Declined").to_numpy(dtype=bool)
+        np.add.at(pairs[:, :, 1], (tape.bins, cells), declined)
         return [model._collective(i % SLOTS, pair, tape.ref.cell_mean[
             (tape.start.dayofweek + i // SLOTS) % 7, i % SLOTS], True) for i, pair in enumerate(pairs)]
 
@@ -438,8 +439,11 @@ def main():
         if args.stage == "ordinary":
             tape = archive.tape(start, end)
             daily = maxima(tape, *trace(tape))
+            alternatives = json.loads(THRESHOLD_FILE.read_text())["budget_sensitivity"]
+            sensitivity = {name: workload(archive, tape, alternative) for name, alternative in alternatives.items()}
             result = {"method_warning_days": {k: int((v > thresholds[k]).sum()) for k, v in daily.items()},
-                      "selected_lifecycle": workload(archive, tape, thresholds)}
+                      "selected_lifecycle": sensitivity[str(CONFIG["calibration_budget_per_day"])],
+                      "budget_sensitivity": sensitivity}
             (OUT / "ordinary_workload.json").write_text(json.dumps(result, indent=2) + "\n")
         elif args.stage == "collective_sensitivity":
             (OUT / "collective_sensitivity.json").write_text(json.dumps(collective_sensitivity(archive), indent=2) + "\n")

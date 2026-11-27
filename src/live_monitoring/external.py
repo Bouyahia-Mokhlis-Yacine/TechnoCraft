@@ -1,7 +1,6 @@
 """Optional AIOps 2018 transfer study using an explicitly separate continuous law."""
 
 import argparse
-from itertools import groupby
 import json
 from pathlib import Path
 from shutil import copyfileobj
@@ -29,7 +28,10 @@ def cumsum(values, delta=1.):
 
 def episodes(labels):
     positive = np.flatnonzero(labels)
-    return [list(g) for _, g in groupby(positive, key=lambda i, it=iter(range(len(positive))): i - next(it))]
+    if not len(positive):
+        return []
+    boundaries = np.flatnonzero(np.diff(positive) > 1) + 1
+    return np.split(positive, boundaries)
 
 
 def read_finals(directory):
@@ -102,8 +104,8 @@ def study(train, test):
             warnings = e > threshold
             # Never join positive labels over telemetry gaps.
             time = evaluation.timestamp.to_numpy()
-            cases = [part.tolist() for run in episodes(label) for part in
-                     np.split(np.array(run), np.flatnonzero(np.diff(time[run]) != width) + 1)]
+            cases = [part for run in episodes(label) for part in
+                     np.split(run, np.flatnonzero(np.diff(time[run]) != width) + 1)]
             matched = []
             for case in cases:
                 hits = np.flatnonzero(warnings[case])

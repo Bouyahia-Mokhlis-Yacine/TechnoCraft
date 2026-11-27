@@ -14,7 +14,7 @@ const channels: Record<string, string> = {
 const scopeLabel = ([kind, name]: Scope) => kind === 'channel' || kind === 'network' ? channels[name] ?? name : name;
 const stamp = (time?: string | null) => time?.replace('T', ' ').slice(0, 19) || '—';
 const minute = (time: string) => time.slice(11, 16);
-const metric = (n?: number, formatter: (n: number) => string = fmtInt) => n == null ? '—' : formatter(n);
+const metric = (n?: number | null, formatter: (n: number) => string = fmtInt) => n == null ? '—' : formatter(n);
 const fmtExpected = (n: number) => fmtNum(n, 1);
 const isCollective = (w: ReplayWarning) => w.kind === 'Collective advisory';
 
@@ -164,17 +164,13 @@ export function LiveDashboard({ control }: { control: boolean }) {
   const points = state?.points ?? [];
   const point = points.at(-1);
   const warnings = state?.warnings ?? [];
-  const active = warnings.filter(w => w.state !== 'Resolved');
   const current = state?.scope ?? scope;
   const visibleWarnings = warnings.filter(w => current[0] === 'network' ||
     (w.scope[0] === current[0] && w.scope[1] === current[1]) ||
     (current[0] === 'merchant' && w.merchants?.includes(current[1])));
   const unstarted = !state || ['idle', 'finished', 'stopped', 'failed'].includes(state.status);
-  const activeMerchants = new Set(active.flatMap(w => w.merchants ?? (w.scope[0] === 'merchant' ? [w.scope[1]] : [])));
-  const activeChannels = new Set(active.flatMap(w => w.scope[0] === 'channel' ? [w.scope[1]] : []));
+  const metrics = state?.summary;
   const selectedOptions = (state?.scopes ?? [['network', 'all']]).filter(s => s[0] === scope[0]);
-  const ageMinutes = state?.last_event && state.clock
-    ? Math.max(0, (Date.parse(`${state.clock}Z`) - Date.parse(`${state.last_event}Z`)) / 60000) : undefined;
 
   return <div className={styles.workspace}>
     <section className={`panel ${styles.control}`}>
@@ -245,11 +241,12 @@ export function LiveDashboard({ control }: { control: boolean }) {
         <dl className={styles.metrics}>
           {[
             ['Received today', metric(point?.cumulative)], ['Expected this interval', metric(point?.expected, fmtExpected)],
-            ['Current transactions/min', metric(point ? point.observed / 5 : undefined, fmtExpected)],
+            ['Current transactions/min', metric(metrics?.transactions_per_minute, fmtExpected)],
             ['Accepted value today', metric(point?.daily_value, fmtCompactDzd)],
-            ['Rejection rate today', point?.cumulative ? fmtPct(point.daily_rejections / point.cumulative) : '—'],
-            ['Affected merchants', fmtInt(activeMerchants.size)], ['Affected channels', fmtInt(activeChannels.size)],
-            ['Last event', stamp(state.last_event)], ['Minutes since last event', metric(ageMinutes, fmtExpected)],
+            ['Rejection rate today', metric(metrics?.daily_rejection_rate, fmtPct)],
+            ['Active early warnings', metric(metrics?.active_individual)], ['Active collective advisories', metric(metrics?.active_collective)],
+            ['Affected merchants', metric(metrics?.affected_merchants)], ['Affected channels', metric(metrics?.affected_channels)],
+            ['Last event', stamp(state.last_event)], ['Minutes since last event', metric(metrics?.minutes_since_event, fmtExpected)],
           ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
         </dl>
         <div className={styles.charts}>

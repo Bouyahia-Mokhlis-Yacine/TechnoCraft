@@ -1,0 +1,13 @@
+{
+  "events": 509,
+  "bins": 288,
+  "total_seconds": 7.828515899993363,
+  "events_per_second": 65.01870935721438,
+  "max_tick_ms": 14.914200000930578,
+  "p95_tick_ms": 10.957250000501517,
+  "median_scoring_tick_ms": 6.980699996347539,
+  "median_tick_with_collective_ms": 8.794499997748062,
+  "closing_tick_ms": 5607.3870999971405,
+  "process_rss_bytes": 189034496,
+  "snapshot_bytes": 95024
+}

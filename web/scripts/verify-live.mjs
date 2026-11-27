@@ -68,6 +68,9 @@ try {
   const complete = await data();
   assert.equal(complete.status, 'finished');
   assert(complete.points.length > 200);
+  assert.equal(complete.summary.transactions_per_minute, complete.points.at(-1).observed / 5);
+  assert.equal(complete.summary.daily_rejection_rate,
+    complete.points.at(-1).daily_rejections / complete.points.at(-1).cumulative);
   assert(complete.warnings.some(w => w.kind === 'Collective advisory'));
   assert(complete.warnings.some(w => w.state === 'Resolved'));
   await page.locator('details').filter({ hasText: /Shared activity shortfall|Shared rejection increase/ }).first().locator('summary').click();
@@ -82,6 +85,18 @@ try {
   const answer = await assistant.json();
   assert.equal(answer.intent, 'live_replay', JSON.stringify(answer));
   assert.match(answer.text.join(' '), /simulated|replay/i);
+  await page.getByLabel('Start date').fill('2026-10-15');
+  await page.getByLabel('End date').fill('2026-10-15');
+  await page.getByLabel('Scenario').selectOption('backlog');
+  await page.getByLabel('Playback speed').selectOption('3600');
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  const early = page.locator('details').filter({ hasText: /Activity shortfall.*POS terminals/ }).first();
+  await early.locator('summary').click({ timeout: 45_000 });
+  await early.getByText(/Directional CUSUM crossed the replay warning threshold/).waitFor();
+  await early.getByText('Resolved', { exact: true }).first().waitFor();
+  await page.getByRole('button', { name: 'Stop', exact: true }).click();
+  await page.getByRole('button', { name: 'Start', exact: true }).waitFor();
+  assert.equal((await data()).status, 'stopped');
   await page.setViewportSize({ width: 390, height: 844 });
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
   assert.equal(overflow, false);
@@ -92,13 +107,14 @@ try {
   await page.goto(origin + '/admin');
   const user = 'reader.' + String(Date.now()).slice(-7);
   const readerSecret = 'live-reader-verification';
+  const readerName = `Replay Reader ${user}`;
   const form = page.locator('form').filter({ has: page.getByRole('button', { name: 'Create account' }) });
   await form.getByLabel('Username').fill(user);
-  await form.getByLabel('Display name').fill('Replay Reader');
+  await form.getByLabel('Display name').fill(readerName);
   await form.getByLabel('Password').fill(readerSecret);
   await form.getByLabel('Live Monitoring').check();
   await form.getByRole('button', { name: 'Create account' }).click();
-  await page.getByText('Replay Reader', { exact: true }).waitFor();
+  await page.getByText(readerName, { exact: true }).waitFor();
   const restricted = await browser.newContext();
   const readPage = await restricted.newPage();
   await signIn(readPage, user, readerSecret);
@@ -108,7 +124,8 @@ try {
   assert.deepEqual(pageErrors, []);
   console.log(JSON.stringify({ status: 'passed', first_plot_ms: firstPlotMs, warm_snapshot_ms: apiMs,
     collective_warnings: complete.warnings.filter(w => w.kind === 'Collective advisory').length,
-    resolved_warnings: complete.warnings.filter(w => w.state === 'Resolved').length, assistant: answer.source }));
+    resolved_warnings: complete.warnings.filter(w => w.state === 'Resolved').length,
+    backlog_warning: 'POS activity shortfall', assistant: answer.source }));
 } finally {
   await browser.close();
 }
