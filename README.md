@@ -17,7 +17,7 @@ npm run build
 npm start -- --hostname 127.0.0.1
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and choose a demo role. Leave `LLM_URL` unset for deterministic local answers. The export writes `runs/<run_id>/snapshot.json`, a matching per-run prediction CSV, `runs/latest.json` and the root `y_pred_anomalies.csv`. It checks both sealed digests before publishing. A new snapshot is read on the next request without rebuilding the website.
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in as `admin`: its password is `ADMIN_PASSWORD` if set at first start, otherwise it is written to `runs/admin-password.txt`. The administrator creates the other accounts on **Accounts**. With `LLM_URL` set the HPC model answers in the assistant; without it, or when it fails, the built-in deterministic assistant answers and the chat shows "Fallback mode". The export writes `runs/<run_id>/snapshot.json`, a matching per-run prediction CSV, `runs/latest.json` and the root `y_pred_anomalies.csv`. It checks both sealed digests before publishing. A new snapshot is read on the next request without rebuilding the website.
 
 ### Linux or a pip-based development environment
 
@@ -31,6 +31,16 @@ npm ci
 npm run build
 npm start -- --hostname 127.0.0.1
 ```
+
+Tested on Linux (Fedora, 27 Nov 2026) with conda, which gives the same package versions as the sealed build:
+
+```bash
+conda create -n satim-sealed-linux -c defaults --override-channels python=3.12.7 scipy=1.13.1 pandas=2.2.2 scikit-learn=1.5.1 numpy=1.26.4 pip
+conda run -n satim-sealed-linux pip install holidays==0.109 statsmodels==0.14.6
+PYTHONNOUSERSITE=1 conda run -n satim-sealed-linux python -m engine.export --allow-unsealed-preview
+```
+
+On Linux the 280 development pairs match the sealed digest exactly. The 711 official rows keep every key, the order and all 52 flags, but 3 scores differ by at most 1.1 × 10⁻¹⁶, so the run is published as an **unsealed preview**. A preview never writes `y_pred_anomalies.csv` (`--predictions` is refused, `engine.predict` stops at the sealed check), and the app refuses the official download from it. Regenerate the submission in the sealed Windows environment.
 
 On PowerShell use `python -m venv .venv`, then `./.venv/Scripts/python.exe -m pip install -r requirements.txt` and `./.venv/Scripts/python.exe -m engine.export --allow-unsealed-preview`. The preview option still requires exact local agreement with the direct frozen replay. If either sealed digest differs, the run carries a preview label and the submission file and submission-download endpoint stay gated. Linux sealed parity is unverified. Use the pinned Windows runtime to regenerate the release CSV.
 

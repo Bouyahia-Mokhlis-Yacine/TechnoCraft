@@ -31,7 +31,7 @@ All operational endpoints check the signed session of a local account, and the p
 | `POST /incidents/{id}/review` | `{action, reason, owner?, version}`. Mismatched versions return HTTP 409. Review state and historical detection remain separate |
 | `GET /advisories` | Frozen V3 warnings with hypotheses, plus V4-only investigation candidates |
 | `GET /forecasts?merchant=` | Seven days from the origin, with interval bounds, optional merchant scope and backtest |
-| `POST /assistant` | Questions answered by the local/HPC language model through allowlisted read-only tools, with scoped evidence links and conversations. Guard refusals (intent, card data, writes) answer without the model. No rule-based substitute: a missing, unreachable or unverified model returns HTTP 503 (`model_off`, `model_offline`, `model_rejected`) |
+| `POST /assistant` | Questions answered by the local/HPC language model through allowlisted read-only tools, with scoped evidence links and conversations. Guard refusals (intent, card data, writes) never reach the model. When the model is not configured, unreachable, slow or its answer fails the checks, the deterministic assistant answers and the reply carries `fallback` (`model_off`, `model_offline`, `model_rejected`) |
 | `GET /assistant/status` | Whether the language model is `online`, `offline` or `off` |
 | `PUT /kpis` | The signed-in account's own Overview cards (formulas over engine measures, validated server-side) |
 | `GET /export/{transactions,anomalies,incidents,predictions}` | Sanitized CSV. Submission export requires sealed parity |

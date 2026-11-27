@@ -7,7 +7,7 @@ Merges the validated backend (`backend-integration`, `c7f7586`) under the latest
 - **Engine:** the frozen Probabilistic, Sequential, Collective and Hybrid ML engine feeds every page through the schema v2 snapshot. The latest design is kept: SATIM identity, dark theme, Overview layout and exploded channel pie.
 - **Accounts:** one administrator creates accounts and ticks their pages and actions. This replaces the four fixed roles.
 - **KPIs:** each account chooses its Overview KPIs, including formulas over engine measures and one-click suggested rates and impact.
-- **Assistant:** answers come only from the language model through read-only tools. Without a verified answer it returns 503, never a rule-based answer.
+- **Assistant:** the HPC language model answers through read-only tools. When it is unavailable, slow or its answer fails the checks, the built-in deterministic assistant answers, clearly labelled as fallback.
 - **Priority queue:** sorts by business priority, statistical severity, impact or duration, and shows who should act.
 - **Interface:** scientific model names replace V1–V4. The Data page adds the official predictions download (sealed runs only) and the contactless and negative-amount policies.
 - **Fix:** the frozen configs now use their archived CRLF bytes, so a fresh clone can run the export.
@@ -22,6 +22,6 @@ Merges the validated backend (`backend-integration`, `c7f7586`) under the latest
 
 - Run `python -m engine.export` in the sealed Windows environment and confirm both digests.
 - Set the administrator password (`ADMIN_PASSWORD`) and create the team accounts.
-- Check the HPC tunnel before the demo: the assistant has no offline answers.
+- Check the HPC tunnel before the demo; without it the assistant runs in labelled fallback mode.
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
