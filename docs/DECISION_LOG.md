@@ -33,3 +33,7 @@ Options: a fixed set of overview cards, or cards each account chooses. Decision:
 ## 2026-11-27 · Store the frozen configs with their archived bytes
 
 The replay fingerprints the V1–V3 configuration files byte for byte, and the recorded digests (including the frozen V2 ae0e8b51…) are those of the CRLF files. The branch had committed LF copies, so a fresh clone refused to export on every platform. Decision: commit the CRLF bytes, which .gitattributes already stores verbatim. No setting changed; the digests now match on checkout.
+
+## 2026-11-27 · Linux serves a labelled preview; the sealed CSV stays the Windows one
+
+On Linux (Python 3.12.7 and the pinned NumPy, SciPy, pandas and scikit-learn from the same conda channel, with OpenBLAS and with MKL) the 280 development pairs reproduce the sealed digest exactly. The 711 official rows keep every key, the order and all 52 flags; 3 scores differ by at most 1.1e-16, so the official digest does not match. Decision: Linux serves a run labelled as an unsealed preview, the app refuses to offer the official download from it, and the committed y_pred_anomalies.csv (SHA-256 4613fbe3…) remains the sealed Windows output. Would change our mind: a Linux runtime that reproduces the official digest.
