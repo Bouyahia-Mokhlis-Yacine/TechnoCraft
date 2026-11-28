@@ -41,7 +41,7 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
       <FilterForm>
         <label className="field">{t('f.show')}<select name="scope" defaultValue={p.scope ?? ''}><option value="">{t('f.openRanked')}</option><option value="all">{t('common.all')}</option><option value="closed">{t('f.closedResolved')}</option></select></label>
         <label className="field">{t('f.lifecycle')}<select name="lifecycle" defaultValue={p.lifecycle ?? ''}><option value="">{t('common.any')}</option>{Object.entries(LIFECYCLE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
-        {view.kind === 'official' && <label className="field">{t('f.review')}<select name="status" defaultValue={p.status ?? ''}><option value="">{t('common.any')}</option>{Object.entries(REVIEW).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
+        {view.kind === 'archive' && <label className="field">{t('f.review')}<select name="status" defaultValue={p.status ?? ''}><option value="">{t('common.any')}</option>{Object.entries(REVIEW).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>}
         <label className="field">{t('f.severity')}<select name="severity" defaultValue={p.severity ?? ''}><option value="">{t('common.any')}</option>{(['critical', 'high', 'medium', 'low'] as const).map((s) => <option key={s} value={s}>{SEVERITIES[s].label}</option>)}</select></label>
         <label className="field">{t('f.merchant')}<select name="merchant" defaultValue={p.merchant ?? ''}><option value="">{t('common.all')}</option>{meta.merchants.map((m) => <option key={m}>{m}</option>)}</select></label>
         <label className="field">{t('f.sortBy')}<select name="sort" defaultValue={p.sort ?? ''}><option value="">{t('f.priority')}</option><option value="severity">{t('f.statSeverity')}</option><option value="impact">{t('f.impact')}</option><option value="duration">{t('f.duration')}</option></select></label>
@@ -49,7 +49,7 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
       {rows.length ? (
         <div className="panel table-panel m-rise">
           <table className="data">
-            <thead><tr><th className="r">{t('inc.rank')}</th><th className="r">{t('inc.priorityCol')}</th><th>{t('inc.incident')}</th><th>{t('f.severity')}</th><th>{t('inc.state')}</th>{view.kind === 'official' && <th>{t('f.review')}</th>}<th>{t('inc.period')}</th><th className="r">{t('inc.exposure')}</th><th>{t('inc.whoActs')}</th></tr></thead>
+            <thead><tr><th className="r">{t('inc.rank')}</th><th className="r">{t('inc.priorityCol')}</th><th>{t('inc.incident')}</th><th>{t('f.severity')}</th><th>{t('inc.state')}</th>{view.kind === 'archive' && <th>{t('f.review')}</th>}<th>{t('inc.period')}</th><th className="r">{t('inc.exposure')}</th><th>{t('inc.whoActs')}</th></tr></thead>
             <tbody>
               {rows.map((i) => (
                 <tr key={i.id}>
@@ -58,7 +58,7 @@ async function Incidents({ searchParams }: { searchParams: SP }) {
                   <td><Link className="cell-link" href={href(i.id)}><span className="inc-cell"><span className="merchant"><b>{i.merchant}</b> <span className="muted">{i.id}</span></span><TypeLabel type={i.type} /></span></Link></td>
                   <td><SeverityBadge severity={i.severity} /></td>
                   <td><LifecycleChip l={i.lifecycle} /></td>
-                  {view.kind === 'official' && <td><ReviewChip s={i.review.status} escalated={i.review.escalated} />{i.review.owner && <span className="muted"> {i.review.owner}</span>}</td>}
+                  {view.kind === 'archive' && <td><ReviewChip s={i.review.status} escalated={i.review.escalated} />{i.review.owner && <span className="muted"> {i.review.owner}</span>}</td>}
                   <td className="num">{i.days > 1 ? `${fmtDay(i.onset)} → ${fmtDay(i.end)} (${t('inc.daysShort', { n: i.days })})` : fmtDay(i.onset)}</td>
                   <td className="r num">{t('inc.exposureValue', { tx: fmtInt(i.affectedEvents), value: fmtCompactDzd(i.valueExposure) })}</td>
                   <td className="who-acts"><b>{engineText(i.evidence.responsible_role)}</b><small className="muted">{engineText(i.evidence.first_action)}</small></td>

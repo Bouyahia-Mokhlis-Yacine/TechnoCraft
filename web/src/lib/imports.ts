@@ -10,13 +10,17 @@
 // browser polls. The run ID is derived from the selected collection IDs and their versions, so an
 // unchanged selection reuses its result and an updated collection gets a fresh analysis. An import
 // changes its collection only after its analysis succeeds; a failure keeps the last good version.
-// The original SATIM dataset is the official run: protected, never appended to or deleted.
+// The original SATIM dataset is a collection like the others (id "satim"): it can be selected alone or with
+// others, renamed, appended to, activated, moved to the trash and restored. Its data is the archive the
+// engine was built on, read in place (never copied); alone and without added files its analysis is the
+// archive's own run (run id null). Its record (name, trash state, added batches) is
+// runs/collections/satim/collection.json, written on its first change; the archive files are never touched.
 import { spawn, execFile } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Msg } from './i18n';
-import { runsDir } from './snapshot';
+import { runsDir, snapshot } from './snapshot';
 
 export type { Msg };
 export interface ImportCheck {
@@ -69,7 +73,7 @@ const cdir = () => path.join(/*turbopackIgnore: true*/ runsDir(), 'collections')
 export const MAX_BYTES = 25 * 1024 * 1024;
 export const MAX_FILES = 12;
 export const isRunId = (id: string) => /^[a-f0-9]{16}$/.test(id);
-export const isCollectionId = (id: string) => /^c[a-f0-9]{11}$/.test(id);
+export const isCollectionId = (id: string) => id === 'satim' || /^c[a-f0-9]{11}$/.test(id);
 const isSha = (s: string) => /^[a-f0-9]{64}$/.test(s);
 const digest = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
@@ -195,9 +199,26 @@ const versionOf = (batches: Batch[]) => digest(batches.map((b) => b.batch_id).jo
 /* ── collections ─────────────────────────────────────────────────────── */
 
 const cfile = (id: string) => path.join(cdir(), id, 'collection.json');
+import { SATIM_NAME } from './collection-name';
+/** The SATIM collection: its stored record over the archive's figures (no record yet = untouched). */
+function satimCollection(): Collection | null {
+  let saved: Partial<Collection> = {};
+  try { saved = JSON.parse(fs.readFileSync(cfile(SATIM_ID), 'utf8')); } catch { /* never changed */ }
+  let run: ReturnType<typeof snapshot>['run'], tx: number, merchants: number;
+  try { const snap = snapshot(null); run = snap.run; tx = snap.transactions.ts.length; merchants = snap.transactions.merchants.length; } catch { return null; }   // no archive run on this server
+  const batches = saved.batches ?? [];
+  // without added files its analysis is the archive's own run; with some, the import that added the last ones
+  const version = batches.length ? versionOf(batches) : `archive-${run.run_id}`.slice(0, 24);
+  const base = { first_date: run.first_date, last_date: run.as_of, merchants, transactions: tx, rows_received: run.cleaning?.raw_rows ?? tx };
+  return { id: SATIM_ID, name: saved.name ?? SATIM_NAME, created_at: run.generated_at ?? '1970-01-01T00:00:00Z', created_by: 'system',
+    trashed_at: saved.trashed_at ?? null, version, batches, stats: batches.length ? saved.stats ?? base : base,
+    analysis: batches.length ? saved.analysis ?? null : null, pending: saved.pending ?? null, last_error: saved.last_error ?? null };
+}
+
 export function getCollection(id: string): Collection | null {
   if (!isCollectionId(id)) return null;
   migrate();
+  if (id === SATIM_ID) return satimCollection();
   try { return JSON.parse(fs.readFileSync(cfile(id), 'utf8')); } catch { return null; }
 }
 function saveCollection(c: Collection) { writeJson(cfile(c.id), { ...c, updated_at: new Date().toISOString() }); }
@@ -205,8 +226,10 @@ function saveCollection(c: Collection) { writeJson(cfile(c.id), { ...c, updated_
 export function listCollections(): Collection[] {
   migrate();
   let ids: string[] = [];
-  try { ids = fs.readdirSync(cdir()).filter(isCollectionId); } catch { /* none yet */ }
-  return ids.map(getCollection).filter((c): c is Collection => !!c).sort((a, b) => b.created_at.localeCompare(a.created_at));
+  try { ids = fs.readdirSync(cdir()).filter((x) => isCollectionId(x) && x !== SATIM_ID); } catch { /* none yet */ }
+  const sat = satimCollection();
+  // newest first; the SATIM collection is the oldest data and comes last
+  return [...ids.map(getCollection).filter((c): c is Collection => !!c).sort((a, b) => b.created_at.localeCompare(a.created_at)), ...(sat ? [sat] : [])];
 }
 
 /** One-time move of the single-file imported runs made before collections into collections of their own. */
@@ -259,7 +282,6 @@ export function startImport(uploadIds: string[], complete: boolean, destination:
   if (listCollections().some((c) => c.pending && ['queued', 'running'].includes(getImport(c.pending.run_id)?.state ?? ''))) throw new Error('busy');
   let dest: Collection;
   if ('collection' in destination) {
-    if (destination.collection === SATIM_ID) throw new Error('protected');
     const c = getCollection(destination.collection);
     if (!c || c.trashed_at) throw new Error('collection_not_found');
     dest = c;
@@ -322,8 +344,10 @@ export function renameCollection(id: string, name: string) {
 
 export const usable = (c: Collection | null | undefined): c is Collection => !!c && !c.trashed_at && !!c.version && !!c.stats;
 
-/** The analysis of a selection of collections: the collection's own analysis for one, a combined run for several. */
-export function selectionRun(cols: Collection[], actor = 'system'): { runId: string; status: ImportStatus | null } {
+/** The analysis of a selection of collections: the collection's own analysis for one, a combined run for several.
+ *  runId null: the SATIM collection alone without added files, read from the archive's own run. */
+export function selectionRun(cols: Collection[], actor = 'system'): { runId: string | null; status: ImportStatus | null } {
+  if (cols.length === 1 && cols[0].id === SATIM_ID && !cols[0].batches.length) return { runId: null, status: null };
   if (cols.length === 1 && cols[0].analysis?.version === cols[0].version) return { runId: cols[0].analysis.run_id, status: getImport(cols[0].analysis.run_id) };
   const selection = cols.map((c) => ({ id: c.id, name: c.name, version: c.version! }));
   const runId = viewRunId(selection);
@@ -354,6 +378,8 @@ export function getActive(): ActiveDataset | null {
     return ids.length ? { ...a, ids } : null;
   } catch { return null; }
 }
+/** What an account sees when it chose nothing itself: the platform's active dataset, else the SATIM collection if it is still there. */
+export const defaultIds = () => getActive()?.ids ?? (usable(getCollection(SATIM_ID)) ? [SATIM_ID] : []);
 export function setActive(ids: string[], actor: string): ActiveDataset | null {
   if (!ids.length) { fs.rmSync(activeFile(), { force: true }); return null; }
   if (ids.some((id) => !usable(getCollection(id)))) throw new Error('not_selectable');

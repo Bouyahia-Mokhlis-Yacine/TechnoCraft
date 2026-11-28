@@ -37,7 +37,7 @@ async function IncidentView({ params, searchParams }: { params: Params; searchPa
   let data: ReturnType<typeof getIncident> = null;
   try { data = getIncident(decodeURIComponent((await params).id), run); } catch { notFound(); }
   if (!data) notFound();
-  const official = view.kind === 'official';
+  const official = view.kind === 'archive';
   const user = await currentUser();
   const { incident: i, anomalies, timeline, advisory } = data;
   const peak = anomalies.reduce((p, a) => (a.score > p.score ? a : p));

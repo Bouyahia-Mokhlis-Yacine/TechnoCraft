@@ -57,8 +57,8 @@ async function Merchant({ params, searchParams }: { params: Params; searchParams
         title={`${m.id} · ${categoryLabel(m.category)}`}
       >
         <Link className="btn btn-primary" href={tx({ merchant: m.id })}>{t('nav.transactions')} <ArrowRight /></Link>
-        {view.kind === 'official' && <Link className="btn btn-secondary" href={`/reports?type=merchant&merchant=${m.id}`}>{t('mer.healthBrief')}</Link>}
-        {view.kind === 'official' && <Link className="btn btn-secondary" href={`/assistant?q=${encodeURIComponent(t('mer.askQ', { id: m.id }))}`}>{t('mer.ask')}</Link>}
+        {view.kind === 'archive' && <Link className="btn btn-secondary" href={`/reports?type=merchant&merchant=${m.id}`}>{t('mer.healthBrief')}</Link>}
+        {view.kind === 'archive' && <Link className="btn btn-secondary" href={`/assistant?q=${encodeURIComponent(t('mer.askQ', { id: m.id }))}`}>{t('mer.ask')}</Link>}
       </PageHeader>
       <ViewBanner view={view} path={`/merchants/${m.id}`} />
 
@@ -101,7 +101,7 @@ async function Merchant({ params, searchParams }: { params: Params; searchParams
                   <Link key={i.id} href={keepRun(`/incidents/${i.id}`, view)} className={`queue-row compact sev-${i.severity} m-rise`} style={css({ '--i': Math.min(n, 7) })}>
                     <span className="rank">{i.rank ?? '–'}</span>
                     <span className="q-main"><b>{TYPES[i.type].label} · {i.id}</b><span className="muted">{i.days > 1 ? `${fmtDay(i.onset)} → ${fmtDay(i.end)}` : fmtDay(i.onset)}</span></span>
-                    <span className="row"><LifecycleChip l={i.lifecycle} />{view.kind === 'official' && <ReviewChip s={i.review.status} />}</span>
+                    <span className="row"><LifecycleChip l={i.lifecycle} />{view.kind === 'archive' && <ReviewChip s={i.review.status} />}</span>
                     <SeverityBadge severity={i.severity} />
                     <ArrowRight className="chev" aria-hidden />
                   </Link>

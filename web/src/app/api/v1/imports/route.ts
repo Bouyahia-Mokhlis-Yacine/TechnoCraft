@@ -6,11 +6,11 @@
 import type { NextRequest } from 'next/server';
 import { fail, userOf } from '@/lib/http';
 import { can } from '@/lib/session';
-import { listImports, MAX_FILES, SATIM_ID, startImport, type Destination } from '@/lib/imports';
+import { listImports, MAX_FILES, startImport, type Destination } from '@/lib/imports';
 
 const ERR: Record<string, [number, string]> = {
   upload_not_found: [404, 'A file is no longer available. Upload it again.'], invalid_files: [422, 'Choose between 1 and 12 validated files.'],
-  busy: [409, 'Another import is running. Wait until it finishes.'], protected: [403, 'The original SATIM dataset is protected: nothing can be added to it.'],
+  busy: [409, 'Another import is running. Wait until it finishes.'],
   collection_not_found: [404, 'Collection not found.'], name_required: [422, 'Give the new collection a name.'], name_taken: [409, 'Another collection already has this name.'],
 };
 
@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
   const ids = body.upload_ids, d = body.destination;
   if (!Array.isArray(ids) || !ids.length || ids.length > MAX_FILES || ids.some((x) => typeof x !== 'string') || !d || (typeof d.name !== 'string' && typeof d.collection !== 'string'))
     return fail(422, 'invalid_payload', 'Expected { upload_ids, complete, destination: { name } | { collection } }.');
-  if (d.collection === SATIM_ID) return fail(403, 'protected', ERR.protected[1]);
   const destination: Destination = typeof d.collection === 'string' ? { collection: d.collection } : { name: d.name as string };
   try {
     const r = startImport(ids as string[], body.complete === true, destination, user.id);

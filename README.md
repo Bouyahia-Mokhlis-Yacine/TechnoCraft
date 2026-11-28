@@ -34,7 +34,7 @@ From the repository root, with the pinned conda environment (Linux: `satim-seale
 
 ## Dataset shown on each page
 
-Every page, report, PDF, simulator view and assistant answer uses the same dataset: the operator's own choice (dataset menu), else the platform's activated run, else the official SATIM run. Reports and PDFs carry a **Dataset** line; assistant answers end with a provenance line. The sealed submission download and incident reviews always use the official run.
+Every page, report, PDF, simulator view and assistant answer uses the same dataset: the operator's own choice (dataset menu), else the platform's activated collections, else the original SATIM collection. The original SATIM dataset is an ordinary collection: it can be selected alone or with imported collections (analysed together from the start of its test period), receive added files, be renamed, moved to the trash and restored. With nothing selected, the pages send the operator to Data & runs to choose or import data. Reports and PDFs carry a **Dataset** line; assistant answers end with a provenance line. The sealed submission download and incident reviews always use the official run.
 
 ## Forecast history
 

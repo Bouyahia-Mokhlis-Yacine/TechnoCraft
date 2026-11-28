@@ -13,7 +13,7 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
 - No pull request exists yet. The `gh` CLI is not installed; the compare link is in the report.
 - Do **not** merge into `main`: the AI team must first regenerate the official `y_pred_anomalies.csv` in the sealed Windows environment.
 - **Committed in `cdb9fc5`** (pushed; tested end to end):
-  - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; SATIM protected; combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
+  - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; the original SATIM dataset is an ordinary collection (`satim`: selectable alone or combined, appendable, renamable, trash/restore; its archive files are read in place, never copied or deleted); combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
   - **French UI (default) + EN**: `web/src/lib/i18n/` (flat dictionaries, `en.ts` is the reference, `fr.ts` must define every key; plurals `_one`/`_other`), `web/src/components/i18n.tsx` (provider, `useT`, FR/EN switch, `pai_lang` cookie). Backend messages carry `code` + `values` (`msg.*` keys). Untyped helpers (`tr`, `tk`, template keys) are not checked by tsc: re-run the key scan in section 5 after adding strings.
   - "Transactions for this alert", red filter bar, `date-range.tsx`, and edits across pages, `globals.css` (dated blocks at the bottom), `web/README.md`, `web/.env.example`.
   - Also in `cdb9fc5`: KPI editor (collapsible cards, unit check, current-state warning, new measures), Intelligence tabs, episode metrics, merchant accepted value over known days, `components/balanced.tsx` (two-column dashboards packed by height).
@@ -104,7 +104,7 @@ Official CSVs → `python -m engine.export` (frozen V1–V4 in `src/` + `config/
 
 From `web/`:
 ```bash
-npx tsc --noEmit && npm run lint && npm run build && node src/lib/formula.test.ts
+npx tsc --noEmit && npm run lint && npm run build && node src/lib/formula.test.ts && node src/lib/ui-guide.test.ts
 ```
 After adding UI text, also check that every `tr('x.y')` / `tk('x.y')` / template key (`stage.${…}`, `measure.${…}`, `kpi.name.${formula}`…) exists in `en.ts` and `fr.ts`: missing keys show the raw key on screen. Isolated test server: copy `runs/latest.json` + the official run into a scratch dir and start with `RUNS_DIR=<dir> ADMIN_PASSWORD=<test> npm start -- -p 3100`.
 

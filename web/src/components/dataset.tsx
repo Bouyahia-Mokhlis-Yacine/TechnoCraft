@@ -2,22 +2,25 @@
 // placeholder shown while a selection's first combined analysis runs.
 import Link from 'next/link';
 import { Layers, Loader2, XCircle } from 'lucide-react';
-import { resolveView, type View } from '@/lib/dataset';
+import { resolveViewOrNull, type View } from '@/lib/dataset';
+import { shownName } from '@/lib/collection-name';
 import { getMeta } from '@/lib/api';
 import { fmtRange } from '@/lib/format';
 import { getT } from '@/lib/i18n/server';
 import { DatasetMenu, ViewWatcher } from './dataset-client';
 
 export async function DatasetControl() {
-  let view: View;
-  try { view = await resolveView(); } catch { return null; }
+  let view: View | null;
+  try { view = await resolveViewOrNull(); } catch { return null; }
+  if (!view) return <DatasetMenu kind="empty" names={[]} combined={false} running={false} />;
   return <DatasetMenu kind={view.kind} names={view.names} combined={view.combined} running={view.state === 'running'} />;
 }
 
 /** "Combined view · 3 collections" (names, dates, analysis version) above a page's data. */
 export async function ViewBanner({ view, path }: { view: View; path: string }) {
-  if (view.kind === 'official') return null;
+  if (view.kind === 'archive') return null;
   const t = await getT();
+  view = { ...view, names: view.names.map((n) => shownName(n, t('ds.satimName'))) };
   let range = '';
   try { const m = getMeta(view.runId); range = fmtRange(m.firstDate, m.asOf); } catch { /* shown without dates */ }
   const label = view.combined ? t('ds.combined', { n: view.ids.length }) : t('ds.collection', { name: view.names[0] });
@@ -38,6 +41,7 @@ export async function ViewBanner({ view, path }: { view: View; path: string }) {
 /** Nothing to show yet: the selection's analysis is running (or failed) and no earlier result exists. */
 export async function ViewPending({ view }: { view: View }) {
   const t = await getT();
+  view = { ...view, names: view.names.map((n) => shownName(n, t('ds.satimName'))) };
   const label = view.combined ? t('ds.combined', { n: view.ids.length }) : t('ds.collection', { name: view.names[0] });
   return (
     <section className="panel view-pending m-rise" role="status">
@@ -49,20 +53,5 @@ export async function ViewPending({ view }: { view: View }) {
         <Link className="btn btn-secondary" href="/data#collections">{t('ds.manage')}</Link>
       </div>
     </section>
-  );
-}
-
-/** On pages that always read the official run (Intelligence, Reports, Simulator, Assistant): says so when collections are active. */
-export async function OfficialOnly() {
-  let view: View;
-  try { view = await resolveView(); } catch { return null; }
-  if (view.kind === 'official') return null;
-  const t = await getT();
-  return (
-    <div className="run-banner view-banner is-official" role="note">
-      <Layers aria-hidden />
-      <b>{t('ds.satimName')}</b>
-      <span className="muted">{t('view.officialOnly', { label: view.combined ? t('ds.combined', { n: view.ids.length }) : t('ds.collection', { name: view.names[0] }) })}</span>
-    </div>
   );
 }

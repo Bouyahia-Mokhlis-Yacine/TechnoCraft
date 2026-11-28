@@ -7,21 +7,22 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AlertTriangle, ArchiveRestore, CheckCircle2, Database, Download, FileUp, History, Loader2, Lock, MoreHorizontal, Pencil, Radio, RotateCcw, Trash2, Upload, X, XCircle } from 'lucide-react';
+import { AlertTriangle, ArchiveRestore, CheckCircle2, Database, Download, FileUp, History, Loader2, MoreHorizontal, Pencil, Radio, RotateCcw, Trash2, Upload, X, XCircle } from 'lucide-react';
 import type { ImportCheck, ImportPreview, ImportStatus } from '@/lib/imports';
 import { fmtInt, fmtRange, fmtStamp } from '@/lib/format';
 import { msgText, type T } from '@/lib/i18n';
 import type { CollectionRow } from '@/app/api/v1/collections/shared';
 import { useT } from './i18n';
+import { shownName } from '@/lib/collection-name';
 
 export interface CollectionsPayload {
-  satim: CollectionRow; collections: CollectionRow[]; trash: CollectionRow[]; selection: string[];
+  collections: CollectionRow[]; trash: CollectionRow[]; selection: string[];
   view: { ids: string[]; names: string[]; run_id: string | null; state: 'ready' | 'running' | 'failed'; combined: boolean; status: ImportStatus | null } | null;
   active: { ids: string[]; activated_at: string; actor: string } | null;
   runs: RunRow[];
 }
 export interface RunRow {
-  run_id: string; collection_id: string | null; collection_name: string | null; filenames: string[]; created_at: string;
+  run_id: string; kind: 'import' | 'view'; sources: { id: string; name: string; deleted: boolean }[]; collection_id: string | null; collection_name: string | null; filenames: string[]; created_at: string;
   state: ImportStatus['state']; complete: boolean; result: ImportStatus['result'] | null; error: { message: string; code?: string } | null; current: boolean;
 }
 const ACTIVE = (s?: ImportStatus | null) => s?.state === 'queued' || s?.state === 'running';
@@ -44,7 +45,7 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
   const t = useT(), router = useRouter();
   const [data, setData] = useState(initial);
   const [tab, setTab] = useState<'list' | 'trash'>('list');
-  const [picked, setPicked] = useState<Set<string>>(() => new Set(initial.selection.length ? initial.selection : ['satim']));
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(initial.selection));
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null);
   const [runs, setRuns] = useState<ImportStatus[]>([]);
@@ -58,7 +59,7 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
   const renameDialog = useRef<HTMLDialogElement>(null);
   const [, tick] = useState(0);
 
-  const apply = useCallback((p: CollectionsPayload) => { setData(p); setPicked(new Set(p.selection.length ? p.selection : ['satim'])); }, []);
+  const apply = useCallback((p: CollectionsPayload) => { setData(p); setPicked(new Set(p.selection)); }, []);
   const reload = useCallback(async () => {
     const [c, i] = await Promise.all([getJson<CollectionsPayload>('/api/v1/collections'), canManage ? getJson<{ imports: ImportStatus[] }>('/api/v1/imports') : Promise.resolve(null)]);
     if (c.ok) setData(c.data);
@@ -107,7 +108,7 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
       const r = await getJson<CollectionsPayload>('/api/v1/collections/selection', { method: 'POST', body: JSON.stringify({ ids }) });
       if (!r.ok) { setNote({ tone: 'err', text: errText(t, r.data, t('col.applyFailed')) }); return; }
       apply(r.data);
-      setNote({ tone: 'ok', text: message ?? (r.data.selection.length ? t('col.applied', { n: r.data.selection.length }) : t('col.backToSatim')) });
+      setNote({ tone: 'ok', text: message ?? t('col.applied', { n: r.data.selection.length }) });
       router.refresh();
     } finally { setBusy(false); }
   };
@@ -117,14 +118,14 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
       const r = await getJson<CollectionsPayload>(`/api/v1/collections/${row.id}`, { method: 'PATCH', body: JSON.stringify(body) });
       if (!r.ok) { setNote({ tone: 'err', text: errText(t, r.data, t('col.changeFailed')) }); return false; }
       apply(r.data);
-      setNote({ tone: 'ok', text: body.action === 'trash' ? (r.data.selection.length ? t('col.trashed', { name: row.name }) : t('col.trashedBackToSatim', { name: row.name }))
+      setNote({ tone: 'ok', text: body.action === 'trash' ? (r.data.selection.length ? t('col.trashed', { name: label(row) }) : t('col.trashedNothingLeft', { name: label(row) }))
         : body.action === 'restore' ? t('col.restored', { name: row.name }) : t('col.renamed', { name: body.name ?? row.name }) });
       router.refresh();
       return true;
     } finally { setBusy(false); }
   };
 
-  /** Administrator: make collections the active dataset for every account ([] = the official SATIM run). */
+  /** Administrator: make collections the active dataset for every account ([] = the platform default). */
   const activate = async (ids: string[], name: string) => {
     setBusy(true); setNote(null);
     try {
@@ -136,18 +137,16 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
     } finally { setBusy(false); }
   };
 
-  const toggle = (id: string) => setPicked((prev) => {
-    const next = new Set(prev);
-    if (id === 'satim') return new Set(['satim']);
-    next.delete('satim');
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next.size ? next : new Set(['satim']);
-  });
+  // every collection, the original SATIM one included, is selected the same way, alone or with others
+  const toggle = (id: string) => setPicked((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const pickedIds = [...picked];
-  const appliedKey = (data.selection.length ? data.selection : ['satim']).slice().sort().join(',');
-  const dirty = pickedIds.slice().sort().join(',') !== appliedKey;
+  const dirty = pickedIds.slice().sort().join(',') !== data.selection.slice().sort().join(',');
   const viewing = data.view;
-  const activeLabel = !viewing ? t('ds.satim') : viewing.combined ? t('ds.combined', { n: viewing.ids.length }) : t('ds.collection', { name: viewing.names[0] });
+  const label = (c: { name: string }) => shownName(c.name, t('ds.satimName'));
+  const viewNames = viewing?.names.map((n) => shownName(n, t('ds.satimName'))) ?? [];
+  const activeLabel = !viewing ? t('ds.none') : viewing.combined ? t('ds.combined', { n: viewing.ids.length }) : viewNames[0];
+  // the platform default when the administrator chose nothing: the SATIM collection
+  const platformIds = data.active?.ids ?? data.collections.filter((c) => c.id === 'satim' && c.usable).map((c) => c.id);
   const editable = data.collections.filter((c) => !c.pending);
   const anyImport = ACTIVE(current) || data.collections.some((c) => c.pending);
 
@@ -157,20 +156,21 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
         <div><h2 id="col-h">{t('col.title')}</h2><p>{t('col.subtitle')}</p></div>
         <div className="row">
           <div className="seg" role="tablist" aria-label={t('col.title')}>
-            <button type="button" role="tab" aria-selected={tab === 'list'} onClick={() => setTab('list')}>{t('col.tabList', { n: data.collections.length + 1 })}</button>
+            <button type="button" role="tab" aria-selected={tab === 'list'} onClick={() => setTab('list')}>{t('col.tabList', { n: data.collections.length })}</button>
             <button type="button" role="tab" aria-selected={tab === 'trash'} onClick={() => setTab('trash')}><Trash2 aria-hidden />{t('col.tabTrash', { n: data.trash.length })}</button>
           </div>
           {canManage && <button type="button" className="btn btn-primary" onClick={() => setImportInto(null)} disabled={anyImport} title={anyImport ? t('imp.running') : undefined}><FileUp aria-hidden />{t('imp.button')}</button>}
         </div>
       </div>
 
-      <p className="col-active" role="status"><Database aria-hidden /><span>{t('col.activeNow')} <b>{activeLabel}</b>{viewing && viewing.combined && <span className="muted"> · {viewing.names.join(', ')}</span>}</span>
-        {viewing && <button type="button" className="link-btn" onClick={() => select([])} disabled={busy}>{t('ds.return')}</button>}</p>
+      <p className="col-active" role="status"><Database aria-hidden /><span>{t('col.activeNow')} <b>{activeLabel}</b>{viewing && viewing.combined && <span className="muted"> · {viewNames.join(', ')}</span>}</span></p>
+      {!viewing && <p className="col-empty" role="alert">{data.collections.some((c) => c.usable) ? t('col.emptySelection') : t('col.emptyAll')}
+        {canManage && !data.collections.some((c) => c.usable) && <button type="button" className="btn btn-primary" onClick={() => setImportInto(null)} disabled={anyImport}><FileUp aria-hidden />{t('imp.button')}</button>}</p>}
       {viewing && viewing.state !== 'ready' && <ViewProgress view={viewing} t={t} />}
       {note && <p className={note.tone === 'ok' ? 'ok-note' : 'err'} role={note.tone === 'ok' ? 'status' : 'alert'}>{note.text}</p>}
       {current && !data.trash.some((c) => c.id === current.collection_id) && (ACTIVE(current) || current.state !== 'succeeded' || mountedAt - Date.parse(current.finished_at ?? current.created_at) < 15 * 60e3) && (
         <RunCard run={current} t={t} onRetry={async (id) => { const r = await getJson<{ run: ImportStatus }>(`/api/v1/imports/${id}`, { method: 'POST' }); if (r.ok) { setCurrent(r.data.run); reload(); } else setNote({ tone: 'err', text: errText(t, r.data, t('imp.retryFailed')) }); }}
-          onOpen={(id) => select([id], t('col.opened', { name: data.collections.find((c) => c.id === id)?.name ?? '' }))} onReimport={() => setImportInto(current.collection_id ?? null)} />
+          onOpen={(id) => select([id], t('col.opened', { name: label(data.collections.find((c) => c.id === id) ?? { name: '' }) }))} onReimport={() => setImportInto(current.collection_id ?? null)} />
       )}
 
       {tab === 'list' ? (
@@ -180,26 +180,26 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
               <caption className="sr-only">{t('col.caption')}</caption>
               <thead><tr><th className="col-check"><span className="sr-only">{t('col.select')}</span></th><th>{t('col.name')}</th><th>{t('col.dates')}</th><th className="r">{t('col.merchants')}</th><th className="r">{t('col.transactions')}</th><th>{t('col.status')}</th><th className="r"><span className="sr-only">{t('col.actions')}</span></th></tr></thead>
               <tbody>
-                {[data.satim, ...data.collections].map((c) => {
-                  const inView = c.protected ? !viewing : !!viewing?.ids.includes(c.id);
+                {data.collections.map((c) => {
+                  const inView = !!viewing?.ids.includes(c.id);
                   return (
                     <Fragment key={c.id}>
                       <tr className={`${picked.has(c.id) ? 'is-picked' : ''}${inView ? ' is-active' : ''}`}>
                         <td className="col-check"><input type="checkbox" checked={picked.has(c.id)} disabled={!c.usable || busy} onChange={() => toggle(c.id)}
-                          aria-label={t('col.selectRow', { name: c.protected ? t('ds.satim') : c.name })} title={!c.usable ? t('col.notReady') : undefined} /></td>
-                        <td><span className="col-name"><b>{c.protected ? t('ds.satimName') : c.name}</b>{c.protected && <small className="muted"><Lock aria-hidden className="inline-ico" />{t('col.protected')}</small>}</span></td>
+                          aria-label={t('col.selectRow', { name: label(c) })} title={!c.usable ? t('col.notReady') : undefined} /></td>
+                        <td><span className="col-name"><b>{label(c)}</b></span></td>
                         <td className="num">{c.first_date && c.last_date ? fmtRange(c.first_date, c.last_date, t.locale) : '—'}</td>
                         <td className="r num">{c.merchants === null ? '—' : fmtInt(c.merchants, t.locale)}</td>
                         <td className="r num">{c.transactions === null ? '—' : fmtInt(c.transactions, t.locale)}</td>
-                        <td><StatusCell c={c} inView={inView} t={t} />{(c.protected ? !data.active : data.active?.ids.includes(c.id)) && <small className="col-platform">{t('col.platform')}</small>}</td>
+                        <td><StatusCell c={c} inView={inView} t={t} />{platformIds.includes(c.id) && <small className="col-platform">{t('col.platform')}</small>}</td>
                         <td className="r"><RowMenu c={c} t={t} canManage={canManage} busy={busy || anyImport}
-                          onOpen={() => select(c.protected ? [] : [c.id], c.protected ? t('col.backToSatim') : t('col.opened', { name: c.name }))}
+                          onOpen={() => select([c.id], t('col.opened', { name: label(c) }))}
                           onHistory={() => setHistoryOf(historyOf === c.id ? null : c.id)}
                           onImport={() => setImportInto(c.id)}
                           onRename={() => { setRenaming(c); requestAnimationFrame(() => renameDialog.current?.showModal()); }}
                           onTrash={() => { setConfirm(c); requestAnimationFrame(() => confirmDialog.current?.showModal()); }}
-                          platform={c.protected ? !data.active : !!data.active?.ids.includes(c.id)}
-                          onPlatform={() => activate(c.protected ? [] : data.active?.ids.includes(c.id) ? data.active.ids.filter((x) => x !== c.id) : [c.id], c.protected ? t('ds.satimName') : c.name)} /></td>
+                          platform={platformIds.includes(c.id)} platformFixed={!data.active && platformIds.includes(c.id)}
+                          onPlatform={() => activate(platformIds.includes(c.id) ? platformIds.filter((x) => x !== c.id) : [c.id], label(c))} /></td>
                       </tr>
                       {historyOf === c.id && (
                         <tr className="col-history-row"><td /><td colSpan={6}><ImportHistory c={c} t={t} /></td></tr>
@@ -211,9 +211,8 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
             </table>
           </div>
           <div className="col-foot">
-            <span className="muted" aria-live="polite">{picked.has('satim') ? t('col.pickedSatim') : t('col.picked', { n: picked.size })}</span>
-            <button type="button" className="btn btn-ghost" disabled={busy || !viewing} onClick={() => select([])}>{t('ds.return')}</button>
-            <button type="button" className="btn btn-primary" disabled={busy || !dirty} onClick={() => select(picked.has('satim') ? [] : pickedIds)}>{busy ? t('common.saving') : t('col.apply')}</button>
+            <span className="muted" aria-live="polite">{t('col.picked', { n: picked.size })}</span>
+            <button type="button" className="btn btn-primary" disabled={busy || !dirty || !picked.size} onClick={() => select(pickedIds)}>{busy ? t('common.saving') : t('col.apply')}</button>
           </div>
           <p className="muted small">{t('col.combineNote')}</p>
         </>
@@ -225,7 +224,7 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
               <thead><tr><th>{t('col.name')}</th><th>{t('col.dates')}</th><th className="r">{t('col.transactions')}</th><th>{t('col.trashedAt')}</th><th className="r"><span className="sr-only">{t('col.actions')}</span></th></tr></thead>
               <tbody>{data.trash.map((c) => (
                 <tr key={c.id}>
-                  <td><b>{c.name}</b><small className="muted block">{t('col.batches', { n: c.batches.length })}</small></td>
+                  <td><b>{label(c)}</b><small className="muted block">{t('col.batches', { n: c.batches.length })}</small></td>
                   <td className="num">{c.first_date && c.last_date ? fmtRange(c.first_date, c.last_date, t.locale) : '—'}</td>
                   <td className="r num">{c.transactions === null ? '—' : fmtInt(c.transactions, t.locale)}</td>
                   <td className="num">{c.trashed_at ? fmtStamp(c.trashed_at, t.locale) : ''}</td>
@@ -238,8 +237,8 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
       )}
 
       <dialog ref={confirmDialog} className="kpi-dialog confirm-dialog" aria-labelledby="trash-h" onClose={() => setConfirm(null)}>
-        <h2 id="trash-h">{t('col.trashTitle', { name: confirm?.name ?? '' })}</h2>
-        <p>{t('col.trashBody', { name: confirm?.name ?? '' })}</p>
+        <h2 id="trash-h">{t('col.trashTitle', { name: confirm ? label(confirm) : '' })}</h2>
+        <p>{t('col.trashBody', { name: confirm ? label(confirm) : '' })}</p>
         {confirm && viewing?.ids.includes(confirm.id) && <p className="muted">{viewing.ids.length > 1 ? t('col.trashInView') : t('col.trashLastInView')}</p>}
         <div className="kpi-dialog-foot">
           <button type="button" className="btn btn-ghost" onClick={() => confirmDialog.current?.close()}>{t('common.cancel')}</button>
@@ -253,13 +252,13 @@ export function DataCollections({ initial, canManage, canExport, official }: { i
           onClose={() => setImportInto(undefined)}
           onStarted={(run, info) => { setImportInto(undefined); if (run) setCurrent(run); setNote(info ? { tone: 'ok', text: info } : null); reload(); }} />
       )}
-      <RunHistory runs={data.runs} official={official} active={data.active} canExport={canExport} t={t} onOpen={(r) => setCurrent(runs.find((x) => x.run_id === r) ?? null)} />
+      <RunHistory runs={data.runs} official={official} active={data.active} satimDefault={platformIds.includes('satim')} canExport={canExport} t={t} onOpen={(r) => setCurrent(runs.find((x) => x.run_id === r) ?? null)} />
     </section>
   );
 }
 
 /** Every execution mode, kept apart: the official run, imported operational runs, and the simulated replay. */
-function RunHistory({ runs, official, active, canExport, t, onOpen }: { runs: RunRow[]; official: { runId: string; sealed: boolean; first: string; last: string; flagged: number }; active: CollectionsPayload['active']; canExport: boolean; t: T; onOpen: (runId: string) => void }) {
+function RunHistory({ runs, official, active, satimDefault, canExport, t, onOpen }: { runs: RunRow[]; official: { runId: string; sealed: boolean; first: string; last: string; flagged: number }; active: CollectionsPayload['active']; satimDefault: boolean; canExport: boolean; t: T; onOpen: (runId: string) => void }) {
   const l = t.locale;
   return (
     <details className="run-history" open>
@@ -270,18 +269,19 @@ function RunHistory({ runs, official, active, canExport, t, onOpen }: { runs: Ru
           <th>{t('rh.quality')}</th><th>{t('rh.policy')}</th><th className="r">{t('rh.flagged')}</th><th className="r">{t('rh.collective')}</th><th className="r">{t('rh.hybrid')}</th><th>{t('col.status')}</th><th className="r"><span className="sr-only">{t('col.actions')}</span></th></tr></thead>
         <tbody>
           <tr>
-            <td>{official.sealed ? t('rh.modeSealed') : t('rh.modePreview')}</td><td className="num">{official.runId}</td><td>{t('ds.satimName')}</td>
+            <td>{t('rh.modeArchive')}</td><td className="num">{official.runId}</td><td>{t('ds.satimName')}<small className="muted block">{official.sealed ? t('rh.modeSealed') : t('rh.modePreview')}</small></td>
             <td className="num">{fmtRange(official.first, official.last, l)}</td><td className="r">—</td><td className="r">—</td><td>{t('rh.officialQuality')}</td><td>{t('rh.frozen')}</td>
             <td className="r num">{fmtInt(official.flagged, l)}</td><td className="r">—</td><td className="r">—</td>
-            <td>{!active ? <b>{t('col.platform')}</b> : t('col.ready')}</td><td className="r">{canExport && official.sealed && <a href="/api/v1/export/predictions" download>{t('rh.officialCsv')}</a>}</td>
+            <td>{satimDefault ? <b>{t('col.platform')}</b> : t('col.ready')}</td><td className="r">{canExport && official.sealed && <a href="/api/v1/export/predictions" download>{t('rh.officialCsv')}</a>}</td>
           </tr>
           {runs.map((r) => {
             const x = r.result;
             return (
               <tr key={r.run_id}>
-                <td>{t('rh.modeImport')}</td>
+                <td>{r.kind === 'view' ? t('rh.modeCombined') : t('rh.modeImport')}</td>
                 <td className="num"><button type="button" className="link-btn" onClick={() => onOpen(r.run_id)}>{r.run_id}</button><small className="muted block">{fmtStamp(r.created_at, l)}</small></td>
-                <td>{r.collection_name ?? '—'}<small className="muted block">{r.filenames.join(', ')} · {t(r.complete ? 'imp.complete' : 'imp.partial')}</small></td>
+                <td>{r.sources.length ? r.sources.map((x, i) => <Fragment key={x.id}>{i ? ', ' : ''}{shownName(x.name, t('ds.satimName'))}{x.deleted && <small className="muted"> ({t('rh.deleted')})</small>}</Fragment>) : r.collection_name ?? '—'}
+                  <small className="muted block">{r.filenames.length ? `${r.filenames.join(', ')} · ` : ''}{t(r.complete ? 'imp.complete' : 'imp.partial')}</small></td>
                 <td className="num">{x ? fmtRange(x.first_date, x.last_date, l) : '—'}</td>
                 <td className="r num">{x ? fmtInt(x.rows_processed, l) : '—'}</td><td className="r num">{x?.merchants != null ? fmtInt(x.merchants, l) : '—'}</td>
                 <td>{x ? t('rh.qualityLine', { dup: x.duplicates_removed, nfc: x.contactless_limit_events ?? 0 }) : '—'}</td>
@@ -310,7 +310,7 @@ function StatusCell({ c, inView, t }: { c: CollectionRow; inView: boolean; t: T 
   return <span className="col-status">{inView ? <><CheckCircle2 aria-hidden />{t('col.inView')}</> : c.last_error ? <span className="muted" title={c.last_error.message}>{t('col.lastImportFailed')}</span> : <span className="muted">{t('col.ready')}</span>}</span>;
 }
 
-function RowMenu({ c, t, canManage, busy, onOpen, onHistory, onImport, onRename, onTrash, platform, onPlatform }: { c: CollectionRow; t: T; canManage: boolean; busy: boolean; onOpen: () => void; onHistory: () => void; onImport: () => void; onRename: () => void; onTrash: () => void; platform: boolean; onPlatform: () => void }) {
+function RowMenu({ c, t, canManage, busy, onOpen, onHistory, onImport, onRename, onTrash, platform, platformFixed, onPlatform }: { c: CollectionRow; platformFixed?: boolean; t: T; canManage: boolean; busy: boolean; onOpen: () => void; onHistory: () => void; onImport: () => void; onRename: () => void; onTrash: () => void; platform: boolean; onPlatform: () => void }) {
   const ref = useRef<HTMLDetailsElement>(null);
   const run = (f: () => void) => () => { if (ref.current) ref.current.open = false; f(); };
   useEffect(() => {
@@ -322,17 +322,15 @@ function RowMenu({ c, t, canManage, busy, onOpen, onHistory, onImport, onRename,
     document.addEventListener('click', close); document.addEventListener('keydown', close);
     return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', close); };
   }, []);
-  const name = c.protected ? t('ds.satim') : c.name;
+  const name = shownName(c.name, t('ds.satimName'));
   return (
     <details ref={ref} className="row-menu">
       <summary className="icon-btn" aria-label={t('col.actionsFor', { name })} title={t('col.actions')}><MoreHorizontal aria-hidden /></summary>
       <div className="row-menu-pop" role="menu">
-        <button type="button" role="menuitem" disabled={!c.usable} onClick={run(onOpen)}><Database aria-hidden />{c.protected ? t('ds.return') : t('col.openAlone')}</button>
-        {canManage && c.usable && !(c.protected && platform) && <button type="button" role="menuitem" disabled={busy} onClick={run(onPlatform)}><Radio aria-hidden />{c.protected ? t('col.platformSatim') : platform ? t('col.platformOff') : t('col.platformOn')}</button>}
-        {!c.protected && <button type="button" role="menuitem" onClick={run(onHistory)}><History aria-hidden />{t('col.history')}</button>}
-        {c.protected
-          ? <span className="row-menu-note"><Lock aria-hidden />{t('col.protectedNote')}</span>
-          : canManage && <>
+        <button type="button" role="menuitem" disabled={!c.usable} onClick={run(onOpen)}><Database aria-hidden />{t('col.openAlone')}</button>
+        {canManage && c.usable && !platformFixed && <button type="button" role="menuitem" disabled={busy} onClick={run(onPlatform)}><Radio aria-hidden />{platform ? t('col.platformOff') : t('col.platformOn')}</button>}
+        <button type="button" role="menuitem" onClick={run(onHistory)}><History aria-hidden />{t('col.history')}</button>
+        {canManage && <>
             <button type="button" role="menuitem" disabled={busy} onClick={run(onImport)}><FileUp aria-hidden />{t('col.addFiles')}</button>
             <button type="button" role="menuitem" disabled={busy} onClick={run(onRename)}><Pencil aria-hidden />{t('col.rename')}</button>
             <button type="button" role="menuitem" className="danger" disabled={busy || !!c.pending} onClick={run(onTrash)}><Trash2 aria-hidden />{t('col.trash')}</button>
@@ -408,6 +406,8 @@ function ImportDialog({ t, into, collections, selection, onClose, onStarted }: {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => { dialog.current?.showModal(); }, []);
 
+  const nameOf = (id: string) => shownName(collections.find((c) => c.id === id)?.name ?? '', t('ds.satimName'));
+  const shownNow = selection.map(nameOf).filter(Boolean).join(', ') || t('ds.none');
   const valid = files.filter((f) => f.phase === 'done' && f.check?.ok);
   const pending = files.some((f) => f.phase === 'uploading' || f.phase === 'checking');
   const target = mode === 'existing' ? dest : '';
@@ -452,7 +452,11 @@ function ImportDialog({ t, into, collections, selection, onClose, onStarted }: {
     }
   }
 
-  const destName = mode === 'existing' ? collections.find((c) => c.id === dest)?.name : (name.trim() || defaultName);
+  const destName = mode === 'existing' ? (dest ? nameOf(dest) : undefined) : (name.trim() || defaultName);
+  // what the pages will show once the analysis succeeds, said before anything is submitted
+  const scopeText = mode === 'existing'
+    ? (selection.includes(dest) ? t('imp.scopeInView', { name: destName ?? '', shown: shownNow }) : t('imp.scopeNotInView', { name: destName ?? '', shown: shownNow }))
+    : join && selection.length ? t('imp.scopeJoin', { name: destName ?? '', shown: shownNow }) : t('imp.scopeAlone', { name: destName ?? '', shown: shownNow });
   const canStart = !!shown?.data?.ok && !pending && valid.length > 0 && (mode === 'new' ? !!(name.trim() || defaultName) : !!dest);
 
   async function start() {
@@ -531,10 +535,10 @@ function ImportDialog({ t, into, collections, selection, onClose, onStarted }: {
                 <label className="field">{t('imp.chooseCollection')}
                   <select value={dest} onChange={(e) => setDest(e.target.value)} required>
                     <option value="">{activeEditable.length > 1 ? t('imp.chooseRequired') : t('imp.choose')}</option>
-                    {collections.map((c) => <option key={c.id} value={c.id}>{c.name}{selection.includes(c.id) ? ` · ${t('col.inView')}` : ''}</option>)}
+                    {collections.map((c) => <option key={c.id} value={c.id}>{nameOf(c.id)}{selection.includes(c.id) ? ` · ${t('col.inView')}` : ''}</option>)}
                   </select>
                 </label>
-                <p className="muted small"><Lock aria-hidden className="inline-ico" />{t('imp.satimProtected')}</p>
+                {activeEditable.length > 1 && !dest && <p className="muted small">{t('imp.ambiguous', { n: activeEditable.length })}</p>}
               </div>
             )}
           </fieldset>
@@ -551,6 +555,7 @@ function ImportDialog({ t, into, collections, selection, onClose, onStarted }: {
                 <div><dt>{t('imp.factDuplicates')}</dt><dd>{fmtInt(p.duplicates_within + p.duplicates_existing, t.locale)}{p.duplicates_existing > 0 && <small className="block muted">{t('imp.dupExisting', { n: p.duplicates_existing })}</small>}{p.duplicates_within > 0 && <small className="block muted">{t('imp.dupWithin', { n: p.duplicates_within })}</small>}</dd></div>
                 <div className="hl"><dt>{mode === 'existing' ? t('imp.factToAdd') : t('imp.factReady')}</dt><dd>{fmtInt(p.rows_ready, t.locale)}</dd></div>
               </dl>
+              <p className="import-scope" role="note">{scopeText}</p>
               {p.invalid_rows > 0 && <p className="muted small">{t('imp.invalidRows', { n: p.invalid_rows })}</p>}
               {p.already.length > 0 && <p className="ok-note">{t('imp.alreadyIn', { files: p.already.map((a) => a.filename).join(', ') })}</p>}
               {p.errors.length > 0 && <div className="import-msgs bad" role="alert"><b><XCircle aria-hidden />{t('imp.mustFix')}</b><ul>{p.errors.map((m) => <li key={m.code}>{msgText(t, m)}</li>)}</ul></div>}
