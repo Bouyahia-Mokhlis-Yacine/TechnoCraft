@@ -53,7 +53,6 @@ const QUESTION: Record<string, (a: Args) => string> = {
   channel_activity: (a) => `Which channels show concurrent abnormal behaviour ${per(a)}${ch(a)}`,
   top_declines: (a) => `Which merchants have the most declines ${per(a)}`,
   hybrid_evidence: (a) => 'Hybrid ML investigation candidates ' + per(a) + mer(a),
-  domain_evidence: (a) => 'Contactless limit breaches ' + per(a) + mer(a),
   data_quality: () => 'Data quality audit',
   business_impact: (a) => 'Business impact ' + per(a) + mer(a),
   activity_shortfall: (a) => `Which merchants had the largest activity shortfall ${per(a)}`,
@@ -258,8 +257,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     // the operational evidence tools: the description is all the model knows about each one
     const OPERATIONAL: Record<string, string> = {
       hybrid_evidence: 'Hybrid ML intelligence (Isolation Forest fused with the probabilistic score): advisory investigation candidates, including merchant-days the official detector did not flag, with their main abnormal feature groups. Advisory only, never an official anomaly.',
-      domain_evidence: 'Contactless domain rule: transactions above the 2,500 DZD contactless limit (counts per merchant and period). Use for any question about contactless limits, limit breaches or limit violations. These are transaction-level rule checks, not anomalies and not card data.',
-      data_quality: 'Data quality audit of the dataset: duplicates removed, missing amounts, negative amounts, missing categories, unknown channels, cold-start merchants, contactless limit violations and known synthetic-data limitations.',
+      data_quality: 'Data quality audit of the dataset: duplicates removed, missing amounts, negative amounts, missing categories, unknown channels, cold-start merchants, known synthetic-data limitations.',
       business_impact: 'Estimated business impact of incidents: expected vs observed transactions, transaction shortfall, gross affected payment activity (not a confirmed loss), excess rejections, with uncertainty intervals.',
     };
     const operational = Object.keys(OPERATIONAL).map((name) => ({

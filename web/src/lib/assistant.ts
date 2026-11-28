@@ -1,7 +1,7 @@
 // "Ask the Dashboard" (SRS FR-45–47): a local, read-only assistant. Every answer is built from the
 // engine snapshot through an allowlist of queries below; nothing leaves the machine, no free-form
 // query reaches the data, and nothing can change a flag, score or review.
-import { getOverview, listAdvisories, listTransactions, merchantHealth, rankedIncidents, type Ranked } from './api';
+import { getOverview, listAdvisories, merchantHealth, rankedIncidents, type Ranked } from './api';
 import { addDays, model, PLAYBOOK, type Anomaly } from './model';
 import { incidentHypotheses } from './insights';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct } from './format';
@@ -272,19 +272,6 @@ function hybrid(c: Ctx, out: Reply) {
   out.evidence.push({ label: 'Hybrid ML investigation evidence', href: '/intelligence?tab=ml' });
 }
 
-function domain(c: Ctx, out: Reply) {
-  const rule = model().snap.domain_rules.contactless;
-  const scope = { from: c.from, to: c.to, merchant: c.merchant ?? undefined };
-  const breaches = listTransactions({ ...scope, contactless: 'breach' }, 1).total;
-  const known = breaches + listTransactions({ ...scope, contactless: 'within' }, 1).total;
-  out.text.push(c.lang === 'fr'
-    ? fmtInt(breaches) + ' paiements sans contact sur ' + fmtInt(known) + ' montants valides dépassent ' + fmtInt(rule.limit_dzd) + ' DZD. La fréquence élevée reflète les données synthétiques.'
-    : fmtInt(breaches) + ' of ' + fmtInt(known) + ' contactless events with valid amounts exceed ' + fmtInt(rule.limit_dzd) + ' DZD. ' + rule.limitation);
-  out.evidence.push({ label: 'Contactless evidence', href: '/transactions?' + new URLSearchParams({
-    from: c.from, to: c.to, contactless: 'breach', ...(c.merchant ? { merchant: c.merchant } : {}),
-  }) });
-}
-
 function quality(c: Ctx, out: Reply) {
   const r = model().snap.run;
   const rows = [['Retained events', r.cleaning.retained_events], ['Exact duplicates', r.cleaning.exact_duplicate],
@@ -311,7 +298,6 @@ function impact(c: Ctx, out: Reply) {
 const INTENTS: { name: string; test: (c: Ctx) => boolean; run: (c: Ctx, o: Reply) => void; what: (c: Ctx) => string }[] = [
   { name: 'help', test: (c) => /^(help|aide|\?)$|what can you|que (peux|sais)-tu|que pouvez/.test(c.n), run: () => {}, what: () => 'help' },
   { name: 'hybrid', test: (c) => /\b(v4|ml|isolation forest|investigation candidate)\b/.test(c.n), run: hybrid, what: (c) => c.merchant ?? 'Hybrid ML advisory' },
-  { name: 'domain', test: (c) => /(contactless|nfc|sans contact)/.test(c.n) && /(limit|breach|violation|seuil|plafond)/.test(c.n), run: domain, what: (c) => c.merchant ?? 'contactless channel' },
   { name: 'quality', test: (c) => /(data quality|data audit|negative amount|missing amount|qualite des donnees)/.test(c.n), run: quality, what: () => 'whole archive' },
   { name: 'impact', test: (c) => /(business impact|payment impact|gross affected|value shortfall|impact economique)/.test(c.n), run: impact, what: (c) => c.merchant ?? 'incident impact' },
   { name: 'cause', test: (c) => CAUSE.test(c.n), run: cause, what: (c) => c.channel ?? c.merchant ?? 'network' },

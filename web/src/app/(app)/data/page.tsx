@@ -101,7 +101,6 @@ async function Data() {
           <section className="panel m-rise">
             <div className="panel-head"><div><h2>{t('data.limits')}</h2></div></div>
             <ul className="reasons">
-              <li>{t('data.limitContactless', { n: c.contactless_limit_events })}</li>
               <li>{t('data.limitNegative', { n: c.negative_amount })}</li>
               <li>{t('data.limitNew')}</li>
               <li>{t('data.limitFeed')}</li>

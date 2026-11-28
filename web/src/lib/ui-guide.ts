@@ -88,7 +88,6 @@ const PAGES: GuidePage[] = [
       { name: 'Live activity', explains: 'Metrics and four charts: observed against expected activity with a 90 % band and warning markers, cumulative activity, rejections and cancellations, accepted value.' },
       { name: 'Intraday early warnings', explains: 'Warnings raised during the day for a merchant, channel or category, with their state, score and timeline.' },
       { name: 'Collective advisories', explains: 'Warnings shared by several merchants at the same time.' },
-      { name: 'Transaction domain evidence', explains: 'Contactless payments above the 2,500 DZD limit: observations, not anomalies.' },
       { name: 'Simulated daily closure', explains: 'The days scored and flagged once each simulated day closes.' },
     ],
     controls: [
@@ -232,7 +231,6 @@ const PAGES: GuidePage[] = [
     controls: [
       { names: ['Status', 'Statut'], does: 'Accepted, Declined, Cancelled, Refunded or Unknown.' },
       { names: ['Quality', 'Qualité'], does: 'Rows with a missing, negative or invalid amount, an unknown channel or a recovered category.' },
-      { names: ['Contactless', 'Sans contact'], does: 'Contactless payments over the 2,500 DZD limit or within it.' },
       { names: ['Min DZD', 'Max DZD'], does: 'Amount range; press Enter to apply.' },
       { names: ['Sort', 'Tri'], does: 'Newest, largest or smallest amount, or status.' },
       { names: ['Full data audit'], does: 'Opens Data & runs.' },
@@ -340,7 +338,7 @@ const PAGES: GuidePage[] = [
   },
   {
     key: 'rules', route: '/rules', name: 'Custom rules', fr: 'Règles métier',
-    purpose: 'SATIM\'s own operational rules built without code (for example contactless payments above 2,500 DZD). They never change the AI model, its thresholds or the official predictions; their matches are shown apart and linked to AI alerts on the same merchant-day.',
+    purpose: 'SATIM\'s own operational rules built without code (for example a rejection rate above a set level for a merchant). They never change the AI model, its thresholds or the official predictions; their matches are shown apart and linked to AI alerts on the same merchant-day.',
     panels: [{ name: 'Rules', explains: 'Every rule with its version, status, matches on the selected data and last trigger.' }, { name: 'Company rule results', explains: 'Matches of the active rules on the selected operational collection, with observed values and whether the AI also flagged that merchant-day.' }],
     controls: [
       { names: ['New rule', 'Nouvelle règle', 'Edit', 'Modifier'], does: 'Opens the builder: name, justification, scope, granularity, conditions combined with AND or OR, consecutive days, severity, action, recommendation and effective date.', who: 'needs the Manage company rules permission' },
@@ -380,7 +378,6 @@ const TERMS: { term: string; names: string[]; means: string }[] = [
   { term: 'Hybrid ML investigation candidate', names: ['hybrid', 'hybride', 'ml', 'isolation forest', 'candidate'], means: 'Advisory machine-learning ranking to investigate; never an official alert.' },
   { term: 'Forecast', names: ['forecast', 'prévision', 'next 7 days'], means: 'Advisory expected activity with an 80 % range; it never raises alerts.' },
   { term: 'Decline rate', names: ['decline', 'refus', 'rejection', 'rejet'], means: 'Share of transactions declined; a jump often points to an issuer, gateway or terminal problem (to confirm with reason codes).' },
-  { term: 'Contactless limit', names: ['contactless', 'sans contact', 'nfc', '2,500', '2500'], means: 'Contactless payments above 2,500 DZD are a domain rule observation, shown separately from anomalies.' },
   { term: 'Collection and dataset', names: ['collection', 'dataset', 'jeu de données', 'satim dataset', 'combined view'], means: 'The official SATIM data is protected; imported collections can be shown instead, for one account or for everyone.' },
   { term: 'Cold start', names: ['new', 'learning', 'nouveau', 'apprentissage', 'cold start', 'category reference'], means: 'A merchant with too little history is compared with its category until it has its own reference.' },
   { term: 'Validation', names: ['precision', 'recall', 'f1', 'validation', 'false alert'], means: 'How the engine did on the labelled period: anomaly days caught, false alerts and missed days.' },
