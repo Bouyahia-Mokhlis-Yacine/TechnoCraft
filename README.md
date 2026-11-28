@@ -85,11 +85,11 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in as `admin`: its 
 
 ### Verify the release candidate on Windows
 
-From a Conda-enabled PowerShell at the repository root, on the `rc-final` tag:
+From a Conda-enabled PowerShell at the repository root, on the final release candidate tag `rc-final-3`:
 
 ```powershell
 git fetch origin --tags
-git checkout rc-final
+git checkout rc-final-3
 $env:PYTHONNOUSERSITE = '1'
 conda env update -n satim-sealed -f environment.sealed-win.yml --prune   # or: conda env create -f environment.sealed-win.yml
 conda activate satim-sealed
