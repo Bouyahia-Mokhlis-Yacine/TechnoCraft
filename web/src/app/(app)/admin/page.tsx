@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { ACTIONS, MIN_PASSWORD, PAGES, listAccounts, type ActionKey, type PageKey, type User } from '@/lib/accounts';
 import { currentUser } from '@/lib/session';
 import { PageHeader } from '@/components/ui';
+import { AccessCells } from '@/components/access-cells';
 import { create, remove, resetOwnPassword, resetPassword, update } from './actions';
 import { makeT, type Key, type T } from '@/lib/i18n';
 import { getT } from '@/lib/i18n/server';
@@ -25,24 +26,13 @@ export default function AdminPage({ searchParams }: { searchParams: SP }) {
   return <Suspense fallback={null}><Admin searchParams={searchParams} /></Suspense>;
 }
 
-/** Page and action ticks, shared by the create and edit forms. */
+/** Page and action cells, shared by the create and edit forms. */
 function Access({ pages, actions }: { pages: PageKey[]; actions: ActionKey[] }) {
   const t = makeT();
   return (
-    <>
-      <fieldset className="checks">
-        <legend>{t('acct.pages')}</legend>
-        {(Object.keys(PAGES) as PageKey[]).map((k) => (
-          <label key={k}><input type="checkbox" name="pages" value={k} defaultChecked={pages.includes(k)} />{pageName(t, k)}</label>
-        ))}
-      </fieldset>
-      <fieldset className="checks">
-        <legend>{t('acct.actions')}</legend>
-        {(Object.keys(ACTIONS) as ActionKey[]).map((k) => (
-          <label key={k} title={actionHelp(t, k)}><input type="checkbox" name="actions" value={k} defaultChecked={actions.includes(k)} />{actionName(t, k)}<small>{actionHelp(t, k)}</small></label>
-        ))}
-      </fieldset>
-    </>
+    <AccessCells pageLegend={t('acct.pages')} actionLegend={t('acct.actions')} initialPages={pages} initialActions={actions}
+      pages={(Object.keys(PAGES) as PageKey[]).map((k) => ({ key: k, label: pageName(t, k) }))}
+      actions={(Object.keys(ACTIONS) as ActionKey[]).map((k) => ({ key: k, label: actionName(t, k), help: actionHelp(t, k) }))} />
   );
 }
 
