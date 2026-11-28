@@ -83,6 +83,36 @@ npm start -- --hostname 127.0.0.1
 
 Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in as `admin`: its password is `ADMIN_PASSWORD` if set at first start, otherwise it is written to `runs/admin-password.txt`. The administrator creates the other accounts on **Accounts**. With `LLM_URL` set the HPC model answers in the assistant; without it, or when it fails, the built-in deterministic assistant answers and the chat shows "Fallback mode". The export writes `runs/<run_id>/snapshot.json`, a matching per-run prediction CSV, `runs/latest.json` and the root `y_pred_anomalies.csv`. It checks both sealed digests before publishing. A new snapshot is read on the next request without rebuilding the website.
 
+### Verify the release candidate on Windows
+
+From a Conda-enabled PowerShell at the repository root, on the `rc-final` tag:
+
+```powershell
+git fetch origin --tags
+git checkout rc-final
+$env:PYTHONNOUSERSITE = '1'
+conda env update -n satim-sealed -f environment.sealed-win.yml --prune   # or: conda env create -f environment.sealed-win.yml
+conda activate satim-sealed
+python -m engine.export --runs-dir runs-rc                                # must report "Sealed digest match: True"
+(Get-FileHash y_pred_anomalies.csv -Algorithm SHA256).Hash                 # 4613FBE37E1DD6BF104119943753928733B30E82DCA30E6EFE07CCD7EAA6DDFF
+git status --porcelain                                                     # must print nothing: the CSV was rewritten byte for byte
+python -m unittest tests.test_snapshot tests.test_import_batch tests.test_live_monitoring tests.test_continuous_learning
+Set-Location web
+npm ci
+npx tsc --noEmit
+npm run lint
+npm run build
+$env:RUNS_DIR = (Resolve-Path ..\runs-rc).Path
+$env:ADMIN_PASSWORD = 'rc-verification-only'
+Start-Process -NoNewWindow npm -ArgumentList 'start','--','-p','3100'
+Start-Sleep 8
+$env:SATIM_TEST_ORIGIN = 'http://127.0.0.1:3100'
+$env:SATIM_TEST_PASSWORD = 'rc-verification-only'
+node scripts/verify.mjs                                                    # no preview flag: sealed parity must be true
+```
+
+The export checks the 280 development and 711 official score–flag pairs against the sealed digests (`d29398ed…` for the official pairs) and refuses to publish otherwise. `runs-rc` keeps this verification apart from the demo's `runs/`; delete it afterwards.
+
 ### Linux or a pip-based development environment
 
 ```bash

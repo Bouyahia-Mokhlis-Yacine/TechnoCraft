@@ -24,6 +24,8 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
 
 **2026-11-28 second pass**: continuous learning merged (`4cf98c0`, from `0805305`); dataset-scoped reports, PDF, simulator and assistant, French live explanations, forecast vintages (`c6086e7`); learning adapter, import feed and `/learning` (`e6bb1eb`). Learning state lives in `runs/continuous_learning/` (private); vintages in `runs/forecast-vintages/`.
 
+**Release candidate**: tag `rc-final` on `final-platform-integration`. Feature freeze: only release-blocking fixes. Do not merge into `main` until the sealed Windows verification (README "Verify the release candidate on Windows") passes on that tag. Merging changes main's `y_pred_anomalies.csv` from the pre-sealed `5a8952c6…` to the sealed `4613fbe3…`.
+
 **Running processes**
 - Replay service: `python -m src.live_monitoring.service` on 127.0.0.1:8765 (state `runs/live-monitoring/replay.sqlite3`, log `.verification/live-service.log`). Its token is `LIVE_MONITORING_TOKEN` in `web/.env.local` (private, git-ignored); start the service with the same value.
 - Demo on port 3000, all interfaces (the team reaches it at `http://10.80.223.212:3000`).

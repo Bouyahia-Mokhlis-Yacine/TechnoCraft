@@ -2,6 +2,27 @@
 
 Branch `final-platform-integration`, built on 27 November 2026 from `main` (`e98cf7d`) plus the latest frontend work, with `origin/backend-integration` (`c7f7586`) merged in. Linux preview checks ran on Fedora (Node.js 22.23, Python 3.12.7), and sealed release verification ran on Windows (Node.js 20.19.5, `.verification/sealed-env` Python 3.12.7), where the live local demo server on port `3000` serves sealed run `4d13a45b617d44b4`.
 
+## Release candidate `rc-final` (2026-11-28, feature freeze)
+
+Branches integrated: `backend-integration`, `live-monitoring-integration` (`88beefc`, `6dafe17`), `continuous-learning-integration` (`0805305`); `git branch -r --no-merged` is empty. `stash@{0}` (a teammate's full-width Overview grid) is intentionally not applied: it contradicts the agreed two-column layout, now balanced by `components/balanced.tsx`.
+
+**Against `main`:** every `config/` difference is an added file; `y_pred_anomalies.csv` changes from the pre-sealed `5a8952c6…` on main to the sealed `4613fbe3…` (commit `a2ae29a`). No frozen `src/` file is modified (only additions). Merging therefore replaces main's submission with the sealed one, which the Windows run must reproduce byte for byte.
+
+**Operational model activation (isolated copy of the test ledger, real `_switch` and the real import learning step):** 14–20 Nov stay on the baseline, 21–27 Nov are scored by the activated model, and every incident open on 20 Nov continues on 21 Nov with the same id and pinned reference (one moved from observation to active). The real rule set the effective day to the next unscored date (29 Nov); it was forced to 21 Nov only in that copy. Gate, pinned-version and rollback logic are covered by `tests/test_continuous_learning.py`.
+
+| Regression check (Linux) | Result |
+| --- | --- |
+| Python `unittest` (import, bridge, live, snapshot, continuous learning) | 29 passed |
+| TypeScript · ESLint · production build · formula self-test | pass · 0 problems · pass · pass |
+| `verify.mjs` (`SATIM_TEST_ALLOW_PREVIEW=1`) | journeys, API parity, review locking, CSV/PDF, responsive: passed |
+| `verify-live.mjs` | passed (assistant answered by the model) |
+| Hydration FR/EN, 11 pages; horizontal overflow at 1440/390 px | clean; none |
+| Mascot state flow in the dock | listening → thinking → success, no page errors |
+| Official artifacts | `y_pred_anomalies.csv` `4613fbe3…`; config and input fingerprints OK |
+| Isolation | the real `runs/` has no learning ledger, forecast vintages or activation file; all experiments ran in scratch copies |
+
+**Sealed Windows verification (to run on the tag):** see README "Verify the release candidate on Windows".
+
 ## Dataset consistency, forecast history and continuous learning (2026-11-28, second pass)
 
 | Check (Linux, isolated `RUNS_DIR`) | Result |
