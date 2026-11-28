@@ -49,6 +49,10 @@ The AI team's backend (`src/continuous_learning`, `docs/CONTINUOUS_LEARNING_API.
 3. Reviewers label queued merchant-days; a different supervisor approves or rejects. Unflagged or closed days are never treated as verified normal.
 4. A supervisor registers a learning job (fit, calibration and evaluation windows), runs it, shadow-scores the evaluation dates prospectively, compares it with the champion and activates it only when the service's gate passes. Rollback restores the previous model from the next unscored date.
 
+## Assistant mascot
+
+The assistant is the SATIM 3D mascot (`web/public/brand/satim-assistant.glb`, rendered with three.js, bundled locally). Its states follow the chat: idle, wave, thinking, typing and sleeping come from the model's own animations; listening, success and error are generated in `web/src/components/mascot.tsx` from the same nodes. Message avatars use a still render (`assistant-mascot.png`). Reduced motion shows a still pose; without WebGL the still image is shown.
+
 ## Run the Live Monitoring workspace
 
 Use the project's Python and Node environments and an existing published platform snapshot. The replay service reads the training archive and serves isolated simulations. The frozen daily detector remains authoritative for the official competition submission.

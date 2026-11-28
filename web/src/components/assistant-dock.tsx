@@ -7,7 +7,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Maximize2, Sparkles, SquarePen, X } from 'lucide-react';
+import { Maximize2, SquarePen, X } from 'lucide-react';
+import Image from 'next/image';
+import { Mascot, MASCOT_POSTER } from './mascot';
 import { Chat } from './chat';
 import { useT } from './i18n';
 import type { Key, T } from '@/lib/i18n';
@@ -53,6 +55,7 @@ function suggestionsFor(path: string, t: T): string[] {
 export function AssistantDock() {
   const path = usePathname(), search = useSearchParams().toString(), router = useRouter(), t = useT();
   const [open, setOpen] = useState(false);
+  const [hi, setHi] = useState(false);   // pointer or focus on the launcher: the mascot waves
   const [session, setSession] = useState(0);            // bumps to start a new conversation
   const [convId, setConvId] = useState<string | null>(null);
   const panel = useRef<HTMLElement>(null);
@@ -117,15 +120,16 @@ export function AssistantDock() {
   const name = pageName(path, t);
   return (
     <div className="dock no-print" style={{ viewTransitionName: 'assistant-dock' }}>
-      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}`} onClick={openPanel} aria-label={t('dock.launch')} title={t('dock.launchShort')} aria-expanded={open}>
-        <Sparkles aria-hidden />
+      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}`} onClick={openPanel} aria-label={t('dock.launch')} title={t('dock.launchShort')} aria-expanded={open}
+        onPointerEnter={() => setHi(true)} onPointerLeave={() => setHi(false)} onFocus={() => setHi(true)} onBlur={() => setHi(false)}>
+        {open ? null : <Mascot state={hi ? 'wave' : 'idle'} size={58} />}
       </button>
       <AskSelection onAsk={attach} />
       {picking && <PickOverlay onPick={attach} onCancel={cancelPick} />}
       <section ref={panel} className={`dock-panel${open ? ' open' : ''}${pos ? ' moved' : ''}${picking ? ' picking' : ''}`} role="dialog" aria-label={t('nav.assistant')} inert={!open}
         style={pos ? { left: pos.x, top: pos.y, right: 'auto', bottom: 'auto' } : undefined}>
         <header className="dock-head" onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onDoubleClick={resetPos} title={t('dock.drag')}>
-          <span className="dock-title"><Sparkles aria-hidden /><span><b>{t('nav.assistant')}</b><small>{t('dock.on', { page: name })}</small></span></span>
+          <span className="dock-title"><Image src={MASCOT_POSTER} alt="" width={26} height={26} /><span><b>{t('nav.assistant')}</b><small>{t('dock.on', { page: name })}</small></span></span>
           <button type="button" onClick={() => { setSession((n) => n + 1); setConvId(null); setAttachments(() => []); }} aria-label={t('chat.new')} title={t('chat.new')}><SquarePen aria-hidden /></button>
           <Link href={convId ? `/assistant?c=${convId}` : '/assistant'} onClick={() => setOpen(false)} aria-label={t('dock.openPage')} title={t('dock.openPage')}><Maximize2 aria-hidden /></Link>
           <button type="button" onClick={() => { setOpen(false); launcher.current?.focus(); }} aria-label={t('dock.close')} title={t('common.close')}><X aria-hidden /></button>

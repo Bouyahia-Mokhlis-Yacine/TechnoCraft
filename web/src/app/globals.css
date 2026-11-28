@@ -1701,3 +1701,14 @@ body.dr-open .dock-launch, body:has(.dataset-menu[open], .row-menu[open]) .dock-
 .cl-item { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); display: grid; gap: var(--space-2); }
 .cl-item-head { font-size: 14px; } .cl-history { margin: 0; padding-inline-start: 1.2em; font-size: 13px; }
 .cl-cmp { display: grid; gap: var(--space-2); }
+
+/* ══ 2026-11-28: SATIM assistant mascot (components/mascot.tsx, public/assistant/satim-assistant.glb) ══ */
+.mascot { display: inline-grid; place-items: center; flex-shrink: 0; pointer-events: none; }
+.mascot canvas, .mascot img { width: 100% !important; height: 100% !important; display: block; }
+.mascot-hero { margin: 0 auto var(--space-2); }
+.mascot-composer { align-self: flex-end; margin-inline-end: var(--space-1); }
+.dock-launch { width: 64px; height: 64px; background: var(--surface); border: 2px solid var(--primary); overflow: hidden; }
+.dock-launch:hover { background: var(--surface); }
+.dock-launch .mascot { margin-top: 6px; }
+.ai-avatar img { width: 28px; height: 28px; display: block; }
+.dock-title img { width: 26px; height: 26px; flex-shrink: 0; }

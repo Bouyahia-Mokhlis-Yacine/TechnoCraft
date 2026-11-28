@@ -4,8 +4,10 @@
 // before. Motion: the question rises, three dots while the server answers, the answer appears word
 // by word with a caret, evidence chips pop in.
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
+import { Mascot, MASCOT_POSTER, type MascotState } from './mascot';
 import Link from 'next/link';
-import { ArrowUp, Sparkles, Database, Link2, Languages, Download, SquarePen, Trash2, PanelLeftClose, PanelLeftOpen, Crosshair, X } from 'lucide-react';
+import { ArrowUp, Database, Link2, Languages, Download, SquarePen, Trash2, PanelLeftClose, PanelLeftOpen, Crosshair, X } from 'lucide-react';
 import type { Reply } from '@/lib/assistant';
 import type { Conversation, ConversationInfo } from '@/lib/conversations';
 import type { Selection } from '@/lib/selection';
@@ -66,6 +68,9 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
   const scrollRef = useRef<HTMLDivElement>(null);
   // is the language model reachable? (checked on open and refreshed by every answer)
   const [modelState, setModelState] = useState<'online' | 'offline' | 'off' | null>(null);
+  // the mascot: a one-shot reaction (wave, success, error) wins, then what the chat is doing; asleep after 90 s idle
+  const [flash, setFlash] = useState<MascotState | null>('wave');
+  const [asleep, setAsleep] = useState(false);
   const checkModel = () => fetch('/api/v1/assistant/status').then((r) => r.json()).then((d) => setModelState(d.model ?? null)).catch(() => {});
   useEffect(() => { checkModel(); }, []);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -108,6 +113,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t('chat.failed'));
+      setFlash('error');
     } finally {
       setBusy(false);
     }
@@ -153,6 +159,21 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
   useEffect(() => { if (initial && !asked.current) { asked.current = true; ask(initial); } });
 
   const empty = !msgs.length && !busy && !loading;
+  const streaming = msgs.some((m) => m.role === 'assistant' && m.shown < m.total);
+  const wasStreaming = useRef(false);
+  useEffect(() => {   // an answer finished revealing: a short "success" reaction
+    const done = wasStreaming.current && !streaming;
+    wasStreaming.current = streaming;
+    if (!done) return;
+    const id = setTimeout(() => setFlash('success'), 0);
+    return () => clearTimeout(id);
+  }, [streaming]);
+  useEffect(() => { if (!flash) return; const id = setTimeout(() => setFlash(null), flash === 'wave' ? 1500 : 1400); return () => clearTimeout(id); }, [flash]);
+  useEffect(() => {   // any activity wakes it; 90 s without any puts it to sleep
+    const wake = setTimeout(() => setAsleep(false), 0), sleep = setTimeout(() => setAsleep(true), 90_000);
+    return () => { clearTimeout(wake); clearTimeout(sleep); };
+  }, [draft, msgs.length, busy, streaming]);
+  const mascot: MascotState = flash ?? (busy || loading ? 'thinking' : streaming ? 'typing' : draft.trim() ? 'listening' : asleep ? 'sleeping' : 'idle');
   const grow = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 200)}px`; };
   const when = (iso: string) => fmtStamp(iso, t.locale);
   return (
@@ -189,6 +210,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
           <div className="chat-col">
             {empty && (
               <div className="chat-empty m-fade">
+                <Mascot state={mascot} size={dock ? 104 : 150} className="mascot-hero" />
                 <h2>{emptyTitle ?? t('chat.emptyTitle')}</h2>
                 <p className="sr-only">{t('chat.facts')}</p>
                 <div className="chat-facts" aria-hidden><span><Database />{t('chat.factData')}</span><span><Link2 />{t('chat.factEvidence')}</span><span><Languages />FR · EN · Darija</span></div>
@@ -198,7 +220,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
               ? <div key={m.id} className="msg-user m-rise">{m.selection?.length ? <div className="msg-sel">{m.selection.map((l, i) => <span key={i}><Crosshair aria-hidden />{l}</span>)}</div> : null}<p dir="auto">{m.text}</p>{m.page && !dock && <Link href={m.page.href} className="asked-from">{t('chat.askedOn', { page: m.page.title })}</Link>}</div>
               : (
                 <div key={m.id} className={`msg-ai m-fade${m.reply.refused ? ' refused' : ''}`}>
-                  <span className="ai-avatar" aria-hidden><Sparkles /></span>
+                  <span className="ai-avatar" aria-hidden><Image src={MASCOT_POSTER} alt="" width={28} height={28} /></span>
                   <div className="ai-body">
                     {reveal(m.reply.text, m.shown).map((p, i, a) => <p key={i} dir="auto" className={i === a.length - 1 && m.shown < m.total ? 'm-caret' : ''}>{ids(p)}</p>)}
                     {m.shown >= m.total && m.reply.table && (
@@ -222,7 +244,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
                   </div>
                 </div>
               ))}
-            {(busy || loading) && <div className="msg-ai"><span className="ai-avatar" aria-hidden><Sparkles /></span><div className="ai-body typing" aria-label={loading ? t('common.loading') : t('chat.thinking')}><span className="m-typing"><span /><span /><span /></span></div></div>}
+            {(busy || loading) && <div className="msg-ai"><span className="ai-avatar" aria-hidden><Image src={MASCOT_POSTER} alt="" width={28} height={28} /></span><div className="ai-body typing" aria-label={loading ? t('common.loading') : t('chat.thinking')}><span className="m-typing"><span /><span /><span /></span></div></div>}
             {error && <p className="err" role="alert">{error}</p>}
           </div>
         </div>
@@ -243,6 +265,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
               </div>
             )}
             <form className="chat-input" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
+              {!empty && <Mascot state={mascot} size={44} className="mascot-composer" />}
               {onPick && <button type="button" className={`pick-btn${picking ? ' on' : ''}`} onClick={onPick} aria-pressed={picking} aria-label={t('chat.pick')} title={t('chat.pick')}><Crosshair aria-hidden /></button>}
               <textarea ref={inputRef} dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); grow(e.target); }} rows={1} maxLength={500} placeholder={attachments.length ? t('chat.askSelection') : convId ? t('chat.followUp') : t('chat.ask')} aria-label={t('chat.yourQuestion')}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(draft); e.currentTarget.style.height = 'auto'; } }} />
