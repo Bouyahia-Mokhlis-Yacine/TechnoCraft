@@ -21,6 +21,7 @@ export const PAGES = {
   reports: { label: 'Reports', path: '/reports' },
   data: { label: 'Data & runs', path: '/data' },
   learning: { label: 'Controlled learning', path: '/learning' },
+  rules: { label: 'Custom rules', path: '/rules' },
 } as const;
 export type PageKey = keyof typeof PAGES;
 
@@ -32,6 +33,7 @@ export const ACTIONS = {
   replay: { label: 'Control live replay', help: 'Start, pause, step and reset your training replay', can: ['replay'] },
   label: { label: 'Expert labelling', help: 'Review queued merchant-days and submit labels', can: ['label'] },
   supervise: { label: 'Supervise learning', help: 'Approve labels, run learning jobs, activate and roll back models', can: ['supervise'] },
+  rules: { label: 'Manage company rules', help: 'Create, test, activate and roll back company rules', can: ['rules'] },
 } as const;
 export type ActionKey = keyof typeof ACTIONS;
 

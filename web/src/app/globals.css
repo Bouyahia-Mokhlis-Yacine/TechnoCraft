@@ -1825,3 +1825,19 @@ a.sev-count:focus-visible { outline: 2px solid var(--focus-ring); outline-offset
 .ms-list li.is-done span { font-variant-numeric: tabular-nums; font-weight: 600; }
 .cl-start { margin: var(--space-2) 0; padding-left: 1.2em; display: grid; gap: 4px; }
 .sev-counts { width: 100%; }
+
+/* ══ 2026-11-28: custom rules workspace (components/rules.tsx) ══ */
+.rule-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); margin-bottom: var(--space-3); }
+.rule-grid .span2 { grid-column: span 2; }
+@media (max-width: 900px) { .rule-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .rule-grid { grid-template-columns: 1fr; } .rule-grid .span2 { grid-column: auto; } }
+.rule-conds { border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--space-3); margin: 0 0 var(--space-3); display: grid; gap: var(--space-2); min-width: 0; }
+.rule-conds legend { font-weight: 700; padding: 0 var(--space-1); }
+.rule-cond { gap: var(--space-2); align-items: flex-end; flex-wrap: wrap; }
+.rule-actions { gap: var(--space-1); justify-content: flex-end; flex-wrap: wrap; }
+.rule-confirm { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2); margin-top: var(--space-3); padding: var(--space-3); border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+.rule-preview { border-top: 1px solid var(--border); margin-top: var(--space-3); padding-top: var(--space-3); }
+.rule-matches { margin: var(--space-2) 0 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: 13px; overflow-wrap: anywhere; }
+.rule-result { padding: var(--space-3) 0; border-top: 1px solid var(--border); }
+.rule-result h3 { margin: 0 0 4px; font-size: 15px; }
+.rule-history { margin-top: var(--space-3); }

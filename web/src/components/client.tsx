@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Activity, GraduationCap, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
+import { Activity, GraduationCap, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound, ListChecks } from 'lucide-react';
 import { countUp, toggleTheme } from '@design/motion.js';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct, type Locale } from '@/lib/format';
 import { useT, LanguageSwitch } from './i18n';
@@ -39,13 +39,13 @@ const SECTIONS = [
     { href: '/learning', label: 'nav.learning', icon: GraduationCap, badge: false },
   ] },
 ] as const;
-const ADMIN_SECTION = { title: 'nav.admin', items: [{ href: '/admin', label: 'nav.accounts', icon: UsersRound, badge: false }] } as const;
+const ADMIN_SECTION = { title: 'nav.admin', items: [{ href: '/rules', label: 'nav.rules', icon: ListChecks, badge: false }, { href: '/admin', label: 'nav.accounts', icon: UsersRound, badge: false }] } as const;
 
 /** Sidebar: the pill glides to the active item (shared-element motion, 450ms ease-out). */
 /** Only the pages the account was given; the administrator also gets Accounts. */
 export function NavLinks({ incidents, allow, admin }: { incidents: number; allow: string[]; admin: boolean }) {
   const path = usePathname(), t = useT();
-  const sections = [...SECTIONS, ...(admin ? [ADMIN_SECTION] : [])].map((s) => ({ ...s, items: (s.items as readonly { href: string; label: string; icon: typeof Database; badge: boolean }[]).filter((n) => admin || allow.includes(n.href)) })).filter((s) => s.items.length);
+  const sections = [...SECTIONS, ADMIN_SECTION].map((s) => ({ ...s, items: (s.items as readonly { href: string; label: string; icon: typeof Database; badge: boolean }[]).filter((n) => admin || allow.includes(n.href)) })).filter((s) => s.items.length);
   const ALL = sections.flatMap((s) => s.items);
   const active = ALL.findIndex((n) => (n.href === '/' ? path === '/' : path.startsWith(n.href)));
   const refs = useRef<(HTMLAnchorElement | null)[]>([]);
