@@ -1,10 +1,10 @@
 // PATCH /api/v1/collections/{id} { action: "trash" | "restore" | "rename", name? }. Administrator only.
-// The SATIM dataset is protected. A collection moved to the trash leaves the active selection; when
-// nothing is left selected, the original SATIM dataset is active again.
+// Every collection, the original SATIM one included, follows the same rules. A collection moved to the trash
+// leaves this account's selection; when nothing is left selected, the pages invite to choose or import data.
 import { NextResponse, type NextRequest } from 'next/server';
 import { fail, userOf } from '@/lib/http';
 import { can } from '@/lib/session';
-import { renameCollection, restoreCollection, SATIM_ID, trashCollection } from '@/lib/imports';
+import { renameCollection, restoreCollection, trashCollection } from '@/lib/imports';
 import { idsFor, VIEW_COOKIE } from '@/lib/dataset';
 import { collectionsPayload } from '../shared';
 
@@ -18,7 +18,6 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/v1/collect
   if (!user) return fail(401, 'unauthenticated', 'Sign in first.');
   if (!can(user, 'import')) return fail(403, 'forbidden', 'Only the administrator can change collections.');
   const { id } = await ctx.params;
-  if (id === SATIM_ID) return fail(403, 'protected', 'The original SATIM dataset is protected.');
   let body: { action?: unknown; name?: unknown };
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
   let ids = idsFor(req.cookies.get(VIEW_COOKIE)?.value);
@@ -32,7 +31,7 @@ export async function PATCH(req: NextRequest, ctx: RouteContext<'/api/v1/collect
     return fail(status, (e as Error).message in ERR ? (e as Error).message : 'failed', message);
   }
   const res = NextResponse.json(collectionsPayload(ids));
-  if (ids.length) res.cookies.set(VIEW_COOKIE, ids.join('.'), { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });
-  else res.cookies.set(VIEW_COOKIE, SATIM_ID, { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });   // an explicit return to SATIM, not the platform default
+  // an explicit (possibly empty) choice: an emptied selection does not silently fall back to another dataset
+  res.cookies.set(VIEW_COOKIE, ids.join('.') || '-', { path: '/', sameSite: 'lax', httpOnly: true, maxAge: 30 * 864e2 });
   return res;
 }

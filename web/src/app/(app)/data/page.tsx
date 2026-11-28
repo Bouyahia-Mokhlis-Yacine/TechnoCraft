@@ -1,4 +1,5 @@
-import { Download } from 'lucide-react';
+import { ChevronDown, Download } from 'lucide-react';
+import { RememberedDetails } from '@/components/remembered-details';
 import { DataSkeleton } from '@/components/skeletons';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -108,9 +109,13 @@ async function Data() {
             </ul>
           </section>
           {audit && (
-            <section className="panel m-rise" style={css({ '--i': 2 })}>
-              <div className="panel-head"><div><h2>{t('data.audit')}</h2><p>{t('data.auditSub')}</p></div></div>
+            <section className="panel m-rise audit-panel" style={css({ '--i': 2 })} aria-label={t('data.audit')}>
+              <RememberedDetails storageKey="pai-audit-open" summary={<>
+                <span className="audit-title"><h2>{t('data.audit')}</h2><span className="chip">{t('data.auditCount', { n: audit.length })}</span></span>
+                <ChevronDown aria-hidden className="audit-chev" /></>}>
+              <p className="muted audit-sub">{t('data.auditSub')}</p>
               {audit.length ? <ol className="history">{audit.map((e) => <li key={e.event_id}><b>{t(`rev.action.${e.action}` as 'rev.action.close')}</b> · {e.target} · {t('data.by', { name: nameOf(e.actor) })} · {fmtStamp(e.ts)}{e.reason && e.action !== 'export' && <q>{e.reason}</q>}</li>)}</ol> : <p className="muted">{t('data.noEvent')}</p>}
+              </RememberedDetails>
             </section>
           )}
         </div>

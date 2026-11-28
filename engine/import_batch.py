@@ -69,6 +69,9 @@ class OperatorError(ValueError):
         self.code, self.values = code, values
 
 
+SATIM_ID = 'satim'   # the original SATIM collection: its data is the archive itself
+
+
 def runs_dir():
     return Path(os.environ.get('RUNS_DIR', ROOT / 'runs'))
 
@@ -426,6 +429,8 @@ def analyze(run_id):
             rows = valid & raw['_batch'].eq(len(batches) - 1)
             added = {'first_date': stamp[rows].min().date().isoformat(), 'last_date': stamp[rows].max().date().isoformat(),
                      'merchants': int(merchant[rows].nunique()), 'rows_received': int(raw['_batch'].eq(len(batches) - 1).sum())}
+        # rows of the new batch kept after cleaning (a duplicate of an earlier batch is not added again)
+        kept_new = int(raw.loc[events.index, '_batch'].eq(len(batches) - 1).sum())
         del raw   # nothing card-related survives past cleaning
         status.stage('clean', total, total, 'rows cleaned')
 
@@ -445,7 +450,10 @@ def analyze(run_id):
         # against the same frozen pre-period reference (never refitted, never updated from new days). Only the batch's own
         # days are reported. Replaying the same chronology is deterministic, so batches processed one by one give the same
         # state as one continuous replay.
-        start = days.date.min()
+        # a selection that includes the original SATIM collection reports its scored period too: the replay below
+        # already covers it, so only the reported range changes (its transactions are read from the archive, never copied)
+        with_archive = any(item['id'] == SATIM_ID for item in spec['selection'])
+        start = test[0].date.min() if with_archive else days.date.min()
         history = pd.concat([test[0], days], ignore_index=True)
         backend = backend_for(history, pd.concat([test[1], events], ignore_index=True),
                               ordinary, ordinary_events, test[0].date.min(), (v1, v2, v3), enable_v3=True)
@@ -457,12 +465,13 @@ def analyze(run_id):
 
         status.stage('evidence')
         backends = (backend,)
-        transactions = transaction_view(events, ordinary_events)
+        shown = pd.concat([test[1].assign(source_row=test[1].source_row.astype(str)), events], ignore_index=True) if with_archive else events
+        transactions = transaction_view(shown, ordinary_events)
         calendar = sorted(d.isoformat() for d in holidays.country_holidays('DZ', years=days.date.dt.year.unique()))
         merchant_rows = [r for r in merchant_view(history, pd.concat([test[1], events], ignore_index=True), {}, backends, calendar)
                          if pd.Timestamp(r['date']) >= start]
         # incidents and advisories that reach into this batch (incidents opened earlier keep their lifecycle)
-        batch_merchants = set(days.merchant_id)
+        batch_merchants = set(history.merchant_id if with_archive else days.merchant_id)   # with the archive: all its merchants
         mine = lambda r: bool(batch_merchants & set(r.get('merchants') or [r['id'].split(':')[0]]))
         reaches = lambda r: mine(r) and (pd.Timestamp(r.get('last_alert') or r.get('date') or r['start']) >= start or r.get('recovery_status') not in (None, 'resolved'))
         incident_records, queue = incident_view(backends)
@@ -488,7 +497,7 @@ def analyze(run_id):
         payload = clean({
             'schema_version': SCHEMA_VERSION,
             'run': {'run_id': run_id, 'generated_at': now(), 'as_of': backend.closed_through,
-                    'first_date': days.date.min(), 'train_end': train[0].date.max(),
+                    'first_date': start, 'train_end': train[0].date.max(),
                     'batch_status': 'mixed' if mixed else 'complete' if complete else 'partial', 'data_status': 'imported_batch',
                     'preprocessing_version': 'archived_v2', 'reference_version': backend.reference.version,
                     'reference_last_date': backend.reference.last_date,
@@ -502,11 +511,12 @@ def analyze(run_id):
                     'selection': spec['selection'], 'kind': spec['kind'],
                     'import': {'batches': len(batches), 'files': [u['filename'] for _, u in files], 'complete': complete},
                     'inputs': {u['filename']: u['sha'] for _, u in files}, 'configurations': {}, 'holidays': calendar, 'cleaning': cleaning,
+                    'archive_included': with_archive,
                     'validation': None, 'flagged_days': flagged,
                     'parity': {'development_rows': 0, 'official_rows': len(scored), 'official_sha256': '',
                                'development_sha256': '', 'sealed': False, 'expected_official_sha256': '',
                                'expected_development_sha256': ''}},
-            'network': network_view(days, transactions), 'merchant_days': merchant_rows,
+            'network': network_view(history if with_archive else days, transactions), 'merchant_days': merchant_rows,
             'official_predictions': scored, 'transactions': transactions,
             'incidents': incident_records, 'priority_queue': queue, 'advisories': advisories, 'hybrid': hybrid,
             'forecast': forecast,
@@ -520,7 +530,7 @@ def analyze(run_id):
         atomic_write(folder / 'snapshot.json', json.dumps(payload, ensure_ascii=False, allow_nan=False,
                                                           separators=(',', ':')).encode('utf-8'))
         stats = {'first_date': payload['run']['first_date'], 'last_date': payload['run']['as_of'],
-                 'merchants': len(transactions['merchants']), 'transactions': len(events), 'rows_received': total}
+                 'merchants': len(transactions['merchants']), 'transactions': len(shown), 'rows_received': total}
         result = {'rows_received': total, 'rows_processed': len(events),
                   'duplicates_removed': int(flags['exact_duplicate'].sum()),
                   'merchant_days_scored': len(scored), 'alerts': flagged,
@@ -534,7 +544,8 @@ def analyze(run_id):
             # the collection changes only now, after a successful analysis: a failure keeps the last good version
             collection = read_collection(commit['collection_id'])
             before = (collection.get('stats') or {}).get('transactions', 0)
-            batch = {**commit['batch'], **(added or {}), 'run_id': run_id, 'rows_added': len(events) - before, 'added_at': now()}
+            batch = {**commit['batch'], **(added or {}), 'run_id': run_id, 'added_at': now(),
+                     'rows_added': kept_new if with_archive else len(events) - before}
             collection.update(batches=[*collection.get('batches', []), batch], version=commit['version'], stats=stats,
                               analysis={'version': commit['version'], 'run_id': run_id}, pending=None, last_error=None,
                               updated_at=now())
@@ -542,7 +553,7 @@ def analyze(run_id):
             result['rows_added'] = batch['rows_added']
         status.write(state='succeeded', stage='done', stage_label='Analysis complete', progress=None,
                      stages_done=list(STAGES), finished_at=now(), result=result)
-        if commit and complete:
+        if commit and complete and not with_archive:
             result['learning'] = learn(run_id, folder)
             status.write(result=result)
     except Exception as error:  # noqa: BLE001 - every failure is reported in status.json

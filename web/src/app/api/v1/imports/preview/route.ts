@@ -4,7 +4,7 @@
 import type { NextRequest } from 'next/server';
 import { fail, userOf } from '@/lib/http';
 import { can } from '@/lib/session';
-import { MAX_FILES, previewImport, SATIM_ID } from '@/lib/imports';
+import { MAX_FILES, previewImport } from '@/lib/imports';
 
 export async function POST(req: NextRequest) {
   const user = userOf(req);
@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
   const ids = body.upload_ids;
   if (!Array.isArray(ids) || !ids.length || ids.length > MAX_FILES || ids.some((x) => typeof x !== 'string')) return fail(422, 'invalid_payload', 'Expected { upload_ids: string[], destination?: string }.');
-  if (body.destination === SATIM_ID) return fail(403, 'protected', 'The original SATIM dataset is protected: nothing can be added to it.');
   try {
     return Response.json(await previewImport(ids as string[], typeof body.destination === 'string' ? body.destination : null));
   } catch (e) {

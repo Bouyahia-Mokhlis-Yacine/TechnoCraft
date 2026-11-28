@@ -17,7 +17,7 @@ export interface Reply {
   /** language model: answered / configured but unreachable / not configured (unknown for guarded refusals) */
   model?: 'online' | 'offline' | 'off';
   /** set when the built-in answer stands in for the language model, with the reason */
-  fallback?: 'model_off' | 'model_offline' | 'model_rejected';
+  fallback?: 'model_off' | 'model_offline' | 'model_rejected' | 'model_timeout';
 }
 
 const MAX_ROWS = 6;

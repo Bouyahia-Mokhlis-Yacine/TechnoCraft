@@ -56,6 +56,12 @@ export function AssistantDock() {
   const path = usePathname(), search = useSearchParams().toString(), router = useRouter(), t = useT();
   const [open, setOpen] = useState(false);
   const [hi, setHi] = useState(false);   // pointer or focus on the launcher: the mascot waves
+  // the floating mascot can be picked up and dropped anywhere; its spot is remembered on this device
+  const [spot, setSpot] = useState<{ x: number; y: number } | null>(null);
+  const [carry, setCarry] = useState<'idle' | 'held' | 'land'>('idle');
+  const [puff, setPuff] = useState(0);
+  const grab = useRef<{ dx: number; dy: number; sx: number; sy: number; moved: boolean } | null>(null);
+  const dragged = useRef(false);
   const [session, setSession] = useState(0);            // bumps to start a new conversation
   const [convId, setConvId] = useState<string | null>(null);
   const panel = useRef<HTMLElement>(null);
@@ -71,7 +77,39 @@ export function AssistantDock() {
   const setPicking = (v: boolean | ((p: boolean) => boolean)) => setPickOn((cur) => ((typeof v === 'function' ? v(cur === path) : v) ? path : null));
   const posLoaded = useRef(false);
 
+  const clampSpot = (x: number, y: number, w = 116) => ({ x: Math.min(Math.max(4, x), innerWidth - w - 4), y: Math.min(Math.max(4, y), innerHeight - w - 4) });
+  useEffect(() => {   // the remembered spot, kept on screen when the window changes size
+    const restore = () => { try { const v = JSON.parse(localStorage.getItem('mascot-spot') ?? 'null'); if (v) setSpot(clampSpot(v.x, v.y, launcher.current?.offsetWidth)); } catch { /* storage unavailable */ } };
+    const first = setTimeout(restore, 0);
+    const onResize = () => setSpot((v) => (v ? clampSpot(v.x, v.y, launcher.current?.offsetWidth) : v));
+    addEventListener('resize', onResize);
+    return () => { clearTimeout(first); removeEventListener('resize', onResize); };
+  }, []);
+  const onGrab = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    grab.current = { dx: e.clientX - r.left, dy: e.clientY - r.top, sx: e.clientX, sy: e.clientY, moved: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const onCarry = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const g = grab.current;
+    if (!g) return;
+    if (!g.moved && Math.hypot(e.clientX - g.sx, e.clientY - g.sy) < 6) return;   // a click, not a drag (yet)
+    if (!g.moved) { g.moved = true; setCarry('held'); }
+    setSpot(clampSpot(e.clientX - g.dx, e.clientY - g.dy, e.currentTarget.offsetWidth));
+  };
+  const onDrop = () => {
+    const g = grab.current;
+    grab.current = null;
+    if (!g?.moved) return;
+    dragged.current = true;   // the click that follows a drop does not open the panel
+    setCarry('land'); setPuff((n) => n + 1);
+    setTimeout(() => setCarry('idle'), 1100);
+    setSpot((v) => { try { if (v) localStorage.setItem('mascot-spot', JSON.stringify(v)); } catch { /* storage unavailable */ } return v; });
+  };
+
   function openPanel() {
+    if (dragged.current) { dragged.current = false; return; }
     // where the user last left the panel (wide screens; it is full screen on phones)
     if (!posLoaded.current) {
       posLoaded.current = true;
@@ -120,9 +158,13 @@ export function AssistantDock() {
   const name = pageName(path, t);
   return (
     <div className="dock no-print" style={{ viewTransitionName: 'assistant-dock' }}>
-      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}`} onClick={openPanel} aria-label={t('dock.launch')} title={t('dock.launchShort')} aria-expanded={open}
+      <button ref={launcher} type="button" className={`dock-launch${open ? ' hidden' : ''}${carry === 'held' ? ' is-held' : ''}`} onClick={openPanel} aria-label={t('dock.launch')} title={t('dock.launchShort')} aria-expanded={open}
+        style={spot ? { left: spot.x, top: spot.y, right: 'auto', bottom: 'auto' } : undefined}
+        onPointerDown={onGrab} onPointerMove={onCarry} onPointerUp={onDrop} onPointerCancel={onDrop}
         onPointerEnter={() => setHi(true)} onPointerLeave={() => setHi(false)} onFocus={() => setHi(true)} onBlur={() => setHi(false)}>
-        {open ? null : <Mascot state={hi ? 'wave' : 'idle'} size={58} />}
+        <span className="mascot-shadow" aria-hidden />
+        {puff > 0 && <span key={puff} className="mascot-dust" aria-hidden><i /><i /><i /><i /><i /></span>}
+        {open ? null : <Mascot state={carry === 'held' ? 'held' : carry === 'land' ? 'land' : hi ? 'wave' : 'idle'} size={116} />}
       </button>
       <AskSelection onAsk={attach} />
       {picking && <PickOverlay onPick={attach} onCancel={cancelPick} />}

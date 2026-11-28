@@ -8,6 +8,7 @@ import { addDays, model, PLAYBOOK } from './model';
 import { fmtCompactDzd, fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from './format';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES } from './labels';
 import { buildReport, getReport, reportSummary } from './custom-report';
+import { guidePage } from './ui-guide';
 
 /** `panelSummaries`: one plain sentence per panel (by its on-screen title), for answers without the model. */
 export interface PageContext { title: string; path: string; panels: string[]; data: Record<string, unknown>; summary: string[]; panelSummaries?: Record<string, string>; link: { label: string; href: string } }
@@ -237,7 +238,7 @@ function reports(q: URLSearchParams): Omit<PageContext, 'path' | 'link'> {
 function data(): Omit<PageContext, 'path' | 'link'> {
   const r = model().snap.run, v = r.validation;
   return {
-    title: 'Data & runs', panels: ['Current run', 'Cleaning', 'Validation', 'Calibration', 'Digests', 'Known limitations', 'Audit ledger'],
+    title: 'Data & runs', panels: ['Data collections', 'Run history', 'Forecast history', 'Cleaning', 'Historical competition replay', 'Validation', 'Data-quality limitations', 'Audit ledger', 'Digests'],
     data: {
       current_run: { run: r.run_id, as_of: r.as_of, batch: r.batch_status, engine: r.policy.version, alert_threshold: r.policy.high, window_days: r.policy.window_days },
       cleaning: r.cleaning,
@@ -285,6 +286,8 @@ export function describePage(path: string, search = '', owner?: string): PageCon
     console.warn('[assistant] page context failed:', e instanceof Error ? e.message : e);
     return null;
   }
+  // pages without figures of their own (live, learning, admin…): what the page is for and how to use it
+  if (!c) { const g = guidePage(path); if (g) c = { title: g.name, panels: g.panels.map((x) => x.name), data: {}, summary: [g.purpose] }; }
   return c ? { ...c, path: href, link: { label: c.title, href } } : null;
 }
 

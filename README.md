@@ -34,7 +34,7 @@ From the repository root, with the pinned conda environment (Linux: `satim-seale
 
 ## Dataset shown on each page
 
-Every page, report, PDF, simulator view and assistant answer uses the same dataset: the operator's own choice (dataset menu), else the platform's activated run, else the official SATIM run. Reports and PDFs carry a **Dataset** line; assistant answers end with a provenance line. The sealed submission download and incident reviews always use the official run.
+Every page, report, PDF, simulator view and assistant answer uses the same dataset: the operator's own choice (dataset menu), else the platform's activated collections, else the original SATIM collection. The original SATIM dataset is an ordinary collection: it can be selected alone or with imported collections (analysed together from the start of its test period), receive added files, be renamed, moved to the trash and restored. With nothing selected, the pages send the operator to Data & runs to choose or import data. Reports and PDFs carry a **Dataset** line; assistant answers end with a provenance line. The sealed submission download and incident reviews always use the official run.
 
 ## Forecast history
 
@@ -85,24 +85,36 @@ Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and sign in as `admin`: its 
 
 ### Verify the release candidate on Windows
 
-From a Conda-enabled PowerShell at the repository root, on the `rc-final` tag:
+From a Conda-enabled PowerShell at the repository root, on the final release candidate tag `rc-final-4`. This is the procedure that passed on Windows for `rc-final-3`, with its three corrections.
 
 ```powershell
 git fetch origin --tags
-git checkout rc-final
+git checkout rc-final-4
 $env:PYTHONNOUSERSITE = '1'
 conda env update -n satim-sealed -f environment.sealed-win.yml --prune   # or: conda env create -f environment.sealed-win.yml
 conda activate satim-sealed
+
+# 1. Sealed export into its own runs directory (runs-rc/ is git-ignored, so it never dirties the tree)
 python -m engine.export --runs-dir runs-rc                                # must report "Sealed digest match: True"
 (Get-FileHash y_pred_anomalies.csv -Algorithm SHA256).Hash                 # 4613FBE37E1DD6BF104119943753928733B30E82DCA30E6EFE07CCD7EAA6DDFF
 git status --porcelain                                                     # must print nothing: the CSV was rewritten byte for byte
+
+# 2. Python tests: RUNS_DIR is the verification run; a writable temporary directory inside the git-ignored .verification/
+$env:RUNS_DIR = (Resolve-Path runs-rc).Path
+$tmp = Join-Path (Get-Location) '.verification\test-tmp'
+New-Item -ItemType Directory -Force $tmp | Out-Null
+$env:TEMP = $tmp; $env:TMP = $tmp; $env:TMPDIR = $tmp
 python -m unittest tests.test_snapshot tests.test_import_batch tests.test_live_monitoring tests.test_continuous_learning
+
+# 3. Frontend: route types are generated before the type check
 Set-Location web
 npm ci
+npx next typegen
 npx tsc --noEmit
 npm run lint
-npm run build
-$env:RUNS_DIR = (Resolve-Path ..\runs-rc).Path
+npm run build                                                              # needs permission to create directory junctions (see below)
+
+# 4. Browser verification against the verification run
 $env:ADMIN_PASSWORD = 'rc-verification-only'
 Start-Process -NoNewWindow npm -ArgumentList 'start','--','-p','3100'
 Start-Sleep 8
@@ -111,7 +123,13 @@ $env:SATIM_TEST_PASSWORD = 'rc-verification-only'
 node scripts/verify.mjs                                                    # no preview flag: sealed parity must be true
 ```
 
-The export checks the 280 development and 711 official score–flag pairs against the sealed digests (`d29398ed…` for the official pairs) and refuses to publish otherwise. `runs-rc` keeps this verification apart from the demo's `runs/`; delete it afterwards.
+The export checks the 280 development and 711 official score–flag pairs against the sealed digests (`d29398ed…` for the official pairs) and refuses to publish otherwise.
+
+Notes from the verified Windows run:
+- **Temporary directory.** The verified run set `TEMP`, `TMP` and `TMPDIR` to `<repository>\.verification\test-tmp` (there: `C:\Users\IT DOCTOR\OneDrive\Desktop\Technocraft\release-rc-final-3\.verification\test-tmp`) and `RUNS_DIR` separately to `runs-rc`. The tests create their fixtures with Python's `TemporaryDirectory`, which follows these variables.
+- **Junctions.** `npm run build` (Turbopack) creates directory junctions under `web\.next\node_modules`. A restricted shell or sandbox that may not create them fails with Windows error 5 (Access is denied); run the build from a normal PowerShell, or grant that permission to the sandbox. In the verified run, the build passed once it ran outside the sandbox, with nothing else changed.
+- **Type check order.** `npx tsc --noEmit` needs the route types Next.js generates (`next typegen`, or after `npm run build`).
+- Delete `runs-rc` and `.verification\test-tmp` afterwards.
 
 ### Linux or a pip-based development environment
 

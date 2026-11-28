@@ -1,6 +1,6 @@
 # Handoff: SATIM Payment Anomaly Intelligence (TechnoCraft 2026)
 
-Written 2026-11-27 for the next agent working in this directory. Read this first, then:
+Written 2026-11-27, updated 2026-11-28 (final release candidate) for the next agent working in this directory. Read this first, then:
 - [README.md](README.md): run commands, sealed vs Linux preview;
 - [web/README.md](web/README.md): accounts, KPIs, import, assistant;
 - [docs/FINAL_PLATFORM_INTEGRATION_REPORT.md](docs/FINAL_PLATFORM_INTEGRATION_REPORT.md): what is verified;
@@ -9,11 +9,11 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
 ## 1. State right now
 
 **Git**
-- Branch: `final-platform-integration`, pushed to `origin` up to `2cafe55`.
+- Branch: `final-platform-integration`, pushed to `origin`. Final release candidate: tag `rc-final-4` (see below). Development is frozen: only release-blocking fixes.
 - No pull request exists yet. The `gh` CLI is not installed; the compare link is in the report.
 - Do **not** merge into `main`: the AI team must first regenerate the official `y_pred_anomalies.csv` in the sealed Windows environment.
 - **Committed in `cdb9fc5`** (pushed; tested end to end):
-  - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; SATIM protected; combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
+  - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; the original SATIM dataset is an ordinary collection (`satim`: selectable alone or combined, appendable, renamable, trash/restore; its archive files are read in place, never copied or deleted); combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
   - **French UI (default) + EN**: `web/src/lib/i18n/` (flat dictionaries, `en.ts` is the reference, `fr.ts` must define every key; plurals `_one`/`_other`), `web/src/components/i18n.tsx` (provider, `useT`, FR/EN switch, `pai_lang` cookie). Backend messages carry `code` + `values` (`msg.*` keys). Untyped helpers (`tr`, `tk`, template keys) are not checked by tsc: re-run the key scan in section 5 after adding strings.
   - "Transactions for this alert", red filter bar, `date-range.tsx`, and edits across pages, `globals.css` (dated blocks at the bottom), `web/README.md`, `web/.env.example`.
   - Also in `cdb9fc5`: KPI editor (collapsible cards, unit check, current-state warning, new measures), Intelligence tabs, episode metrics, merchant accepted value over known days, `components/balanced.tsx` (two-column dashboards packed by height).
@@ -24,7 +24,13 @@ Written 2026-11-27 for the next agent working in this directory. Read this first
 
 **2026-11-28 second pass**: continuous learning merged (`4cf98c0`, from `0805305`); dataset-scoped reports, PDF, simulator and assistant, French live explanations, forecast vintages (`c6086e7`); learning adapter, import feed and `/learning` (`e6bb1eb`). Learning state lives in `runs/continuous_learning/` (private); vintages in `runs/forecast-vintages/`.
 
-**Release candidate**: tag `rc-final` on `final-platform-integration`. Feature freeze: only release-blocking fixes. Do not merge into `main` until the sealed Windows verification (README "Verify the release candidate on Windows") passes on that tag. Merging changes main's `y_pred_anomalies.csv` from the pre-sealed `5a8952c6…` to the sealed `4613fbe3…`.
+**Final release candidate (2026-11-28)**: tag `rc-final-3` on `final-platform-integration` (this documentation commit). Earlier tags stay where they are: `rc-final` (`0aabe94`) and `rc-final-2` (`45b4a5e`, same code as `rc-final-3`, which only adds this handoff and the README tag). Sealed check: `y_pred_anomalies.csv` SHA-256 `4613fbe37e1dd6bf104119943753928733b30e82dca30e6efe07ccd7eaa6ddff` (unchanged by every commit since `rc-final`); the sealed Windows verification of `rc-final-3` passed (model integrity, Python, frontend, build, browser) after three procedure corrections, now in the README section "Verify the release candidate on Windows" and tagged `rc-final-4` (procedure and `.gitignore` only: `runs-rc/` ignored, `RUNS_DIR` and a writable `TEMP`/`TMP`/`TMPDIR` before the Python tests, `next typegen` before `tsc`, junction permission for the build). Run that procedure on `rc-final-4` before merging. Note: `origin/main` already holds a merge of this branch at `rc-final` (PR #1, `52f79f3`, made from the owner's GitHub account on 2026-11-28 01:55); the later commits are not in `main`. Merge again only after the sealed Windows verification passes on `rc-final-3`.
+
+Since `rc-final`:
+- Assistant: SATIM mascot (pointer follow, idle moves, sit, drag and drop), sidebar icon; per-call model timeout inside a 45 s budget; ungrounded figures get one retry with the evidence tool imposed; `platform_guide` tool (`web/src/lib/ui-guide.ts`, self-check `ui-guide.test.ts`): every page, control (EN/FR names), permission and task, offered for how-to questions and selected controls; pick mode attaches buttons, tabs, fields and sidebar links; the assistant API requires the Assistant page and rebuilds context only for pages the account may open.
+- Accounts: permission cells with live counts (`components/access-cells.tsx`).
+- Collections: the original SATIM dataset is an ordinary collection (`satim`; record `runs/collections/satim/collection.json`, archive read in place, never copied or deleted); selections that include it are analysed from the archive test start (`engine/import_batch.py`, `archive_included`); nothing selected → `/data?empty=1`, data APIs `409 no_dataset`; run history names input collections; import dialog states the resulting scope; audit ledger collapsible.
+- Operator UX: Overview "Needs attention" (`components/needs-attention.tsx`) and severity counts; drill-down keeps filters; alert decision facts and "Model details"; advisory linked-incident table; guided 15 Oct live demo with milestones read from the replay; Controlled learning guidance (suggested dates, remembered jobs, blockers explained).
 
 **Running processes**
 - Replay service: `python -m src.live_monitoring.service` on 127.0.0.1:8765 (state `runs/live-monitoring/replay.sqlite3`, log `.verification/live-service.log`). Its token is `LIVE_MONITORING_TOKEN` in `web/.env.local` (private, git-ignored); start the service with the same value.
@@ -104,7 +110,7 @@ Official CSVs → `python -m engine.export` (frozen V1–V4 in `src/` + `config/
 
 From `web/`:
 ```bash
-npx tsc --noEmit && npm run lint && npm run build && node src/lib/formula.test.ts
+npx tsc --noEmit && npm run lint && npm run build && node src/lib/formula.test.ts && node src/lib/ui-guide.test.ts
 ```
 After adding UI text, also check that every `tr('x.y')` / `tk('x.y')` / template key (`stage.${…}`, `measure.${…}`, `kpi.name.${formula}`…) exists in `en.ts` and `fr.ts`: missing keys show the raw key on screen. Isolated test server: copy `runs/latest.json` + the official run into a scratch dir and start with `RUNS_DIR=<dir> ADMIN_PASSWORD=<test> npm start -- -p 3100`.
 
@@ -149,12 +155,15 @@ These 7 tests pass. The 84 research tests aren't in this repo.
 **Engine**
 - The engine `src/` was written for Windows. Don't "fix" line endings in `config/`: that breaks the fingerprints.
 
-## 7. Open items
+## 7. Open items and documented limitations
 
-1. **Sealed release:** a sealed Windows export must reproduce both official digests, then the team can merge into `main`. The user said not to merge before that.
-2. **Commit and PR:** commit the uncommitted import, alert-link and filter-bar work, then open the PR (`docs/PULL_REQUEST.md` has the description).
-3. **Teammate stash:** decide with the user whether to apply it or drop it.
-4. **Assistant scope:** the assistant isn't limited to an account's pages.
-5. **Import-feature checks not yet done:** native dropdown menus in dark mode, a screen reader on the date picker, a channel-specific alert link (none in the data), and files near the 25 MB / 200,000-row limit.
-6. **Imported runs and history:** an imported run starts the detector's lifecycle at the batch's first date, so it can differ from the official run on overlapping days. Explain this if asked.
-7. **Not built:** an Arabic UI (only Darija keywords exist in the assistant), FR-35 incident review groups, production identity (SSO) and live feed ingestion.
+1. **Sealed release:** run the corrected Windows verification (README) on `rc-final-4`; then merge into `main` (the owner decides). No further features: development is frozen.
+2. **Teammate stash** (`stash@{0}`, also `.verification/teammate-overview-grid.patch`): not applied; it conflicts with the two-column Overview.
+3. **No grouped parent cases:** collective advisories link incidents but each incident is reviewed on its own (a shared case would need new review-ledger storage and actions). No shared root cause is ever claimed.
+4. **Reviews** are recorded only when the SATIM collection is shown alone (the review ledger belongs to the archive run); other selections are read-only.
+5. **Combined views with SATIM** start at the archive test period (25 Oct 2026); SATIM alone also shows the development period from 1 Sept.
+6. **Assistant:** the offline guide text is English only; tool answers cover engine data regardless of the account's pages (page context is restricted); no bank-level scoping (no verified merchant-to-bank mapping).
+7. **Controlled learning:** the API cannot list jobs; the job list is the jobs registered from the same browser. Suggested dates are a split of the observed days; the service still enforces eligibility, quarantine and prospective evaluation.
+8. **Guided live demo** is one selected synthetic example (15 Oct, POS interruption with same-day backlog), not typical performance; the method note gives the measured limits.
+9. **Not built:** Arabic UI/RTL, notifications, production identity (SSO) and live feed ingestion.
+10. **Import checks not yet done:** a screen reader on the date picker and files near the 25 MB / 200,000-row limit.

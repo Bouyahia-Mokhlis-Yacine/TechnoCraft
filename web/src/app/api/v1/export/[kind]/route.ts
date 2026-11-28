@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { listAnomalies, listIncidents, listTransactions } from '@/lib/api';
 import { csv, fail, params, userOf } from '@/lib/http';
 import { model } from '@/lib/model';
-import { resolveView } from '@/lib/dataset';
+import { resolveViewOrNull } from '@/lib/dataset';
 import { explanationText } from '@/lib/i18n/engine';
 import { translate, type Key } from '@/lib/i18n';
 import { appendEvent } from '@/lib/reviews';
@@ -17,7 +17,8 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/v1/export/[k
   const { kind } = await ctx.params;
   const q = params(req);
   // the active dataset (pinned ?run= or the selection cookie), as on the page the export was asked from
-  const view = await resolveView(q.run);
+  const view = await resolveViewOrNull(q.run);
+  if (!view) return fail(409, 'no_dataset', 'No data is selected. Choose or import data in Data & runs.');
   const p = { ...q, run: view.runId ?? undefined } as Record<string, string>, run = model(view.runId).snap.run.run_id;
   let body: string;
   if (kind === 'transactions') {

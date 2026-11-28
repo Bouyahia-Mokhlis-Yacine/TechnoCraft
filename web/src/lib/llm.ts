@@ -10,12 +10,15 @@ import { appToolDefs, isAppTool, runAppTool, type Display } from './assistant-to
 import type { Turn } from './conversations';
 import type { PageContext } from './page-context';
 import { selectionBlock, type Selection } from './selection';
+import { dropStepNumbers, GUIDE_TOOL, guideAnswer, guideResult, pageGuide } from './ui-guide';
 import { buildReport, composeToolDef, getReport, reportSummary, saveReport, unwrittenText, updateReport, validateSpec, type StoredReport } from './custom-report';
 import { hasSensitiveIdentifier } from './privacy';
 
 const URL_ = process.env.LLM_URL?.replace(/\/+$/, '');
 const MODEL = process.env.LLM_MODEL ?? 'assistant';
+/** Per model call (one round of the tool loop); the whole answer gets a larger budget (BUDGET). */
 const TIMEOUT = Number(process.env.LLM_TIMEOUT_MS ?? 12000);
+const BUDGET = Math.max(TIMEOUT * 4, 45_000);
 const MAX_ROUNDS = 4;
 const HISTORY_TURNS = 6;   // earlier question/answer pairs sent to the model
 const HISTORY_CHARS = 1500; // per earlier answer
@@ -93,6 +96,7 @@ function values(tok: string): number[] {
 }
 /** Numbers in the answer that appear nowhere in the tool results or the question (empty = all good). */
 function unknownNumbers(text: string, sources: string): string[] {
+  text = dropStepNumbers(text);
   const known = new Set<number>();
   for (const tok of sources.match(NUM) ?? []) for (const v of values(tok)) known.add(v);
   for (const d of sources.match(/\d+/g) ?? []) known.add(Number(d));      // parts of dates, ids, ranges
@@ -136,8 +140,10 @@ const PAGE_TOOL = { type: 'function' as const, function: { name: 'page_context',
 // "this", "hada", "ça" with nothing newly selected: the user still means what they selected just before
 const DEICTIC = /\b(this|that|these|those|it|here|hada|hadi|hadou|hna|ca|cela|ce|cette|ces|celui|celle|ici)\b|هذا|هذه|هاد|هادي|هنا/;
 
-const SELECTION_NOTE = `\nThe question may come with parts of the page the user selected (text, a chart bar, a table row, a card or a panel), listed after it. Answer about those parts first, in plain words: what they show and whether anything is unusual. Use day_detail for a selected bar or row with a date, explain_merchant, incident_detail or merchant_health for an id in it, and page_context for the panel around it.`;
+const SELECTION_NOTE = `\nThe question may come with parts of the page the user selected (text, a chart bar, a table row, a card, a panel, or a control such as a button, tab, filter or field), listed after it. For a control, call platform_guide: say what it does, when to use it and what its result means for the business, in plain steps. Answer about those parts first, in plain words: what they show and whether anything is unusual. Use day_detail for a selected bar or row with a date, explain_merchant, incident_detail or merchant_health for an id in it, and page_context for the panel around it.`;
 const pageNote = (p: PageContext) => `\n\nThe user is asking from the page "${p.title}" (panels: ${p.panels.join(', ')}). Questions about "this", "here", this page, a chart or one of these panels refer to it: call page_context and explain from its figures, in plain words, what the panel shows and what stands out.`;
+// "how do I…", "where is…", "what does this button do", "comment faire…", "kifach…": the user wants guidance on the platform
+const HOWTO = /\b(how (do|can|to|does|should)|where (is|are|can|do)|what does|what is .{0,30}\b(for|button|tab|filter|page)\b|walk me|guide|tutorial|step|show me how|comment (faire|puis|je|on|utiliser|ca marche|\w+(er|ir|re))|ou (est|sont|trouver|se trouve)|a quoi sert|que fait|a quoi servent|etapes?|mode d.emploi|kifach|kifah|kifeh|win nal9a|wach ndir)\b|كيف|وين|أين/;
 // "explain this chart", "que veut dire ce graphique", "chno ma3na hada"...
 const ABOUT_PAGE = /\b(this|these|here|chart|graph|page|screen|panel|bars?|pie|explain|interpret|mean|stands? out|ce|cet|cette|ces|ici|graphique|courbe|tableau|ecran|explique|interprete|signifie|hada|hadi|hna|ma3na)\b|هذا|هذه|هاد|هنا|معنى/;
 
@@ -232,7 +238,10 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     rules = { ...rules, intent: 'live_replay', refused: undefined, text: page.summary, table: undefined,
       evidence: [page.link], scope: page.title };
   }
-  if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
+  const wantsGuide = !live && (HOWTO.test(norm(q)) || selection.some((x) => x.kind === 'control'));
+  const guided = wantsGuide && (HOWTO.test(norm(q)) || BROAD.has(rules.intent) || rules.refused === 'unsupported') ? guideAnswer(q, selection, page?.path ?? '/', qLang) : null;
+  if (guided) rules = { ...rules, intent: 'guide', refused: undefined, text: guided.text, table: undefined, evidence: guided.evidence, scope: '' };
+  else if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
   // on another page, a question about "this chart" that the rules cannot place gets the page summary
   else if (page && (BROAD.has(rules.intent) || rules.refused === 'unsupported') && (selection.length || ABOUT_PAGE.test(norm(q)))) {
     const run = model().snap.run;
@@ -243,7 +252,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
   if (!URL_) return { ...rules, source: 'rules', model: 'off', fallback: 'model_off' };
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+  const timer = setTimeout(() => ctrl.abort(new DOMException('Answer budget exceeded', 'TimeoutError')), BUDGET);
   try {
     const { prompt, tools: base } = loadContract();
     // the operational evidence tools: the description is all the model knows about each one
@@ -258,7 +267,9 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         parameters: { type: 'object', properties: { merchant: { type: 'string' }, period: { type: 'string', enum: Object.keys(PERIODS) } } },
       },
     }));
-    const tools = (live ? [PAGE_TOOL] : [...base, ...appToolDefs(), ...operational,
+    // the guide only for questions about using the platform: offered for data questions, the model prefers it to the data tools
+    const guide = wantsGuide || /\b(means?|meaning|definition|signifie|veut dire|definition|ma3na)\b|معنى/.test(norm(q)) ? [GUIDE_TOOL] : [];
+    const tools = (live ? [PAGE_TOOL, ...guide] : [...base, ...appToolDefs(), ...operational, ...guide,
       ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])]) as Tool[];
     const run = model().snap.run;
     const asOf = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${run.as_of}T00:00:00Z`)).replace(',', '');
@@ -280,20 +291,35 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const used: Display[] = [];
     // numbers may come from this turn's tool results, the question, or earlier (already checked)
     // turns; not from the rules text, whose own numbers (rules 1–11) must not whitelist anything
-    let repaired = false, nudged = false, madeFile = false, force: string | undefined = live ? 'page_context' : undefined;
-    const wantsFile = !live && (WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q))));
+    let repaired = false, nudged = false, grounded = false, madeFile = false, force: string | undefined = live ? 'page_context' : wantsGuide ? 'platform_guide' : undefined;
+    const wantsFile = !live && !HOWTO.test(norm(q)) && (WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q))));
     let sources = `${active ? JSON.stringify(active.spec) : ''}\n${q}${block}\n${asOf}\n${run.run_id}\n${past.map((m) => m.content).join('\n')}`;
     const rounds = wantsFile ? MAX_ROUNDS + 2 : MAX_ROUNDS; // a report may need figures first, then its text
     for (let round = 0; round < rounds; round++) {
-      const msg = await chat(messages, tools, ctrl.signal, force);
+      const msg = await chat(messages, tools, AbortSignal.any([ctrl.signal, AbortSignal.timeout(TIMEOUT)]), force);
       force = undefined;
       if (!msg) { console.warn('[assistant] model returned no message'); break; }
       if (!msg.tool_calls?.length) {
         const text = clean(msg.content ?? '');
-        if (hasSensitiveIdentifier(text)) break;
+        if (hasSensitiveIdentifier(text)) { console.warn("[assistant] model answer rejected: card identifier"); break; }
+        // a conversational reply (greeting, thanks, a clarifying question) states no figure and names no merchant:
+        // there is nothing to check against tool results, so the model's own words are kept
+        if (!used.length && !wantsFile && text && !/\d/.test(text) && !/\bMER-/i.test(text) && !PROHIBITED.test(norm(text))) {
+          return { lang, intent: 'conversation', text: text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean), evidence: [], scope: '',
+            suggestions: rules.suggestions, source: 'model', model: 'online' };
+        }
         // no tool called: the rules' answer, with evidence, beats an unsupported reply
-        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) break;
-        if (!used.length && !wantsFile) break;
+        // figures stated without any tool: once, ask again with the evidence tool imposed (the page's figures when
+        // asked from a page) instead of dropping the model straight away
+        if (!used.length && !grounded && round < rounds - 1 && (page || !BROAD.has(rules.intent))) {
+          grounded = true;
+          console.warn('[assistant] figures without evidence: asking the model again with its evidence tool imposed');
+          if (page) force = 'page_context';
+          messages.push({ role: 'assistant', content: msg.content ?? '' }, { role: 'user', content: `Your reply states figures without calling a tool. ${page ? 'Call page_context and answer' : 'Call the tool that gives these figures and answer'} only from its results, in the same language.` });
+          continue;
+        }
+        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) { console.warn(`[assistant] model reply without evidence (no tool called, figures or ids present): built-in answer kept · ${text.slice(0, 120)}`); break; }
+        if (!used.length && !wantsFile) { console.warn(`[assistant] model reply without evidence: built-in answer kept · ${text.slice(0, 120)}`); break; }
         if (!text) { console.warn('[assistant] model returned an empty answer'); break; }
         // a file was asked for but none was made: the answer would point at a link that does not exist
         if (wantsFile && !madeFile) {
@@ -310,7 +336,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         if (PROHIBITED.test(norm(text))) { console.warn('[assistant] model answer rejected: prohibited term'); break; }
         const ids = text.match(/\bMER-\d{4}(?::\d{4}-\d{2}-\d{2})?\b/gi) ?? [];
         if (ids.some((id) => !sources.includes(id.toUpperCase()) ||
-            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) break;
+            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) { console.warn(`[assistant] model answer rejected: merchant id not in the evidence (${ids.join(', ')})`); break; }
         const bad = unknownNumbers(text, sources);
         if (bad.length) {
           console.warn(`[assistant] model answer ${repaired ? 'rejected' : 'sent back'}: ${bad.join(', ')} not in the tool results`);
@@ -333,8 +359,10 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         if (tc.function?.name === 'generate_report' || tc.function?.name === 'export_data') madeFile = true;
         const composed = tc.function?.name === 'compose_report' ? compose(tc.function.arguments, sources, owner, lang) : null;
         if (composed?.display) madeFile = true;
-        const { result, display } = composed ? composed : tc.function?.name === 'page_context' && page
-          ? { result: { page: page.title, panels: page.panels, ...page.data }, display: { intent: live ? 'live_replay' : 'page',
+        const { result, display } = composed ? composed : tc.function?.name === 'platform_guide'
+          ? guideResult(tc.function.arguments, page?.path ?? '/', lang)
+          : tc.function?.name === 'page_context' && page
+          ? { result: { page: page.title, panels: page.panels, ...page.data, how_to_use: pageGuide(page.path) }, display: { intent: live ? 'live_replay' : 'page',
               evidence: live ? [page.link] : [], scope: live ? page.title : `Scope: ${page.title} · engine run ${run.run_id}` } as Display }
           : live ? { result: { error: 'Only page_context is available for live replay evidence.' }, display: undefined }
           : runTool(tc.function?.name, tc.function?.arguments, lang);
@@ -351,7 +379,10 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
       return { lang: qLang, intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: made.report };
     }
   } catch (e) {
-    console.warn('[assistant] model unavailable, using the built-in answer:', e instanceof Error ? e.message : e);
+    // a slow answer is not an unreachable model: only connection failures mark it offline (and show the banner)
+    const slow = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    console.warn(`[assistant] ${slow ? 'model too slow' : 'model unavailable'}, using the built-in answer:`, e instanceof Error ? e.message : e);
+    if (slow) return { ...rules, source: 'rules', model: 'online', fallback: 'model_timeout' };
     statusCache = { at: Date.now(), v: 'offline' };
     return { ...rules, source: 'rules', model: 'offline', fallback: 'model_offline' };
   } finally {

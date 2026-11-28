@@ -5,16 +5,16 @@ import { Suspense } from 'react';
 import { ArrowRight, CircleHelp, ThumbsDown, ThumbsUp } from 'lucide-react';
 import { getAdvisory } from '@/lib/api';
 import { fmtDate, fmtInt, fmtNum, fmtPct } from '@/lib/format';
-import { model } from '@/lib/model';
-import { CHANNEL_VAR, LIFECYCLE, categoryLabel, channelLabel } from '@/lib/labels';
+import { model, PLAYBOOK } from '@/lib/model';
+import { CHANNEL_VAR, LIFECYCLE, TYPES, categoryLabel, channelLabel } from '@/lib/labels';
 import { engineText } from '@/lib/i18n/engine';
 import { getT } from '@/lib/i18n/server';
 import { ViewBanner } from '@/components/dataset';
 import { Gauge, MerchantTiles, RateBars } from '@/components/visuals';
 import { symptomLabel } from '@/components/satim-evidence';
-import { PageHeader } from '@/components/ui';
+import { PageHeader, SeverityBadge } from '@/components/ui';
 import { Balanced } from '@/components/balanced';
-import { resolveView } from '@/lib/dataset';
+import { keepRun, resolveView } from '@/lib/dataset';
 
 type Params = Promise<{ id: string }>;
 const css = (o: Record<string, string | number>) => o as React.CSSProperties;
@@ -79,12 +79,20 @@ async function AdvisoryView({ params, searchParams }: { params: Params; searchPa
 
           {incidents.length > 0 && (
             <section className="panel m-rise" style={css({ '--i': 2 })}>
-              <div className="panel-head"><div><h2>{t('intel.linked')}</h2><p>{incidents.length}</p></div></div>
-              <div className="inc-chips">{incidents.map((i) => (
-                <Link key={i.id} href={`/incidents/${i.id}`} className={`inc-chip sev-${i.severity} life-${i.lifecycle}`} title={`${i.id} · ${categoryLabel(i.category)} · ${LIFECYCLE[i.lifecycle]}`}>
-                  <i className="sev-dot" aria-hidden /><b>{i.merchant}</b><small>{LIFECYCLE[i.lifecycle]}</small>
-                </Link>
-              ))}</div>
+              <div className="panel-head"><div><h2>{t('intel.linked')}</h2><p>{t('intel.linkedSub', { n: incidents.length })}</p></div></div>
+              <div className="table-scroll"><table className="data tight">
+                <thead><tr><th>{t('f.merchant')}</th><th>{t('f.symptom')}</th><th>{t('f.severity')}</th><th>{t('intel.recovery')}</th><th>{t('att.first')}</th></tr></thead>
+                <tbody>{incidents.map((i) => (
+                  <tr key={i.id}>
+                    <td><Link className="cell-link" href={keepRun(`/incidents/${i.id}`, view)}><b>{i.merchant}</b><small className="muted block">{i.id}</small></Link></td>
+                    <td>{TYPES[i.type].label}</td>
+                    <td><SeverityBadge severity={i.severity} /></td>
+                    <td>{LIFECYCLE[i.lifecycle]}</td>
+                    <td><small>{PLAYBOOK[i.type].steps[0]}</small></td>
+                  </tr>
+                ))}</tbody>
+              </table></div>
+              <p className="muted small">{t('intel.noSharedCause')}</p>
             </section>
           )}
         </div>

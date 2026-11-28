@@ -9,8 +9,9 @@ import { AssistantDock } from '@/components/assistant-dock';
 import { PopoverGuard } from '@/components/popover-guard';
 import { I18nProvider } from '@/components/i18n';
 import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
-import { resolveView } from '@/lib/dataset';
-import { fmtDay, fmtRange } from '@/lib/format';
+import { resolveViewOrNull } from '@/lib/dataset';
+import { shownName } from '@/lib/collection-name';
+import { fmtRange } from '@/lib/format';
 import { TYPES } from '@/lib/labels';
 import { PAGES } from '@/lib/accounts';
 import { currentUser } from '@/lib/session';
@@ -27,7 +28,13 @@ async function Spotlight() {
   await connection();
   const t = await getT();
   let top: ReturnType<typeof rankedIncidents>[number] | undefined;
-  try { const v = await resolveView(); top = rankedIncidents(v.runId).find((i) => i.open); } catch { return <b>{t('side.unavailable')}</b>; }
+  let empty = false;
+  try {
+    const v = await resolveViewOrNull();
+    empty = !v;
+    top = v ? rankedIncidents(v.runId).find((i) => i.open) : undefined;
+  } catch { return <b>{t('side.unavailable')}</b>; }
+  if (empty) return <><b>{t('ds.none')}</b><p>{t('ds.noneHint')}</p></>;
   if (!top) return <><b>{t('side.allClear')}</b><p>{t('side.allClearBody')}</p></>;
   return (
     <>
@@ -42,7 +49,7 @@ async function Spotlight() {
 async function RunNavigation() {
   await connection();
   let count: number | undefined;
-  try { count = openIncidentCount((await resolveView()).runId); } catch { return <NavFallback />; }
+  try { const v = await resolveViewOrNull(); count = v ? openIncidentCount(v.runId) : 0; } catch { return <NavFallback />; }
   // only the account's pages (the administrator also gets Accounts)
   const user = await currentUser();
   return <NavLinks incidents={count} allow={user ? user.pages.map((k) => PAGES[k].path) : []} admin={!!user?.admin} />;
@@ -51,14 +58,14 @@ async function RunNavigation() {
 async function RunStatus() {
   await connection();
   const t = await getT();
-  let meta: ReturnType<typeof getMeta>, view: Awaited<ReturnType<typeof resolveView>>;
-  try { view = await resolveView(); meta = getMeta(view.runId); } catch { return <span className="side-status">{t('side.unavailable')}</span>; }
-  const imported = view.kind === 'collections';
+  let meta: ReturnType<typeof getMeta>, view: Awaited<ReturnType<typeof resolveViewOrNull>>;
+  try { view = await resolveViewOrNull(); meta = getMeta(view?.runId ?? null); } catch { return <span className="side-status">{t('side.unavailable')}</span>; }
+  if (!view) return <Link href="/data#collections" className="side-status" title={t('side.statusTitle')}><Database aria-hidden /><span><b>{t('ds.none')}</b><small>{t('ds.noneHint')}</small></span></Link>;
+  const label = view.combined ? t('ds.combined', { n: view.ids.length }) : shownName(view.names[0] ?? '', t('ds.satimName'));
   return (
-    <Link href={imported ? '/data#collections' : '/data'} className="side-status" title={t('side.statusTitle')}>
-      {imported ? <Layers aria-hidden /> : <Database aria-hidden />}
-      <span><b>{imported ? (view.combined ? t('ds.combined', { n: view.ids.length }) : view.names[0]) : meta.run.parity.sealed ? t('side.archive') : t('side.preview')}</b>
-        <small>{imported ? fmtRange(meta.firstDate, meta.asOf) : t('side.through', { date: fmtDay(meta.asOf), batch: t(`batch.${meta.run.batch_status}` as 'batch.complete') })}</small></span>
+    <Link href="/data#collections" className="side-status" title={t('side.statusTitle')}>
+      {view.combined ? <Layers aria-hidden /> : <Database aria-hidden />}
+      <span><b>{label}</b><small>{fmtRange(meta.firstDate, meta.asOf)}</small></span>
     </Link>
   );
 }

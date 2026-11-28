@@ -3,7 +3,7 @@
 // browser (which captures them) and the server (which checks them and shows them to the model).
 
 export interface Selection {
-  kind: 'text' | 'chart element' | 'chart' | 'table row' | 'card' | 'panel' | 'element';
+  kind: 'text' | 'chart element' | 'chart' | 'table row' | 'card' | 'panel' | 'element' | 'control';
   label: string;                    // short chip label
   panel?: string;                   // title of the panel it sits in
   text?: string;                    // visible text (or the highlighted text)
@@ -11,10 +11,12 @@ export interface Selection {
   date?: string;                    // ISO date of a chart bar
   table?: Record<string, string>;   // table row: column → cell
   links?: string[];                 // in-app links inside it (ids: /merchants/MER-…, /incidents/INC-…)
+  /** a button, tab, filter, field or navigation link: what it is and its on-screen name (never a field's typed value) */
+  control?: { role: string; name: string; state?: string; options?: string[]; area?: string };
 }
 
 export const MAX_SELECTIONS = 4;
-const KINDS = new Set<Selection['kind']>(['text', 'chart element', 'chart', 'table row', 'card', 'panel', 'element']);
+const KINDS = new Set<Selection['kind']>(['text', 'chart element', 'chart', 'table row', 'card', 'panel', 'element', 'control']);
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.replace(/\s+\n/g, '\n').trim().slice(0, max) : undefined);
 
 /** Keep only well-formed, bounded fields (the browser sends them; never trust their shape). */
@@ -28,8 +30,11 @@ export function sanitizeSelections(raw: unknown): Selection[] {
       ? Object.fromEntries(Object.entries(o.table as Record<string, unknown>).slice(0, 14).map(([k, v]) => [k.slice(0, 40), str(v, 120) ?? '']))
       : undefined;
     const links = Array.isArray(o.links) ? o.links.filter((l): l is string => typeof l === 'string' && /^\/[\w\-/%.?=&]*$/.test(l) && !l.startsWith('/api')).slice(0, 6).map((l) => l.slice(0, 120)) : undefined;
-    const s: Selection = { kind, label: str(o.label, 80) || kind, panel: str(o.panel, 80), text: str(o.text, 900), tip: str(o.tip, 300), date: /^\d{4}-\d{2}-\d{2}$/.test(String(o.date)) ? String(o.date) : undefined, table, links };
-    return s.text || s.tip || s.table ? [s] : [];
+    const c = o.control && typeof o.control === 'object' ? o.control as Record<string, unknown> : null;
+    const control = c && str(c.name, 80) ? { role: str(c.role, 24) || 'control', name: str(c.name, 80)!, state: str(c.state, 60),
+      options: Array.isArray(c.options) ? c.options.map((x) => str(x, 40)).filter((x): x is string => !!x).slice(0, 12) : undefined, area: str(c.area, 40) } : undefined;
+    const s: Selection = { kind, label: str(o.label, 80) || kind, panel: str(o.panel, 80), text: str(o.text, 900), tip: str(o.tip, 300), date: /^\d{4}-\d{2}-\d{2}$/.test(String(o.date)) ? String(o.date) : undefined, table, links, control };
+    return s.text || s.tip || s.table || s.control ? [s] : [];
   });
 }
 
@@ -38,6 +43,7 @@ export function selectionBlock(sel: Selection[]): string {
   if (!sel.length) return '';
   const lines = sel.map((s, i) => {
     const parts = [`${i + 1}. ${s.kind}${s.panel ? ` in the panel "${s.panel}"` : ''}${s.date ? `, date ${s.date}` : ''}`];
+    if (s.control) parts.push(`   ${s.control.role} "${s.control.name}"${s.control.area ? ` in the ${s.control.area}` : ''}${s.control.state ? `, currently ${s.control.state}` : ''}${s.control.options?.length ? `, options: ${s.control.options.join(' | ')}` : ''}`);
     if (s.tip) parts.push(`   chart values: ${s.tip.replace(/\n/g, ' · ')}`);
     if (s.table) parts.push(`   row: ${Object.entries(s.table).map(([k, v]) => `${k}: ${v}`).join('; ')}`);
     if (s.text && !s.table) parts.push(`   text: ${s.text.replace(/\n+/g, ' / ')}`);

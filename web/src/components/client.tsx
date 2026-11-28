@@ -3,10 +3,11 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Activity, GraduationCap, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Sparkles, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
+import { Activity, GraduationCap, Database, FileText, LayoutGrid, LogOut, PanelLeftClose, PanelLeftOpen, Printer, Radar, Receipt, Siren, Store, SunMoon, TriangleAlert, SlidersHorizontal, ChevronLeft, UsersRound } from 'lucide-react';
 import { countUp, toggleTheme } from '@design/motion.js';
 import { fmtCompactDzd, fmtInt, fmtNum, fmtPct, type Locale } from '@/lib/format';
 import { useT, LanguageSwitch } from './i18n';
+import { MascotIcon } from './mascot-icon';
 
 const FORMAT = { int: (n: number, l: Locale) => fmtInt(n, l), num: (n: number, l: Locale) => fmtNum(n, 2, l), dzd: (n: number, l: Locale) => fmtCompactDzd(n, l), pct: (n: number, l: Locale) => fmtPct(n, 1, l) };
 
@@ -29,7 +30,7 @@ const SECTIONS = [
     { href: '/intelligence', label: 'nav.intelligence', icon: Radar, badge: false },
     { href: '/merchants', label: 'nav.merchants', icon: Store, badge: false },
     { href: '/transactions', label: 'nav.transactions', icon: Receipt, badge: false },
-    { href: '/assistant', label: 'nav.assistant', icon: Sparkles, badge: false },
+    { href: '/assistant', label: 'nav.assistant', icon: MascotIcon, badge: false },
     { href: '/simulate', label: 'nav.simulator', icon: SlidersHorizontal, badge: false },
   ] },
   { title: 'nav.report', items: [

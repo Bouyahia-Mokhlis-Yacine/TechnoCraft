@@ -7,12 +7,13 @@ import { briefQuery, renderBriefPdf, renderReportPdf, type BriefParams } from '@
 import { getReport } from '@/lib/custom-report';
 import { appendEvent } from '@/lib/reviews';
 import { can, COOKIE } from '@/lib/session';
-import { resolveView } from '@/lib/dataset';
+import { resolveViewOrNull } from '@/lib/dataset';
 import { withRun } from '@/lib/run-scope';
 
 // the brief is printed from the dataset the operator is viewing (run pinned in the printed URL), in their language
 export async function GET(req: NextRequest) {
-  const view = await resolveView(req.nextUrl.searchParams.get('run'));
+  const view = await resolveViewOrNull(req.nextUrl.searchParams.get('run'));
+  if (!view) return fail(409, 'no_dataset', 'No data is selected. Choose or import data in Data & runs.');
   return withRun(view.runId, () => handle(req, view.runId));
 }
 
