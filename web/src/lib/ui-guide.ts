@@ -23,13 +23,12 @@ const PAGES: GuidePage[] = [
     purpose: 'Navigation and settings shared by every page. An account only sees the pages and actions the administrator gave it.',
     panels: [
       { name: 'Sidebar', explains: 'Pages grouped as Monitor (Overview, Live Monitoring, Incidents, Alerts), Investigate (Intelligence, Merchants, Transactions, Assistant, Simulator), Report (Reports, Data & runs, Controlled learning) and Admin (Accounts). The number on Incidents counts open incidents.' },
-      { name: 'Spotlight card', explains: 'The top open incident ("Critical now" or "Top of the queue") with its type, merchant, days running and priority; "All clear" when nothing is open.' },
       { name: 'Dataset status', explains: 'At the foot of the sidebar: which data the pages show (the official competition archive or imported collections) and its dates; opens Data & runs.' },
       { name: 'Banners', explains: 'A banner on data pages says when imported collections are shown instead of the official SATIM data, or when their analysis is still running or failed.' },
     ],
     controls: [
       { names: ['Collapse', 'Expand', 'Replier', 'Déplier'], does: 'Folds the sidebar to icons or unfolds it; remembered on this browser.' },
-      { names: ['Open incident', 'Ouvrir l’incident'], does: 'In the spotlight card: opens the top incident of the queue.' },
+      { names: ['Open incident', 'Ouvrir l’incident'], does: 'On the Overview "Needs attention" card: opens the incident to act on first.' },
       { names: ['Up one level', 'Remonter d’un niveau'], does: 'Back button on detail pages: returns to the list with its last filters.' },
       { names: ['SATIM dataset', 'Collection', 'Combined view', 'Active dataset', 'Jeu de données'], does: 'Dataset selector in the page header: shows which data every page reads. "Return to the original SATIM dataset" goes back to the official data; "Manage collections" opens Data & runs.' },
       { names: ['Return to the original SATIM dataset', 'Revenir au jeu de données SATIM d’origine'], does: 'Shows the official SATIM data again instead of imported collections (for your account only).' },

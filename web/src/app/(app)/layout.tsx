@@ -3,16 +3,15 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
 import { redirect } from 'next/navigation';
-import { ArrowRight, Database, Layers } from 'lucide-react';
+import { Database, Layers } from 'lucide-react';
 import { NavFallback, NavLinks, NavTracker, SidebarToggle } from '@/components/client';
 import { AssistantDock } from '@/components/assistant-dock';
 import { PopoverGuard } from '@/components/popover-guard';
 import { I18nProvider } from '@/components/i18n';
-import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
+import { getMeta, openIncidentCount } from '@/lib/api';
 import { resolveViewOrNull } from '@/lib/dataset';
 import { shownName } from '@/lib/collection-name';
 import { fmtRange } from '@/lib/format';
-import { TYPES } from '@/lib/labels';
 import { PAGES } from '@/lib/accounts';
 import { currentUser } from '@/lib/session';
 import { getLocale, getT } from '@/lib/i18n/server';
@@ -21,28 +20,6 @@ import { getLocale, getT } from '@/lib/i18n/server';
 async function IfPage({ page, children }: { page: keyof typeof PAGES; children: React.ReactNode }) {
   const user = await currentUser();
   return user && (user.admin || user.pages.includes(page)) ? children : null;
-}
-
-/** Top of the queue of the active dataset: reads the review ledger, so it renders per request. */
-async function Spotlight() {
-  await connection();
-  const t = await getT();
-  let top: ReturnType<typeof rankedIncidents>[number] | undefined;
-  let empty = false;
-  try {
-    const v = await resolveViewOrNull();
-    empty = !v;
-    top = v ? rankedIncidents(v.runId).find((i) => i.open) : undefined;
-  } catch { return <b>{t('side.unavailable')}</b>; }
-  if (empty) return <><b>{t('ds.none')}</b><p>{t('ds.noneHint')}</p></>;
-  if (!top) return <><b>{t('side.allClear')}</b><p>{t('side.allClearBody')}</p></>;
-  return (
-    <>
-      <b>{top.severity === 'critical' ? t('side.critical') : t('side.top')}</b>
-      <p>{t('side.topBody', { type: TYPES[top.type].label, merchant: top.merchant, days: top.days > 1 ? t('side.running', { n: top.days }) : '', priority: top.priority })}</p>
-      <Link className="btn btn-light btn-block" href={`/incidents/${top.id}`}>{t('side.openIncident')} <ArrowRight /></Link>
-    </>
-  );
 }
 
 /** The sidebar menu, read per request so a newly published run or a new selection updates the badge. */
@@ -95,10 +72,6 @@ async function AuthorizedApp({ children }: { children: React.ReactNode }) {
           </div>
 
           <Suspense fallback={<NavFallback />}><RunNavigation /></Suspense>
-
-          <Suspense fallback={null}><IfPage page="incidents">
-            <div className="spot"><Spotlight /></div>
-          </IfPage></Suspense>
 
           {/* Data status (FR-11, FR-20): which dataset, how fresh, complete or not. Lives in the sidebar foot. */}
           <Suspense fallback={null}><IfPage page="data"><RunStatus /></IfPage></Suspense>
