@@ -19,6 +19,7 @@ import { ReviewPanel } from '@/components/client';
 import { DayBars, ProgressRows } from '@/components/charts';
 import { LifecycleChip, PageHeader, ReviewChip, SeverityBadge, TypeLabel } from '@/components/ui';
 import { Balanced } from '@/components/balanced';
+import { activeResults } from '@/lib/rules';
 
 type Params = Promise<{ id: string }>;
 type SP = Promise<Record<string, string | string[] | undefined>>;
@@ -40,6 +41,9 @@ async function IncidentView({ params, searchParams }: { params: Params; searchPa
   const official = view.kind === 'archive';
   const user = await currentUser();
   const { incident: i, anomalies, timeline, advisory } = data;
+  // company rules that matched this merchant during the incident (operational runs only): linked here, not a second case
+  const ruleHits = view.kind === 'collections' ? activeResults(view.runId).flatMap(({ rule, result }) => result.matched
+    .filter((m) => m.merchant === i.merchant && m.date >= i.onset && m.date <= i.end).map((m) => ({ rule, m }))) : [];
   const peak = anomalies.reduce((p, a) => (a.score > p.score ? a : p));
   const triage = i.evidence.priority_explanation;
   const weightTotal = Object.values(triage.weights).reduce((a, b) => a + b, 0);
@@ -77,6 +81,14 @@ async function IncidentView({ params, searchParams }: { params: Params; searchPa
           </section>
 
 
+          {ruleHits.length > 0 && <section className="panel m-rise" style={css({ '--i': 1 })}>
+            <div className="panel-head"><div><h2>{t('rules.incidentTitle')}</h2><p>{t('rules.incidentSub')}</p></div>
+              {ruleHits.some((h) => h.rule.action === 'priority') && <span className="chip">{t('rules.raisePriority')}</span>}</div>
+            <ul className="rule-matches">{ruleHits.slice(0, 8).map(({ rule, m }, k) => (
+              <li key={k}><b>{rule.name}</b> <small className="muted">v{rule.version}</small> · {m.time ?? m.date} · {Object.entries(m.observed).map(([ind, v]) => `${t(`rules.ind.${ind}` as 'rules.ind.amount')} ${v ?? '—'}`).join(' · ')}
+                · {t(`sev.${rule.severity}` as 'sev.low')}{rule.recommendation ? ` · ${rule.recommendation}` : ''}</li>))}</ul>
+            <p className="muted small">{t('rules.notProof')}</p>
+          </section>}
           {official ? <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>{t('f.review')}</h2><p>{REVIEW[i.review.status]} · {i.review.owner ?? t('incd.noOwner')}</p></div></div>
             <ReviewPanel id={i.id} version={i.review.version} status={i.review.status} allowed={allowed(user)} />

@@ -339,6 +339,18 @@ const PAGES: GuidePage[] = [
     tasks: [{ task: 'From labels to a new model', steps: ['Reviewer: label observations with notes and Submit label', 'Supervisor: Approve the labels with a reason', 'Supervisor: Register job, Run it, check Status', 'Score in shadow, then Compare with the champion', 'Activate with a reason only if it is eligible; Roll back if needed'] }],
   },
   {
+    key: 'rules', route: '/rules', name: 'Custom rules', fr: 'Règles métier',
+    purpose: 'SATIM\'s own operational rules built without code (for example contactless payments above 2,500 DZD). They never change the AI model, its thresholds or the official predictions; their matches are shown apart and linked to AI alerts on the same merchant-day.',
+    panels: [{ name: 'Rules', explains: 'Every rule with its version, status, matches on the selected data and last trigger.' }, { name: 'Company rule results', explains: 'Matches of the active rules on the selected operational collection, with observed values and whether the AI also flagged that merchant-day.' }],
+    controls: [
+      { names: ['New rule', 'Nouvelle règle', 'Edit', 'Modifier'], does: 'Opens the builder: name, justification, scope, granularity, conditions combined with AND or OR, consecutive days, severity, action, recommendation and effective date.', who: 'needs the Manage company rules permission' },
+      { names: ['Preview impact', 'Prévisualiser l’impact'], does: 'Tests the draft on a historical dataset: observations evaluated, matches, merchants, overlap with AI alerts, additional merchant-days to review and data not evaluable. Changes nothing.', who: 'needs the Manage company rules permission' },
+      { names: ['Activate', 'Activer'], does: 'Makes the rule active after a reason and an explicit confirmation; every change is in the audit ledger.', who: 'needs the Manage company rules permission' },
+      { names: ['Version history', 'Historique des versions', 'Restore', 'Restaurer'], does: 'Lists every version; restoring one creates a new draft version to activate again.' },
+    ],
+    tasks: [{ task: 'Create a company rule', steps: ['Click "New rule"', 'Choose what it applies to (transaction or merchant-day) and its scope', 'Add conditions and how they combine', 'Click "Preview impact" on a historical dataset', 'Save as draft, then Activate with a reason and the confirmation'] }],
+  },
+  {
     key: 'admin', route: '/admin', name: 'Accounts', fr: 'Comptes',
     purpose: 'The administrator creates accounts and chooses the pages and actions of each one. Every change is recorded.',
     panels: [{ name: 'New account', explains: 'Username, display name, password, pages and actions.' }, { name: 'Account list', explains: 'Each account with its access, password and deletion.' }],
