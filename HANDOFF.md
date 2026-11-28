@@ -9,7 +9,7 @@ Written 2026-11-27, updated 2026-11-28 (final release candidate) for the next ag
 ## 1. State right now
 
 **Git**
-- Branch: `final-platform-integration`, pushed to `origin`. Final release candidate: tag `rc-final-3` (see below). Development is frozen: only release-blocking fixes.
+- Branch: `final-platform-integration`, pushed to `origin`. Final release candidate: tag `rc-final-4` (see below). Development is frozen: only release-blocking fixes.
 - No pull request exists yet. The `gh` CLI is not installed; the compare link is in the report.
 - Do **not** merge into `main`: the AI team must first regenerate the official `y_pred_anomalies.csv` in the sealed Windows environment.
 - **Committed in `cdb9fc5`** (pushed; tested end to end):
@@ -24,7 +24,7 @@ Written 2026-11-27, updated 2026-11-28 (final release candidate) for the next ag
 
 **2026-11-28 second pass**: continuous learning merged (`4cf98c0`, from `0805305`); dataset-scoped reports, PDF, simulator and assistant, French live explanations, forecast vintages (`c6086e7`); learning adapter, import feed and `/learning` (`e6bb1eb`). Learning state lives in `runs/continuous_learning/` (private); vintages in `runs/forecast-vintages/`.
 
-**Final release candidate (2026-11-28)**: tag `rc-final-3` on `final-platform-integration` (this documentation commit). Earlier tags stay where they are: `rc-final` (`0aabe94`) and `rc-final-2` (`45b4a5e`, same code as `rc-final-3`, which only adds this handoff and the README tag). Sealed check: `y_pred_anomalies.csv` SHA-256 `4613fbe37e1dd6bf104119943753928733b30e82dca30e6efe07ccd7eaa6ddff` (unchanged by every commit since `rc-final`); run the README section "Verify the release candidate on Windows" on `rc-final-3`. Note: `origin/main` already holds a merge of this branch at `rc-final` (PR #1, `52f79f3`, made from the owner's GitHub account on 2026-11-28 01:55); the later commits are not in `main`. Merge again only after the sealed Windows verification passes on `rc-final-3`.
+**Final release candidate (2026-11-28)**: tag `rc-final-3` on `final-platform-integration` (this documentation commit). Earlier tags stay where they are: `rc-final` (`0aabe94`) and `rc-final-2` (`45b4a5e`, same code as `rc-final-3`, which only adds this handoff and the README tag). Sealed check: `y_pred_anomalies.csv` SHA-256 `4613fbe37e1dd6bf104119943753928733b30e82dca30e6efe07ccd7eaa6ddff` (unchanged by every commit since `rc-final`); the sealed Windows verification of `rc-final-3` passed (model integrity, Python, frontend, build, browser) after three procedure corrections, now in the README section "Verify the release candidate on Windows" and tagged `rc-final-4` (procedure and `.gitignore` only: `runs-rc/` ignored, `RUNS_DIR` and a writable `TEMP`/`TMP`/`TMPDIR` before the Python tests, `next typegen` before `tsc`, junction permission for the build). Run that procedure on `rc-final-4` before merging. Note: `origin/main` already holds a merge of this branch at `rc-final` (PR #1, `52f79f3`, made from the owner's GitHub account on 2026-11-28 01:55); the later commits are not in `main`. Merge again only after the sealed Windows verification passes on `rc-final-3`.
 
 Since `rc-final`:
 - Assistant: SATIM mascot (pointer follow, idle moves, sit, drag and drop), sidebar icon; per-call model timeout inside a 45 s budget; ungrounded figures get one retry with the evidence tool imposed; `platform_guide` tool (`web/src/lib/ui-guide.ts`, self-check `ui-guide.test.ts`): every page, control (EN/FR names), permission and task, offered for how-to questions and selected controls; pick mode attaches buttons, tabs, fields and sidebar links; the assistant API requires the Assistant page and rebuilds context only for pages the account may open.
@@ -157,7 +157,7 @@ These 7 tests pass. The 84 research tests aren't in this repo.
 
 ## 7. Open items and documented limitations
 
-1. **Sealed release:** run the Windows verification on `rc-final-3`; then merge into `main` (the owner decides). No further features: development is frozen.
+1. **Sealed release:** run the corrected Windows verification (README) on `rc-final-4`; then merge into `main` (the owner decides). No further features: development is frozen.
 2. **Teammate stash** (`stash@{0}`, also `.verification/teammate-overview-grid.patch`): not applied; it conflicts with the two-column Overview.
 3. **No grouped parent cases:** collective advisories link incidents but each incident is reviewed on its own (a shared case would need new review-ledger storage and actions). No shared root cause is ever claimed.
 4. **Reviews** are recorded only when the SATIM collection is shown alone (the review ledger belongs to the archive run); other selections are read-only.
