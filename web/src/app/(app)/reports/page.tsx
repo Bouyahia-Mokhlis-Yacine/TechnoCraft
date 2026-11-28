@@ -158,14 +158,8 @@ function RunEvidence({ from, to, merchant }: { from: string; to: string; merchan
   const s = model().snap;
   const candidates = s.hybrid?.rows.filter((r) => r.investigation_candidate && r.date >= from && r.date <= to
     && (!merchant || r.merchant_id === merchant)).length;
-  const breaches = s.transactions.ts.reduce((count, ts, i) => {
-    const day = ts.slice(0, 10);
-    return count + Number(day >= from && day <= to && s.transactions.contactless_limit[i] &&
-      (!merchant || s.transactions.merchants[s.transactions.merchant[i]] === merchant));
-  }, 0);
   return <div className="report-foot">
     <p>{t('rep.mlLine', { n: candidates ?? t('common.unavailable') })}</p>
-    <p>{t('rep.contactlessLine', { n: breaches })}</p>
     <p>{t('rep.coverageLine')}</p>
   </div>;
 }

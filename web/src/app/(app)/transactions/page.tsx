@@ -58,7 +58,6 @@ async function Transactions({ searchParams }: { searchParams: SP }) {
         <label className="field">{t('f.status')}<select name="status" defaultValue={p.status ?? ''}><option value="">{t('common.all')}</option>{STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}</select></label>
         <DateRange from={p.from} to={p.to} min={meta.firstDate} max={meta.asOf} />
         <label className="field">{t('f.quality')}<select name="quality" defaultValue={p.quality ?? ''}><option value="">{t('common.all')}</option>{QUALITY.map((q) => <option key={q} value={q}>{qualityLabel(q)}</option>)}</select></label>
-        <label className="field">{t('f.contactless')}<select name="contactless" defaultValue={p.contactless ?? ''}><option value="">{t('common.all')}</option><option value="breach">{t('f.over2500')}</option><option value="within">{t('f.withinLimit')}</option></select></label>
         <label className="field">{t('f.min')}<input type="number" name="min" min={0} step="any" inputMode="decimal" defaultValue={p.min ?? ''} /></label>
         <label className="field">{t('f.max')}<input type="number" name="max" min={0} step="any" inputMode="decimal" defaultValue={p.max ?? ''} /></label>
         <label className="field">{t('f.sort')}<select name="sort" defaultValue={p.sort ?? ''}><option value="">{t('f.newest')}</option><option value="amount_desc">{t('f.largest')}</option><option value="amount_asc">{t('f.smallest')}</option><option value="status">{t('f.status')}</option></select></label>

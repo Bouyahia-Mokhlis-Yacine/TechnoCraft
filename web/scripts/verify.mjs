@@ -86,8 +86,7 @@ try {
   await page.screenshot({ path: path.join(evidence, 'network_overview.png'), fullPage: true });
   await navigate('/merchants', 'Merchants');
   await navigate('/merchants/' + alert.merchant, new RegExp(alert.merchant));
-  await navigate('/transactions?contactless=breach', 'Transactions');
-  await page.getByText(/^contactless limit exceeded$/i).first().waitFor();
+  await navigate('/transactions', 'Transactions');
   await navigate('/transactions?merchant=MER-0000', 'Transactions');
   await page.getByText('No transaction matches these filters', { exact: true }).waitFor();
   await navigate('/alerts', 'Alerts');
@@ -125,7 +124,7 @@ try {
   await navigate('/assistant', /assistant|ask the dashboard/i);
   // the language model answers when it is online; otherwise the built-in assistant stands in, marked as fallback
   const modelState = (await json('/api/v1/assistant/status')).model;
-  for (const question of ['Network summary', 'Which hybrid ML investigation candidates are there this week?', 'How many contactless limit breaches are there?',
+  for (const question of ['Network summary', 'Which hybrid ML investigation candidates are there this week?', 
     'What is the business impact this week?', 'Forecast for the next 7 days', 'What data quality problems should I consider?']) {
     const response = await context.request.post(origin + '/api/v1/assistant', { data: { question } });
     assert.equal(response.status(), 200, question);

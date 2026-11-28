@@ -284,12 +284,6 @@ export function LiveDashboard({ control, guided }: { control: boolean; guided?: 
         <Warnings title={t('live.collective')} values={visibleWarnings.filter(isCollective)} />
       </div>
       <div className={styles.duo}>
-        <section className="panel"><div className="panel-head"><div><h2>{t('live.domain')}</h2>
-          <p>{t('live.domainSub')}</p></div></div>
-          <ul className={styles.list}>{(state.domain ?? []).slice(0, 6).map((d, i) =>
-            <li key={i}>{stamp(d.time)} · {d.merchant} · {fmtCompactDzd(d.amount, t.locale)} · {tv(t, 'live.rule', d.rule)}</li>)}</ul>
-          {!state.domain?.length && <p className={styles.empty}>{t('live.noDomain')}</p>}
-        </section>
         <section className="panel"><div className="panel-head"><div><h2>{t('live.closure')}</h2>
           <p>{t('live.closureSub')}</p></div></div>
           <ul className={styles.list}>{(state.daily ?? []).map(d => <li key={d.date}>

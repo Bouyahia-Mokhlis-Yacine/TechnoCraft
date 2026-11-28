@@ -284,7 +284,7 @@ function RunHistory({ runs, official, active, satimDefault, canExport, t, onOpen
                   <small className="muted block">{r.filenames.length ? `${r.filenames.join(', ')} · ` : ''}{t(r.complete ? 'imp.complete' : 'imp.partial')}</small></td>
                 <td className="num">{x ? fmtRange(x.first_date, x.last_date, l) : '—'}</td>
                 <td className="r num">{x ? fmtInt(x.rows_processed, l) : '—'}</td><td className="r num">{x?.merchants != null ? fmtInt(x.merchants, l) : '—'}</td>
-                <td>{x ? t('rh.qualityLine', { dup: x.duplicates_removed, nfc: x.contactless_limit_events ?? 0 }) : '—'}</td>
+                <td>{x ? t('rh.dupLine', { dup: x.duplicates_removed }) : '—'}</td>
                 <td><small>{x?.model_version ?? '—'} · {x?.preprocessing_version ?? '—'}<span className="muted block" title={x?.reference_version}>{t('rh.reference')} {x?.reference_version?.split('-').pop() ?? '—'}</span></small></td>
                 <td className="r num">{x ? fmtInt(x.alerts, l) : '—'}</td><td className="r num">{x?.collective_warnings ?? '—'}</td>
                 <td className="r num" title={x?.hybrid_note ?? undefined}>{x?.hybrid_candidates ?? '—'}</td>

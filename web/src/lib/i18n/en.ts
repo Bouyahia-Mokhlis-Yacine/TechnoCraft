@@ -1314,4 +1314,5 @@ export const en = {
   'rules.incidentTitle': "Company rule evidence",
   'rules.incidentSub': "SATIM rules that matched this merchant during the incident: same case, separate from the AI evidence",
   'rules.raisePriority': "A company rule asks to raise this incident's priority",
+  'rh.dupLine': "{dup} duplicate(s) removed",
 };

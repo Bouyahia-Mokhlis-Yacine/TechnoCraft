@@ -1316,4 +1316,5 @@ export const fr: Record<keyof typeof en, string> = {
   'rules.incidentTitle': "Preuves des règles métier",
   'rules.incidentSub': "Règles SATIM déclenchées pour ce commerçant pendant l’incident : même dossier, distinct des preuves IA",
   'rules.raisePriority': "Une règle métier demande de relever la priorité de cet incident",
+  'rh.dupLine': "{dup} doublon(s) retiré(s)",
 };

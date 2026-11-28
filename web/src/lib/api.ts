@@ -300,20 +300,17 @@ export interface TxFilters { run?: string; merchant?: string; from?: string; to?
 export function listTransactions(f: TxFilters, pageSize = 50) {
   const t = model(f.run).snap.transactions;
   const mIdx = f.merchant ? t.merchants.indexOf(f.merchant) : -1, chs = channelSet(f.channel);
-  const rows: { id: string; ts: string; merchant: string; category: string; channel: string; status: string; amount: number | null; flags: string[]; contactlessLimit: boolean }[] = [];
+  const rows: { id: string; ts: string; merchant: string; category: string; channel: string; status: string; amount: number | null; flags: string[] }[] = [];
   for (let i = t.ts.length - 1; i >= 0; i--) {
     const date = t.ts[i].slice(0, 10);
     if ((f.merchant && t.merchant[i] !== mIdx) || (f.from && date < f.from) || (f.to && date > f.to) || (f.category && t.category[i] !== f.category) || (chs && !chs.has(t.channel[i])) || (f.status && t.status[i] !== f.status)) continue;
     if (f.quality && !t.quality[i].includes(f.quality)) continue;
-    if (f.contactless === 'breach' && !t.contactless_limit[i]) continue;
     // amount range (DZD, the active policy's amount); rows without an amount are left out of a range
     if ((f.min || f.max) && (t.amount[i] === null || (f.min && t.amount[i]! < Number(f.min)) || (f.max && t.amount[i]! > Number(f.max)))) continue;
-    if (f.contactless === 'within' && (t.channel[i] !== 'Contactless / NFC' || t.amount[i] === null || t.contactless_limit[i])) continue;
     // quality codes (translated on screen; the CSV export keeps its former wording)
     const flags = [...t.quality[i]];
-    if (t.contactless_limit[i]) flags.push('contactless_limit');
     rows.push({ id: t.source_row[i], ts: t.ts[i], merchant: t.merchants[t.merchant[i]], category: t.category[i],
-      channel: t.channel[i], status: t.status[i], amount: t.amount[i], flags, contactlessLimit: t.contactless_limit[i] });
+      channel: t.channel[i], status: t.status[i], amount: t.amount[i], flags });
   }
   if (f.sort === 'amount_desc') rows.sort((a, b) => (b.amount ?? -1) - (a.amount ?? -1));
   else if (f.sort === 'amount_asc') rows.sort((a, b) => (a.amount ?? Infinity) - (b.amount ?? Infinity));

@@ -23,8 +23,8 @@ export async function GET(req: NextRequest, ctx: RouteContext<'/api/v1/export/[k
   let body: string;
   if (kind === 'transactions') {
     const r = listTransactions(p).all;
-    body = csv(['source_row', 'timestamp', 'merchant_id', 'category', 'channel', 'status', 'amount', 'quality_flags', 'contactless_limit'],
-      r.map((t) => [t.id, t.ts, t.merchant, t.category, t.channel, t.status, t.amount, t.flags.map((f) => (f === 'contactless_limit' ? 'contactless limit exceeded' : f.replaceAll('_', ' '))).join('|'), Number(t.contactlessLimit)]));
+    body = csv(['source_row', 'timestamp', 'merchant_id', 'category', 'channel', 'status', 'amount', 'quality_flags'],
+      r.map((t) => [t.id, t.ts, t.merchant, t.category, t.channel, t.status, t.amount, t.flags.map((f) => f.replaceAll('_', ' ')).join('|')]));
   } else if (kind === 'predictions') {
     const snap = model(null).snap;   // the official submission only ever comes from the official run
     if (!snap.run.parity.sealed) return fail(409, 'unsealed_replay', 'The sealed submission parity check has not passed.');
