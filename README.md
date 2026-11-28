@@ -32,6 +32,23 @@ From the repository root, with the pinned conda environment (Linux: `satim-seale
 
 **How sequential state is kept.** Every analysis replays the frozen detector from the official epoch (25 Oct 2026) through the official test period and on through the collection's batches in date order, against the frozen pre-period reference (fitted on ordinary history before 17 Oct 2026, never refitted or updated from new days). CUSUM and incident lifecycles therefore continue from the official run, references cannot be contaminated by ongoing incidents, new merchants start from the hierarchical (category) Gamma–Poisson reference, and processing batches one at a time gives exactly the same scores as one continuous replay. A file already in the destination is skipped; dates on or before 13 Nov 2026 are refused rather than rewriting processed history.
 
+## Dataset shown on each page
+
+Every page, report, PDF, simulator view and assistant answer uses the same dataset: the operator's own choice (dataset menu), else the platform's activated run, else the official SATIM run. Reports and PDFs carry a **Dataset** line; assistant answers end with a provenance line. The sealed submission download and incident reviews always use the official run.
+
+## Forecast history
+
+**Data & runs → Historique des prévisions** keeps every published run's 7-day forecast as an immutable vintage (creation time, origin, targets, model and reference versions, intervals) and compares it with merchant-days observed later in complete imported batches: MAE and the share of actual values inside the 80 % and 90 % intervals, for transactions, accepted value and rejections. Nothing is forecast after the fact.
+
+## Controlled learning
+
+The AI team's backend (`src/continuous_learning`, `docs/CONTINUOUS_LEARNING_API.md`) is reached through `engine/learning_bridge.py` and the **Apprentissage contrôlé** page (`/learning`). Give accounts the **Expert labelling** and **Supervise learning** actions in **Comptes**; the administrator is a supervisor.
+
+1. A supervisor initialises the operational baseline (packaged from the archived ordinary model; runs in the background).
+2. From then on, every successful **complete** import is ingested into the learning ledger and each new date is scored in order by the model scheduled for it (CUSUM state and pinned incident references carried over); its `operational_predictions_<run_id>.csv` comes from that model. Partial imports and dates before 14 Nov 2026 or in the future stay out.
+3. Reviewers label queued merchant-days; a different supervisor approves or rejects. Unflagged or closed days are never treated as verified normal.
+4. A supervisor registers a learning job (fit, calibration and evaluation windows), runs it, shadow-scores the evaluation dates prospectively, compares it with the champion and activates it only when the service's gate passes. Rollback restores the previous model from the next unscored date.
+
 ## Run the Live Monitoring workspace
 
 Use the project's Python and Node environments and an existing published platform snapshot. The replay service reads the training archive and serves isolated simulations. The frozen daily detector remains authoritative for the official competition submission.

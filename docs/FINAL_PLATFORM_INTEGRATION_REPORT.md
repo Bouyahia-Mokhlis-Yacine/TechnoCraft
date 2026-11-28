@@ -2,6 +2,25 @@
 
 Branch `final-platform-integration`, built on 27 November 2026 from `main` (`e98cf7d`) plus the latest frontend work, with `origin/backend-integration` (`c7f7586`) merged in. Linux preview checks ran on Fedora (Node.js 22.23, Python 3.12.7), and sealed release verification ran on Windows (Node.js 20.19.5, `.verification/sealed-env` Python 3.12.7), where the live local demo server on port `3000` serves sealed run `4d13a45b617d44b4`.
 
+## Dataset consistency, forecast history and continuous learning (2026-11-28, second pass)
+
+| Check (Linux, isolated `RUNS_DIR`) | Result |
+| --- | --- |
+| Python `unittest` (import, bridge, live, snapshot, continuous learning) | 29 passed |
+| `verify.mjs` (with `SATIM_TEST_ALLOW_PREVIEW=1`) and `verify-live.mjs` | passed |
+| Hydration sweep FR/EN (login, live, admin, overview, data, alerts, merchant, learning, reports, simulator, assistant) | no errors |
+| Weekly brief with a collection selected | January 2027 figures, "Dataset: Imported operational data · Lot 1"; PDF prints the same, filename carries the run id |
+| Assistant with a collection selected | answers from that run (model source), provenance line names it |
+| Simulator with a collection | baseline from the collection; development cost curve stays official (labelled) |
+| Forecast vintages | official vintage (origin 14 Nov) vs 70 later complete merchant-days: MAE 2.9 tx, 81 % / 87 % inside 80 % / 90 % intervals |
+| Learning roles | no-access account 403; reviewer cannot approve; supervisor cannot approve own label; HTTP cannot feed batches |
+| Learning ledger | baseline packaged; complete import ingested (70 merchant-days, 7 dates) and scored by the active model; next batch scores only its new dates in order |
+| No automatic normal | unlabelled days: 0 eligible (awaiting approved feedback or quarantined) |
+| Rollback without an earlier model | refused with a clear message |
+| Sealed CSV | SHA-256 `4613fbe3…` unchanged |
+
+Fixtures are the official test-period rows moved forward in time; forecast and learning figures above describe that synthetic setup. Model activation through the gate is covered by the AI team's tests with synthetic paired scores; a gate-passing activation on platform data needs a census-reviewed prospective window, not available here. Windows sealed verification to be rerun by the AI team.
+
 ## Live Monitoring and future data processing (2026-11-28)
 
 Branch `final-platform-integration`: Live Monitoring merged from `live-monitoring-integration` (`88beefc`, `6dafe17`) in `a314f80`; localisation and transparency in `00a7306`; future batch processing in `53369f9`.

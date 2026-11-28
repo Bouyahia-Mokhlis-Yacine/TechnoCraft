@@ -22,6 +22,18 @@ Sequential state: the backend starts at the official epoch and replays `test day
 
 Activation: `runs/active.json` holds the administrator's platform-wide dataset; `lib/dataset.ts` resolves each request from the `pai_view` cookie (an account's own choice, `satim` for an explicit official choice) or else from `active.json`. Pages read `model(view.runId)`; reviews stay on the official run.
 
+## Request-scoped dataset
+
+`lib/run-scope.ts`: `resolveView()` pins the resolved run for the request (React request cache) and `withRun()` scopes route handlers (AsyncLocalStorage). `model()` without an argument reads the pinned run; `model(null)` is the official run. The PDF route pins the run in the printed URL (`?run=`). Explicitly official: `/api/v1/export/predictions`, review writes, the development validation curve.
+
+## Forecast vintages
+
+`lib/forecast-vintages.ts` writes `runs/forecast-vintages/<run_id>.json` once per published run (`wx`, never rewritten), from the immutable snapshot (`run.generated_at`, `forecast.detail`). Evaluation pairs a vintage's per-merchant targets with merchant-days from import runs generated after it whose `batch_status` is complete (latest run wins); unknown accepted values are skipped.
+
+## Continuous learning adapter
+
+`engine/learning_bridge.py` instantiates `LearningService(resolve, directory=RUNS_DIR/continuous_learning)`. `POST /api/v1/learning {method,args}` (whitelisted, page permission checked) spawns it with the session's account id; `run_learning_job` and `initialize_baseline` run detached. `engine.import_batch.learn()` runs after a successful complete import as the in-process worker identity: `ingest_import`, then `score_operational_batch` for unscored dates in order; already scored dates reuse `operational_predictions`.
+
 ## Snapshot schema v2
 
 | Field | Meaning |

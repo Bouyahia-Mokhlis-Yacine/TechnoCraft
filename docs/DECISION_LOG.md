@@ -61,3 +61,28 @@ The brief allows the mentor-confirmed absolute-value policy only where supported
 ## 2026-11-27 · Require reviewed admission and prospective shadow evaluation
 
 The saved adaptive experiment found fewer false alerts with controlled reference updates, while partial episode quarantine let the Isolation Forest absorb sustained anomalies. Unguarded adaptation reduced Hybrid incident-day recall from 66.67% in the controlled-reference arm to zero. Use explicit supervisor-approved normal labels, whole-episode quarantine and a lead/recovery buffer. Keep reference fitting, model fitting, calibration and reserved shadow observations temporally separate. Keep Directional CUSUM thresholds frozen and pin open incidents across model switches. Promote only after paired prospective evidence and a supervisor decision, with rollback to the prior approved version. Revisit admission and promotion policy only with independent labelled operational evidence. [Verification report](../reports/continuous_learning_results.md)
+
+## 2026-11-28 · One dataset per request, provenance on every output
+
+Reports, PDF briefs, the simulator and the assistant now follow the selected or activated dataset instead of always reading the official run. The run is pinned per request (server components through resolveView, route handlers through withRun) so a report or an answer cannot mix runs. Official-only outputs are bound explicitly: the sealed submission, incident reviews and the frozen development validation curve.
+
+## 2026-11-28 · Forecast vintages are recorded, never reconstructed
+
+A run's forecast is stored once with its own creation time and compared only with observations from complete batches analysed after it. Retrospective expectations are not substituted for forecasts.
+
+## 2026-11-28 · Expected accepted value: forward forecast only; a same-period reference goes to the AI team
+
+The compound frequency–outcome–severity engine provides accepted-value forecasts (mean and 80/90/95 % intervals) per merchant and for the network from a dated origin. They are used where they are valid: forecast panels and the vintage comparison (accepted value MAE and coverage). It provides no same-period expectation for an arbitrary observed window, and count × median ticket is not a mean. A contemporaneous expected-accepted-value reference is a new statistical element: requested from the AI team, not built in the web layer.
+
+## 2026-11-28 · Negative amounts: the mentor policy stays an opt-in audit candidate
+
+`src/data/mentor_rules.py` (`satim-mentor-domain-v1`, used by `src/operations/mentor_backend.py`) already implements the confirmed absolute-value correction, for every status, with `reference_events` handling contactless severities. It is not enabled for imports: the scope (whether refunds and cancellations are corrected) and the use of the same representation for the frozen reference history are not verified, and the archived official policy must stay unchanged. Enabling it needs the AI team to confirm both and to version a reference fitted with the same representation.
+
+## 2026-11-28 · Live closure enrichment not integrated
+
+The live daily closure runs its own frozen IncidentMonitor with a replay-window reference. Collective and Hybrid enrichment would need a channel reference, scan calibration and feature epochs per replay window: new orchestration of the research code, so it is left to the research owner. Sustained monetary alerts and sequential outcome monitoring remain documented limitations.
+
+## 2026-11-28 · Continuous learning integrated through a thin adapter
+
+The AI team's LearningService is used unchanged. Roles come from the account store (administrator or `supervise`: supervisor; `label`: reviewer), never from the browser; grants are fleet-wide because accounts have no merchant scope. Complete imports feed the ledger automatically once the baseline exists, and the active operational model scores subsequent imports with carried sequential state. The proposed batch-level reference update policy was not implemented.
+
