@@ -1121,4 +1121,5 @@ export const fr: Record<keyof typeof en, string> = {
   'cl.phase.active_incident': "incident actif",
   'cl.phase.recovering': "en rétablissement",
   'cl.phase.unavailable': "indisponible",
+  'chat.fbTimeout': "le modèle de langage a mis trop de temps à répondre",
 };

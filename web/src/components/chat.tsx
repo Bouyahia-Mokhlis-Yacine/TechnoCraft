@@ -210,7 +210,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
           <div className="chat-col">
             {empty && (
               <div className="chat-empty m-fade">
-                <Mascot state={mascot} size={dock ? 104 : 150} className="mascot-hero" />
+                <Mascot state={mascot} size={dock ? 104 : 150} className="mascot-hero" interactive />
                 <h2>{emptyTitle ?? t('chat.emptyTitle')}</h2>
                 <p className="sr-only">{t('chat.facts')}</p>
                 <div className="chat-facts" aria-hidden><span><Database />{t('chat.factData')}</span><span><Link2 />{t('chat.factEvidence')}</span><span><Languages />FR · EN · Darija</span></div>
@@ -239,8 +239,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
                       })}</div>
                     )}
                     {m.shown >= m.total && m.reply.report && <ReportPreview report={m.reply.report} compact={dock} />}
-                    {m.shown >= m.total && m.reply.scope && <small className="scope">{m.reply.scope}</small>}
-                    {m.shown >= m.total && m.reply.fallback && <small className="fallback-tag" title={t('chat.fallbackTitle')}>{t('chat.fallback')} · {m.reply.fallback === 'model_rejected' ? t('chat.fbRejected') : m.reply.fallback === 'model_off' ? t('chat.fbOff') : t('chat.fbOffline')}</small>}
+                    {m.shown >= m.total && m.reply.fallback && <small className="fallback-tag" title={t('chat.fallbackTitle')}>{t('chat.fallback')} · {m.reply.fallback === 'model_rejected' ? t('chat.fbRejected') : m.reply.fallback === 'model_timeout' ? t('chat.fbTimeout') : m.reply.fallback === 'model_off' ? t('chat.fbOff') : t('chat.fbOffline')}</small>}
                   </div>
                 </div>
               ))}
@@ -265,7 +264,7 @@ export function Chat({ initial, examples, conversations, conversation, folded: f
               </div>
             )}
             <form className="chat-input" onSubmit={(e) => { e.preventDefault(); ask(draft); }}>
-              {!empty && <Mascot state={mascot} size={44} className="mascot-composer" />}
+              {!empty && <Mascot state={mascot} size={44} className="mascot-composer" interactive />}
               {onPick && <button type="button" className={`pick-btn${picking ? ' on' : ''}`} onClick={onPick} aria-pressed={picking} aria-label={t('chat.pick')} title={t('chat.pick')}><Crosshair aria-hidden /></button>}
               <textarea ref={inputRef} dir="auto" value={draft} onChange={(e) => { setDraft(e.target.value); grow(e.target); }} rows={1} maxLength={500} placeholder={attachments.length ? t('chat.askSelection') : convId ? t('chat.followUp') : t('chat.ask')} aria-label={t('chat.yourQuestion')}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); ask(draft); e.currentTarget.style.height = 'auto'; } }} />

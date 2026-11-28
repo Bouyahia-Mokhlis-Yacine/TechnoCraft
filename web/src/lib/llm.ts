@@ -15,7 +15,9 @@ import { hasSensitiveIdentifier } from './privacy';
 
 const URL_ = process.env.LLM_URL?.replace(/\/+$/, '');
 const MODEL = process.env.LLM_MODEL ?? 'assistant';
+/** Per model call (one round of the tool loop); the whole answer gets a larger budget (BUDGET). */
 const TIMEOUT = Number(process.env.LLM_TIMEOUT_MS ?? 12000);
+const BUDGET = Math.max(TIMEOUT * 4, 45_000);
 const MAX_ROUNDS = 4;
 const HISTORY_TURNS = 6;   // earlier question/answer pairs sent to the model
 const HISTORY_CHARS = 1500; // per earlier answer
@@ -243,7 +245,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
   if (!URL_) return { ...rules, source: 'rules', model: 'off', fallback: 'model_off' };
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+  const timer = setTimeout(() => ctrl.abort(new DOMException('Answer budget exceeded', 'TimeoutError')), BUDGET);
   try {
     const { prompt, tools: base } = loadContract();
     // the operational evidence tools: the description is all the model knows about each one
@@ -280,20 +282,35 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const used: Display[] = [];
     // numbers may come from this turn's tool results, the question, or earlier (already checked)
     // turns; not from the rules text, whose own numbers (rules 1–11) must not whitelist anything
-    let repaired = false, nudged = false, madeFile = false, force: string | undefined = live ? 'page_context' : undefined;
+    let repaired = false, nudged = false, grounded = false, madeFile = false, force: string | undefined = live ? 'page_context' : undefined;
     const wantsFile = !live && (WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q))));
     let sources = `${active ? JSON.stringify(active.spec) : ''}\n${q}${block}\n${asOf}\n${run.run_id}\n${past.map((m) => m.content).join('\n')}`;
     const rounds = wantsFile ? MAX_ROUNDS + 2 : MAX_ROUNDS; // a report may need figures first, then its text
     for (let round = 0; round < rounds; round++) {
-      const msg = await chat(messages, tools, ctrl.signal, force);
+      const msg = await chat(messages, tools, AbortSignal.any([ctrl.signal, AbortSignal.timeout(TIMEOUT)]), force);
       force = undefined;
       if (!msg) { console.warn('[assistant] model returned no message'); break; }
       if (!msg.tool_calls?.length) {
         const text = clean(msg.content ?? '');
-        if (hasSensitiveIdentifier(text)) break;
+        if (hasSensitiveIdentifier(text)) { console.warn("[assistant] model answer rejected: card identifier"); break; }
+        // a conversational reply (greeting, thanks, a clarifying question) states no figure and names no merchant:
+        // there is nothing to check against tool results, so the model's own words are kept
+        if (!used.length && !wantsFile && text && !/\d/.test(text) && !/\bMER-/i.test(text) && !PROHIBITED.test(norm(text))) {
+          return { lang, intent: 'conversation', text: text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean), evidence: [], scope: '',
+            suggestions: rules.suggestions, source: 'model', model: 'online' };
+        }
         // no tool called: the rules' answer, with evidence, beats an unsupported reply
-        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) break;
-        if (!used.length && !wantsFile) break;
+        // figures stated without any tool: once, ask again with the evidence tool imposed (the page's figures when
+        // asked from a page) instead of dropping the model straight away
+        if (!used.length && !grounded && round < rounds - 1 && (page || !BROAD.has(rules.intent))) {
+          grounded = true;
+          console.warn('[assistant] figures without evidence: asking the model again with its evidence tool imposed');
+          if (page) force = 'page_context';
+          messages.push({ role: 'assistant', content: msg.content ?? '' }, { role: 'user', content: `Your reply states figures without calling a tool. ${page ? 'Call page_context and answer' : 'Call the tool that gives these figures and answer'} only from its results, in the same language.` });
+          continue;
+        }
+        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) { console.warn(`[assistant] model reply without evidence (no tool called, figures or ids present): built-in answer kept · ${text.slice(0, 120)}`); break; }
+        if (!used.length && !wantsFile) { console.warn(`[assistant] model reply without evidence: built-in answer kept · ${text.slice(0, 120)}`); break; }
         if (!text) { console.warn('[assistant] model returned an empty answer'); break; }
         // a file was asked for but none was made: the answer would point at a link that does not exist
         if (wantsFile && !madeFile) {
@@ -310,7 +327,7 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         if (PROHIBITED.test(norm(text))) { console.warn('[assistant] model answer rejected: prohibited term'); break; }
         const ids = text.match(/\bMER-\d{4}(?::\d{4}-\d{2}-\d{2})?\b/gi) ?? [];
         if (ids.some((id) => !sources.includes(id.toUpperCase()) ||
-            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) break;
+            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) { console.warn(`[assistant] model answer rejected: merchant id not in the evidence (${ids.join(', ')})`); break; }
         const bad = unknownNumbers(text, sources);
         if (bad.length) {
           console.warn(`[assistant] model answer ${repaired ? 'rejected' : 'sent back'}: ${bad.join(', ')} not in the tool results`);
@@ -351,7 +368,10 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
       return { lang: qLang, intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: made.report };
     }
   } catch (e) {
-    console.warn('[assistant] model unavailable, using the built-in answer:', e instanceof Error ? e.message : e);
+    // a slow answer is not an unreachable model: only connection failures mark it offline (and show the banner)
+    const slow = e instanceof Error && (e.name === 'TimeoutError' || e.name === 'AbortError');
+    console.warn(`[assistant] ${slow ? 'model too slow' : 'model unavailable'}, using the built-in answer:`, e instanceof Error ? e.message : e);
+    if (slow) return { ...rules, source: 'rules', model: 'online', fallback: 'model_timeout' };
     statusCache = { at: Date.now(), v: 'offline' };
     return { ...rules, source: 'rules', model: 'offline', fallback: 'model_offline' };
   } finally {

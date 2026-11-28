@@ -1119,4 +1119,5 @@ export const en = {
   'cl.phase.active_incident': "active incident",
   'cl.phase.recovering': "recovering",
   'cl.phase.unavailable': "unavailable",
+  'chat.fbTimeout': "the language model took too long to answer",
 };
