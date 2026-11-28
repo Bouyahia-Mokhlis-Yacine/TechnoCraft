@@ -8,9 +8,9 @@ import { addDays, model, PLAYBOOK } from './model';
 import { fmtCompactDzd, fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from './format';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES } from './labels';
 import { buildReport, getReport, reportSummary } from './custom-report';
-import type { Role } from './session';
 
-export interface PageContext { title: string; path: string; panels: string[]; data: Record<string, unknown>; summary: string[]; link: { label: string; href: string } }
+/** `panelSummaries`: one plain sentence per panel (by its on-screen title), for answers without the model. */
+export interface PageContext { title: string; path: string; panels: string[]; data: Record<string, unknown>; summary: string[]; panelSummaries?: Record<string, string>; link: { label: string; href: string } }
 
 const delta = (v: number | null, prior: number | null) => (v === null || prior === null || !prior ? null : fmtDelta(v, prior));
 const pct = (v: number | null) => (v === null ? 'n/a' : fmtPct(v));
@@ -44,6 +44,14 @@ function overview(q: URLSearchParams): Omit<PageContext, 'path' | 'link'> {
       open_incidents_bubbles: o.severityMix.map((s) => ({ severity: SEVERITIES[s.severity].label, count: s.value })),
       next_7_days_forecast: o.forecast?.length ? { points: forecast(o.forecast), backtest_error: `${fmtNum(o.backtest.mae_model, 0)} vs ${fmtNum(o.backtest.mae_seasonal_naive, 0)} for a seasonal naive forecast`, note: 'advisory, never used to flag' } : 'not shown for this filter',
     },
+    panelSummaries: {
+      'Network activity': (() => { const d = o.trend, obs = d.reduce((a, x) => a + x.value, 0), exp = d.reduce((a, x) => a + (x.usual ?? 0), 0), flagged = d.filter((x) => x.anomalies).length;
+        return `Network activity shows transactions per day (dark bars)${f.channel ? '' : ' next to the expected level (light bars)'} over ${d.length} day(s): ${fmtInt(obs)} transactions${exp ? ` against about ${fmtInt(Math.round(exp))} expected` : ''}. A red badge counts the merchants flagged that day; ${flagged} day(s) have one.`; })(),
+      'Open incidents': `Open incidents counts the incidents still open across the network, by severity: ${o.severityMix.filter((x) => x.value).map((x) => `${x.value} ${SEVERITIES[x.severity].label.toLowerCase()}`).join(', ') || 'none'}. Severity ranks how far the activity is from normal and for how long; critical is the highest and is handled first. Each bubble opens the matching incidents.`,
+      Channels: `Channels splits the ${fmtInt(tot)} transactions by payment channel: ${o.channels.slice(0, 4).map((c) => `${c.label} ${fmtPct(c.value / tot, 0)}`).join(', ')}.`,
+      Signals: `Signals over the last 14 days: ${o.advisories.length} network advisory(ies) (a channel declining across many merchants), ${clusters} collective anomaly(ies) (merchants moving together) and ${o.watchlist.length} merchant(s) on watch just below the alert threshold.`,
+      'Next 7 days': o.forecast?.length ? `Next 7 days is an advisory forecast of daily transactions with an 80 % range (${forecast(o.forecast).map((x) => x.interval_80).join(', ')}); it never raises alerts.` : 'No forecast is shown for this filter.',
+    },
     summary: [
       `Network overview, ${scope}: ${fmtInt(k.events.value)} transactions${delta(k.events.value, k.events.prior) ? ` (${delta(k.events.value, k.events.prior)} vs the previous period)` : ''}, ${fmtCompactDzd(k.acceptedValue.value)} accepted, decline rate ${pct(k.declineRate.value)}.`,
       `${k.affectedMerchants.value} merchant(s) with alerts and ${k.openIncidents.value} open incident(s), ${k.openIncidents.critical} critical. The Network activity chart puts each day's transactions next to the expected level; days with a red badge had flagged merchants.`,
@@ -70,6 +78,14 @@ function merchant(id: string): Omit<PageContext, 'path' | 'link'> | null {
       status_mix: m.statuses.map((s) => ({ status: s.label, transactions: s.value, share: fmtPct(s.value / stTot, 0) })),
       ...(m.cold.length ? { first_days_category_reference: m.cold.map((c) => ({ day: c.date, observed: c.n, category_reference: Math.round(c.category_ref), would_alert: c.would_alert })) } : {}),
     },
+    panelSummaries: {
+      Health: `Health scores ${id} out of 100 (${hs.score ?? 'n/a'}) from six checks: ${m.health.map((h) => `${h.label} ${h.level}`).join(', ')}.`,
+      'Transactions per day': `Transactions per day: bars are ${id}'s daily transactions, the dashed line the expected level; coloured bars are flagged days (${m.kpis.flagged} in total).`,
+      'Channel mix': `Channel mix: ${m.channels.map((c) => `${c.label} ${fmtPct(c.value / chTot, 0)}`).join(', ')}.`,
+      'Status mix': `Status mix: ${m.statuses.map((x) => `${x.value} ${x.label.toLowerCase()}`).join(', ')}.`,
+      Incidents: m.incidents.length ? `Incidents: ${m.incidents.slice(0, 4).map((i) => `${i.id} (${i.severity}, ${LIFECYCLE[i.lifecycle].toLowerCase()})`).join(', ')}.` : 'No incident for this merchant.',
+      'Next 7 days': m.forecast.length ? `Next 7 days: an advisory forecast of about ${Math.round(m.forecast[0].expected)} transactions a day; it never raises alerts.` : 'No forecast for this merchant.',
+    },
     summary: [
       `${id} (${m.category}): about ${fmtNum(m.kpis.avgDailyTx, 0)} transactions and ${fmtCompactDzd(m.kpis.avgDailyValue)} accepted per day, decline rate ${fmtPct(m.kpis.rejectionRate)}, ${m.kpis.flagged} flagged day(s).`,
       `Health score ${hs.score ?? 'n/a'}: ${m.health.filter((h) => h.level !== 'ok').map((h) => `${h.label} (${h.detail})`).join('; ') || 'all components normal'}.`,
@@ -81,7 +97,7 @@ function merchant(id: string): Omit<PageContext, 'path' | 'link'> | null {
 function incident(id: string): Omit<PageContext, 'path' | 'link'> | null {
   const d = getIncident(id);
   if (!d) return null;
-  const i = d.incident, f = i.factors;
+  const i = d.incident, f = i.evidence.priority_explanation.criteria;
   const causes = incidentHypotheses(i).slice(0, 4);
   return {
     title: `Incident ${i.id}`,
@@ -94,6 +110,12 @@ function incident(id: string): Omit<PageContext, 'path' | 'link'> | null {
       flagged_days: d.anomalies.map((a) => ({ day: a.date, symptom: TYPES[a.type].label, severity: a.severity, score: fmtNum(a.score, 1), explanation: a.explanation })),
       next_check: { owner: PLAYBOOK[i.type].owner, steps: PLAYBOOK[i.type].steps },
       network_advisory: d.advisory?.id ?? null,
+    },
+    panelSummaries: {
+      Timeline: `Timeline: ${i.merchant}'s daily transactions around the incident next to the expected level; the days inside ${i.id} (${i.onset} to ${i.end}) are highlighted.`,
+      'Why it ranks here': `Priority ${i.priority}/100 = 40 % impact (${fmtPct(f.impact, 0)}) + 30 % urgency (${fmtPct(f.urgency, 0)}) + 20 % evidence (${fmtPct(f.evidence, 0)}) + 10 % actionability (${fmtPct(f.actionability, 0)}).`,
+      'Possible causes': `Possible causes, none confirmed: ${causes.map((h) => h.title).join('; ')}.`,
+      'Next check': `Next check (${PLAYBOOK[i.type].owner}): ${PLAYBOOK[i.type].steps.join(', ')}.`,
     },
     summary: [
       `${i.id}: ${TYPES[i.type].label.toLowerCase()} at ${i.merchant}, ${SEVERITIES[i.severity].label.toLowerCase()}, ${LIFECYCLE[i.lifecycle].toLowerCase()}, ${i.days} day(s) from ${fmtDay(i.onset)}; ${fmtInt(i.affectedEvents)} transactions and ${fmtCompactDzd(i.valueExposure)} estimated exposure.`,
@@ -113,7 +135,7 @@ function alert(id: string): Omit<PageContext, 'path' | 'link'> | null {
     panels: ['Summary card', 'That day vs usual', 'Channels that day', 'Transactions per hour', 'What would have been normal', 'Evidence', 'Next check'],
     data: {
       alert: { merchant: a.merchant, day: a.date, symptom: TYPES[a.type].label, severity: SEVERITIES[a.severity].label, score: fmtNum(a.score, 1), alert_threshold: d.policy.high, explanation: a.explanation, incident: a.incidentId },
-      that_day_vs_usual: d.stats.map((s) => ({ measure: s.label, observed: s.observed === null ? 'n/a' : s.kind === 'pct' ? fmtPct(s.observed) : s.kind === 'dzd' ? fmtCompactDzd(s.observed) : fmtInt(s.observed), usual: s.usual === null ? 'n/a' : s.kind === 'pct' ? fmtPct(s.usual) : s.kind === 'dzd' ? fmtCompactDzd(s.usual) : fmtNum(s.usual, 0), note: s.note })),
+      that_day_vs_usual: d.stats.map((s) => ({ measure: s.key, observed: s.observed === null ? 'n/a' : s.kind === 'pct' ? fmtPct(s.observed) : s.kind === 'dzd' ? fmtCompactDzd(s.observed) : fmtInt(s.observed), usual: s.usual === null ? 'n/a' : s.kind === 'pct' ? fmtPct(s.usual) : s.kind === 'dzd' ? fmtCompactDzd(s.usual) : fmtNum(s.usual, 0) })),
       channels_that_day: d.channels.map((c) => ({ channel: c.label, transactions: c.observed, usual: fmtNum(c.usual, 0), declined: c.declined })),
       transactions_per_hour_chart: { reads: 'bars per hour that day next to the usual hourly level', largest_gaps: peak.map((h) => ({ hour: `${h.label}:00`, observed: h.observed, usual: fmtNum(h.usual, 1) })) },
       what_would_have_been_normal: cf.length ? cf.map((c) => ({ signal: c.signal, no_alert_if: `${c.op === '>=' ? 'at least' : 'at most'} ${fmtNum(c.bound, 0)} ${unitWord(c)}${c.channel ? ` on ${c.channel}` : ''}`, observed: c.observed, scope: c.scope })) : 'not computed for this alert',
@@ -222,7 +244,7 @@ function data(): Omit<PageContext, 'path' | 'link'> {
       validation: { precision: fmtPct(v.precision), recall: fmtPct(v.recall), f1: fmtPct(v.f1), caught_days: v.tp, false_alert_days: v.fp, missed_days: v.fn, episodes: `${Math.round(v.episode_recall * v.true_episodes)} of ${v.true_episodes}`, labelled_until: r.train_end },
       calibration: (r.calibration ?? []).map((c) => ({ score_band: `${c.lo}–${c.hi}`, days: c.n, real_anomalies: c.positives, rate: c.rate === null ? 'n/a' : fmtPct(c.rate, 0) })),
     },
-    summary: [`Run ${r.run_id}, data as of ${fmtDay(r.as_of)} (${r.batch_status}). On the labelled period the engine caught ${v.tp} anomaly days with ${v.fp} false alert(s) and missed ${v.fn}: precision ${fmtPct(v.precision)}, recall ${fmtPct(v.recall)}.`, `Cleaning: ${fmtInt(r.cleaning.rows_raw)} raw rows to ${fmtInt(r.cleaning.rows_clean)} clean rows (${r.cleaning.exact_duplicates_removed} duplicates removed).`],
+    summary: [`Run ${r.run_id}, data as of ${fmtDay(r.as_of)} (${r.batch_status}). On the labelled period the engine caught ${v.tp} anomaly days with ${v.fp} false alert(s) and missed ${v.fn}: precision ${fmtPct(v.precision)}, recall ${fmtPct(v.recall)}.`, `Cleaning: ${fmtInt(r.cleaning.raw_rows)} raw rows to ${fmtInt(r.cleaning.retained_events)} clean rows (${r.cleaning.exact_duplicate} duplicates removed).`],
   };
 }
 
@@ -235,7 +257,7 @@ function simulator(): Omit<PageContext, 'path' | 'link'> {
   };
 }
 
-function customReport(id: string, owner?: Role): Omit<PageContext, 'path' | 'link'> | null {
+function customReport(id: string, owner?: string): Omit<PageContext, 'path' | 'link'> | null {
   const r = owner ? getReport(owner, id) : null;
   if (!r) return null;
   const built = buildReport(r.spec);
@@ -243,7 +265,7 @@ function customReport(id: string, owner?: Role): Omit<PageContext, 'path' | 'lin
 }
 
 /** The page at `path` (with its query string), or null when there is nothing to describe. */
-export function describePage(path: string, search = '', owner?: Role): PageContext | null {
+export function describePage(path: string, search = '', owner?: string): PageContext | null {
   const q = new URLSearchParams(search), parts = path.split('/').filter(Boolean);
   const href = `${path}${search ? `?${search}` : ''}`;
   let c: Omit<PageContext, 'path' | 'link'> | null = null;

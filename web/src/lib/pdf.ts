@@ -20,8 +20,8 @@ async function browserPath(): Promise<string | null> {
 }
 export class NoBrowserError extends Error {}
 
-export type BriefType = 'daily' | 'weekly' | 'merchant' | 'alerts';
-export interface BriefParams { type: BriefType; date?: string; merchant?: string; from?: string; to?: string; severity?: string; channel?: string }
+export type BriefType = 'daily' | 'weekly' | 'merchant' | 'alerts' | 'incident';
+export interface BriefParams { type: BriefType; incident?: string; date?: string; merchant?: string; from?: string; to?: string; severity?: string; channel?: string; run?: string }
 
 let browser: Promise<Browser> | null = null;
 async function getBrowser() {
@@ -40,15 +40,17 @@ async function getBrowser() {
 export const briefQuery = (p: BriefParams) => new URLSearchParams(Object.entries(p).filter(([, v]) => v) as [string, string][]).toString();
 
 /** Renders /reports?<brief> as an A4 PDF with the caller's session (the page checks access itself). */
-export const renderBriefPdf = (origin: string, session: string, p: BriefParams) => renderReportPdf(origin, session, `/reports?${briefQuery(p)}`);
+export const renderBriefPdf = (origin: string, session: string, p: BriefParams, lang?: string) => renderReportPdf(origin, session, `/reports?${briefQuery(p)}`, lang);
 
 /** Renders any report page (a brief, or /reports/<id> composed by the assistant) as an A4 PDF. */
-export async function renderReportPdf(origin: string, session: string, pagePath: string): Promise<Buffer> {
+/** pagePath carries ?run= when a collection run is shown, so the printed page reads the same run as the request. */
+export async function renderReportPdf(origin: string, session: string, pagePath: string, lang?: string): Promise<Buffer> {
   const b = await getBrowser();
   const ctx = await b.newContext({ viewport: { width: 1200, height: 1600 } });
   try {
     const url = new URL(origin);
-    await ctx.addCookies([{ name: 'pai_session', value: session, domain: url.hostname, path: '/', httpOnly: true, sameSite: 'Lax' }]);
+    await ctx.addCookies([{ name: 'pai_session', value: session, domain: url.hostname, path: '/', httpOnly: true, sameSite: 'Lax' },
+      ...(lang ? [{ name: 'pai_lang', value: lang, domain: url.hostname, path: '/', sameSite: 'Lax' as const }] : [])]);
     await ctx.addInitScript(() => { try { localStorage.setItem('theme', 'light'); } catch {} });
     const page = await ctx.newPage();
     await page.goto(`${origin}${pagePath}`, { waitUntil: 'networkidle', timeout: 30000 });

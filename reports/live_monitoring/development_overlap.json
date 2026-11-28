@@ -1,0 +1,51 @@
+[
+  {
+    "method": "fixed",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 0,
+    "overlap_positive_days": 0
+  },
+  {
+    "method": "cumulative",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 11,
+    "overlap_positive_days": 11
+  },
+  {
+    "method": "adaptive",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 1,
+    "overlap_positive_days": 1
+  },
+  {
+    "method": "gap",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 6,
+    "overlap_positive_days": 6
+  },
+  {
+    "method": "cusum",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 6,
+    "overlap_positive_days": 6
+  },
+  {
+    "method": "fusion",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 4,
+    "overlap_positive_days": 4
+  },
+  {
+    "method": "selected",
+    "days": 280,
+    "positive_days": 31,
+    "merchant_days_with_warning": 10,
+    "overlap_positive_days": 10
+  }
+]

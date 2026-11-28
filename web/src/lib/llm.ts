@@ -11,7 +11,7 @@ import type { Turn } from './conversations';
 import type { PageContext } from './page-context';
 import { selectionBlock, type Selection } from './selection';
 import { buildReport, composeToolDef, getReport, reportSummary, saveReport, unwrittenText, updateReport, validateSpec, type StoredReport } from './custom-report';
-import type { Role } from './session';
+import { hasSensitiveIdentifier } from './privacy';
 
 const URL_ = process.env.LLM_URL?.replace(/\/+$/, '');
 const MODEL = process.env.LLM_MODEL ?? 'assistant';
@@ -49,6 +49,10 @@ const QUESTION: Record<string, (a: Args) => string> = {
   forecast: (a) => `Forecast for the next 7 days${mer(a)}`,
   channel_activity: (a) => `Which channels show concurrent abnormal behaviour ${per(a)}${ch(a)}`,
   top_declines: (a) => `Which merchants have the most declines ${per(a)}`,
+  hybrid_evidence: (a) => 'Hybrid ML investigation candidates ' + per(a) + mer(a),
+  domain_evidence: (a) => 'Contactless limit breaches ' + per(a) + mer(a),
+  data_quality: () => 'Data quality audit',
+  business_impact: (a) => 'Business impact ' + per(a) + mer(a),
   activity_shortfall: (a) => `Which merchants had the largest activity shortfall ${per(a)}`,
   next_checks: (a) => `What should I check first${mer(a)}`,
 };
@@ -117,7 +121,21 @@ async function chat(messages: Msg[], tools: Tool[], signal: AbortSignal, force?:
 
 export const llmEnabled = () => !!URL_;
 
+/** Is the model reachable right now? Cached a few seconds; 'off' when LLM_URL is not set. */
+let statusCache: { at: number; v: 'online' | 'offline' } | null = null;
+export async function modelStatus(): Promise<'online' | 'offline' | 'off'> {
+  if (!URL_) return 'off';
+  if (statusCache && Date.now() - statusCache.at < 10_000) return statusCache.v;
+  let v: 'online' | 'offline' = 'offline';
+  try { const r = await fetch(`${URL_}/models`, { signal: AbortSignal.timeout(2000), cache: 'no-store' }); v = r.ok ? 'online' : 'offline'; } catch { v = 'offline'; }
+  statusCache = { at: Date.now(), v };
+  return v;
+}
+
 const PAGE_TOOL = { type: 'function' as const, function: { name: 'page_context', description: 'What the user is looking at right now: the page, its filters and the figures behind each panel and chart, under the names shown on screen. Call it whenever the question is about "this", "here", this page, this chart or one of its panels.', parameters: { type: 'object', properties: {}, required: [], additionalProperties: false } } };
+// "this", "hada", "ça" with nothing newly selected: the user still means what they selected just before
+const DEICTIC = /\b(this|that|these|those|it|here|hada|hadi|hadou|hna|ca|cela|ce|cette|ces|celui|celle|ici)\b|هذا|هذه|هاد|هادي|هنا/;
+
 const SELECTION_NOTE = `\nThe question may come with parts of the page the user selected (text, a chart bar, a table row, a card or a panel), listed after it. Answer about those parts first, in plain words: what they show and whether anything is unusual. Use day_detail for a selected bar or row with a date, explain_merchant, incident_detail or merchant_health for an id in it, and page_context for the panel around it.`;
 const pageNote = (p: PageContext) => `\n\nThe user is asking from the page "${p.title}" (panels: ${p.panels.join(', ')}). Questions about "this", "here", this page, a chart or one of these panels refer to it: call page_context and explain from its figures, in plain words, what the panel shows and what stands out.`;
 // "explain this chart", "que veut dire ce graphique", "chno ma3na hada"...
@@ -144,7 +162,7 @@ function fileFallback(lang: Lang, base: Reply): Reply {
 }
 
 /** The report a change request refers to: the one on screen, else the latest one in this conversation. */
-function activeReport(owner: Role, page: PageContext | null, history: Turn[]): StoredReport | null {
+function activeReport(owner: string, page: PageContext | null, history: Turn[]): StoredReport | null {
   const onPage = page?.path.match(/^\/reports\/([a-f0-9]{16})/)?.[1];
   if (onPage) return getReport(owner, onPage);
   for (let i = history.length - 1; i >= 0; i--) { const t = history[i]; if (t.role === 'assistant' && t.reply.report) return getReport(owner, t.reply.report.id); }
@@ -152,7 +170,7 @@ function activeReport(owner: Role, page: PageContext | null, history: Turn[]): S
 }
 
 /** compose_report: validate the spec, fill it from the engine, check the model's own text, save it. */
-function compose(raw: string, sources: string, owner: Role | null, lang: Lang): { result: unknown; display?: Display } {
+function compose(raw: string, sources: string, owner: string | null, lang: Lang): { result: unknown; display?: Display } {
   let args: Record<string, unknown>;
   try { args = JSON.parse(raw || '{}'); } catch { return { result: { error: 'Arguments must be JSON.' } }; }
   if (!owner) return { result: { error: 'Reports need a signed-in account.' } };
@@ -160,6 +178,7 @@ function compose(raw: string, sources: string, owner: Role | null, lang: Lang): 
   if (args.report_id && !editing) return { result: { error: `Report ${String(args.report_id)} not found: leave report_id out to create a new one.` } };
   const { spec, errors } = validateSpec(args);
   if (!spec) return { result: { error: `Fix the report and call compose_report again: ${errors.join('; ')}.` } };
+  if (hasSensitiveIdentifier(JSON.stringify(spec))) return { result: { error: 'Remove private payment identifiers.' } };
   const built = buildReport(spec);
   // text sections are written from the report's figures: hand them back first, save nothing yet
   const todo = unwrittenText(spec);
@@ -180,37 +199,67 @@ function compose(raw: string, sources: string, owner: Role | null, lang: Lang): 
 function historyMessages(history: Turn[]): Msg[] {
   const out: Msg[] = [];
   for (const t of history.slice(-2 * HISTORY_TURNS)) {
-    if (t.role === 'user') out.push({ role: 'user', content: `${t.text}${t.selection?.length ? `\n(with selected: ${t.selection.map((x) => x.label).join('; ')})` : ''}${t.page ? `\n(asked on the page "${t.page.title}")` : ''}` });
-    else out.push({ role: 'assistant', content: t.reply.text.join('\n').slice(0, HISTORY_CHARS) || '…' });
+    if (t.role === 'user' && !hasSensitiveIdentifier(t.text)) out.push({ role: 'user', content: `${t.text}${t.selection?.length ? `\n(with selected: ${t.selection.map((x) => x.label).join('; ')})` : ''}${t.page ? `\n(asked on the page "${t.page.title}")` : ''}` });
+    else if (t.role === 'assistant' && !hasSensitiveIdentifier(t.reply.text.join(' '))) out.push({ role: 'assistant', content: t.reply.text.join('\n').slice(0, HISTORY_CHARS) || '…' });
   }
   return out;
 }
 
 /** The assistant entry point: guards, then the model with the conversation so far and the tools,
- *  then the output check; the deterministic answer whenever any step fails. */
-export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: Role | null = null): Promise<Reply> {
+ *  then the output check. When the model is missing, unreachable or its answer fails the checks, the
+ *  built-in deterministic answer stands in, marked with `fallback` so the user can see it. */
+/** Accented French letters: a question visibly written in French needs no extra language note. */
+const FRENCH_IN_Q = /[àâçéèêëîïôûùüÿœ]/i;
+
+export async function ask(question: string, history: Turn[] = [], page: PageContext | null = null, selection: Selection[] = [], owner: string | null = null, ui: Lang = 'en'): Promise<Reply> {
   const q = question.trim().slice(0, 500);
-  // the rules see the ids inside the selection too ("why?" on a selected MER-6434 row)
-  const selIds = [...new Set(selection.flatMap((x) => `${x.text ?? ''} ${x.tip ?? ''} ${Object.values(x.table ?? {}).join(' ')} ${(x.links ?? []).join(' ')}`.match(/\b(?:MER-\d{4}|INC-\d{4}-\d{4})\b/g) ?? []))].slice(0, 2);
-  let guarded = answer(q);
+  // the reply follows the question's language, or the interface language when the question does not show one
+  const qLang = detectLang(q, ui);
+  if (!selection.length && page && DEICTIC.test(norm(q))) {
+    const lastUser = [...history].reverse().find((t) => t.role === 'user');
+    const samePage = lastUser?.role === 'user' && lastUser.page?.href.split('?')[0] === page.path.split('?')[0];
+    if (lastUser?.role === 'user' && samePage && lastUser.selection?.length) selection = lastUser.selection;
+  }
+  let guarded = answer(q, qLang);
   // "remove the incidents section" edits a report, it is not a case action: only real case actions stay refused
-  if (guarded.refused === 'write' && owner && !CASE_ACTION.test(norm(q)) && (REPORT_WORD.test(norm(q)) || activeReport(owner, page, history))) guarded = answer('summary');
-  let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`) : guarded;
+  if (guarded.refused === 'write' && owner && !CASE_ACTION.test(norm(q)) && (REPORT_WORD.test(norm(q)) || activeReport(owner, page, history))) guarded = answer('summary', qLang);
+  // the built-in answer (existing deterministic assistant): used for refusals and whenever the model fails
+  const selIds = [...new Set(selection.flatMap((x) => `${x.text ?? ''} ${x.tip ?? ''} ${Object.values(x.table ?? {}).join(' ')} ${(x.links ?? []).join(' ')}`.match(/\b(?:MER-\d{4}|INC-\d{4}-\d{4})\b/g) ?? []))].slice(0, 2);
+  let rules = selIds.length && !guarded.refused ? answer(`${q} ${selIds.join(' ')}`, qLang) : guarded;
   if (guarded.refused && guarded.refused !== 'unsupported') rules = guarded;
+  const live = page?.path === '/live';
+  if (live && page && (!guarded.refused || guarded.refused === 'unsupported')) {
+    rules = { ...rules, intent: 'live_replay', refused: undefined, text: page.summary, table: undefined,
+      evidence: [page.link], scope: page.title };
+  }
   if (WANTS_FILE.test(norm(q)) && (BROAD.has(rules.intent) || rules.refused === 'unsupported')) rules = fileFallback(rules.lang, rules);
   // on another page, a question about "this chart" that the rules cannot place gets the page summary
   else if (page && (BROAD.has(rules.intent) || rules.refused === 'unsupported') && (selection.length || ABOUT_PAGE.test(norm(q)))) {
     const run = model().snap.run;
     rules = { ...rules, intent: 'page', refused: undefined, text: page.summary, table: undefined, evidence: [], scope: `Scope: ${page.title} · engine run ${run.run_id}` };
   }
-  // guards first: refused questions never reach the model
-  if (!URL_ || rules.refused === 'prohibited' || rules.refused === 'card_data' || rules.refused === 'write') return { ...rules, source: 'rules' };
+  // guards first: refused questions never reach the model (a refusal states no figure)
+  if (rules.refused === 'prohibited' || rules.refused === 'card_data' || rules.refused === 'write') return { ...rules, source: 'rules' };
+  if (!URL_) return { ...rules, source: 'rules', model: 'off', fallback: 'model_off' };
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
   try {
     const { prompt, tools: base } = loadContract();
-    const tools = [...base, ...appToolDefs(), ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])] as Tool[];
+    // the operational evidence tools: the description is all the model knows about each one
+    const OPERATIONAL: Record<string, string> = {
+      hybrid_evidence: 'Hybrid ML intelligence (Isolation Forest fused with the probabilistic score): advisory investigation candidates, including merchant-days the official detector did not flag, with their main abnormal feature groups. Advisory only, never an official anomaly.',
+      domain_evidence: 'Contactless domain rule: transactions above the 2,500 DZD contactless limit (counts per merchant and period). Use for any question about contactless limits, limit breaches or limit violations. These are transaction-level rule checks, not anomalies and not card data.',
+      data_quality: 'Data quality audit of the dataset: duplicates removed, missing amounts, negative amounts, missing categories, unknown channels, cold-start merchants, contactless limit violations and known synthetic-data limitations.',
+      business_impact: 'Estimated business impact of incidents: expected vs observed transactions, transaction shortfall, gross affected payment activity (not a confirmed loss), excess rejections, with uncertainty intervals.',
+    };
+    const operational = Object.keys(OPERATIONAL).map((name) => ({
+      type: 'function', function: { name, description: OPERATIONAL[name],
+        parameters: { type: 'object', properties: { merchant: { type: 'string' }, period: { type: 'string', enum: Object.keys(PERIODS) } } },
+      },
+    }));
+    const tools = (live ? [PAGE_TOOL] : [...base, ...appToolDefs(), ...operational,
+      ...(owner ? [composeToolDef()] : []), ...(page ? [PAGE_TOOL] : [])]) as Tool[];
     const run = model().snap.run;
     const asOf = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${run.as_of}T00:00:00Z`)).replace(',', '');
     const system = prompt.replace('{{AS_OF}}', asOf).replace('{{RUN_ID}}', run.run_id) + (page ? pageNote(page) : '') + (selection.length ? SELECTION_NOTE : '');
@@ -218,9 +267,11 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const past = historyMessages(history);
     // earlier turns may be in another language: the reply follows the current message (rule 6)
     let sys = past.length ? `${system}\nAnswer the latest message in its own language, even if earlier turns used another one.` : system;
+    if (live) sys += '\nUse page_context for this training-archive replay. Identify the clock as simulated. Keep intraday warnings, collective advisories and simulated frozen daily flags distinct. Establish service causes only from independent telemetry.';
     const active = owner ? activeReport(owner, page, history) : null;
     if (active) sys += `\nThe report being worked on (report_id ${active.id}, version ${active.version ?? 1}): ${JSON.stringify(active.spec)}\nIf the user asks to change, add, remove, reorder, rename, shorten or translate anything in it, call compose_report with report_id "${active.id}" and the complete updated title and sections, keeping everything else exactly as it is. Only create a new report when they ask for a new one.`;
-    const lang = detectLang(q);
+    const lang = qLang;
+    if (lang === 'fr' && !FRENCH_IN_Q.test(q)) sys += '\nThe operator uses the French interface: answer in French.';
     if (owner && WANTS_FILE.test(norm(q))) {
       if (!/[\u0600-\u06FF]/.test(q) && lang === 'en') sys += '\nWrite the report in English unless the user asks for another language.';
       sys += '\nFor a report, respect exactly what the user specifies (topics, order, filters, period, title, length, language): use compose_report with only those sections. Use generate_report only when they ask for one of the standard briefs as it is.';
@@ -229,8 +280,8 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     const used: Display[] = [];
     // numbers may come from this turn's tool results, the question, or earlier (already checked)
     // turns; not from the rules text, whose own numbers (rules 1–11) must not whitelist anything
-    let repaired = false, nudged = false, madeFile = false, force: string | undefined;
-    const wantsFile = WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q)));
+    let repaired = false, nudged = false, madeFile = false, force: string | undefined = live ? 'page_context' : undefined;
+    const wantsFile = !live && (WANTS_FILE.test(norm(q)) || (!!active && CHANGE.test(norm(q))));
     let sources = `${active ? JSON.stringify(active.spec) : ''}\n${q}${block}\n${asOf}\n${run.run_id}\n${past.map((m) => m.content).join('\n')}`;
     const rounds = wantsFile ? MAX_ROUNDS + 2 : MAX_ROUNDS; // a report may need figures first, then its text
     for (let round = 0; round < rounds; round++) {
@@ -238,11 +289,11 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
       force = undefined;
       if (!msg) { console.warn('[assistant] model returned no message'); break; }
       if (!msg.tool_calls?.length) {
-        // no tool called (refusal or clarifying question) although the rules recognise a precise
-        // question: the rules' answer, with evidence, beats a clarifying question
-        // (first question only: on a follow-up the rules cannot see what "it" or "that" refers to)
-        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) break;
         const text = clean(msg.content ?? '');
+        if (hasSensitiveIdentifier(text)) break;
+        // no tool called: the rules' answer, with evidence, beats an unsupported reply
+        if (!history.length && !used.length && !rules.refused && !BROAD.has(rules.intent)) break;
+        if (!used.length && !wantsFile) break;
         if (!text) { console.warn('[assistant] model returned an empty answer'); break; }
         // a file was asked for but none was made: the answer would point at a link that does not exist
         if (wantsFile && !madeFile) {
@@ -257,10 +308,12 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
           continue;
         }
         if (PROHIBITED.test(norm(text))) { console.warn('[assistant] model answer rejected: prohibited term'); break; }
+        const ids = text.match(/\bMER-\d{4}(?::\d{4}-\d{2}-\d{2})?\b/gi) ?? [];
+        if (ids.some((id) => !sources.includes(id.toUpperCase()) ||
+            (!live && !model().byMerchant.has(id.split(':')[0].toUpperCase())))) break;
         const bad = unknownNumbers(text, sources);
         if (bad.length) {
           console.warn(`[assistant] model answer ${repaired ? 'rejected' : 'sent back'}: ${bad.join(', ')} not in the tool results`);
-          if (process.env.LLM_DEBUG) console.warn(text);
           if (repaired || round === rounds - 1) break;
           // one repair round: the model restates its answer with the exact figures
           repaired = true;
@@ -271,10 +324,9 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         const evidence = [...new Map(used.flatMap((r) => r.evidence).map((e) => [e.href, e])).values()];
         return {
           lang, intent: lead?.intent ?? 'model', text: text.split(/\n\s*\n|\n/).map((p) => p.trim()).filter(Boolean),
-          table: used.find((r) => r.table)?.table, evidence, scope: lead?.scope ?? '', suggestions: rules.suggestions, source: 'model', report: [...used].reverse().find((r) => r.report)?.report,
+          table: used.find((r) => r.table)?.table, evidence, scope: lead?.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: [...used].reverse().find((r) => r.report)?.report,
         };
       }
-      if (process.env.LLM_DEBUG) console.warn(`[assistant] round ${round + 1}: ${msg.tool_calls.map((t) => `${t.function?.name}(${t.function?.arguments})`).join(', ')}`);
       if (round === rounds - 1) console.warn('[assistant] model still calling tools after the last round');
       messages.push({ role: 'assistant', content: msg.content ?? '', tool_calls: msg.tool_calls });
       for (const tc of msg.tool_calls) {
@@ -282,7 +334,9 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
         const composed = tc.function?.name === 'compose_report' ? compose(tc.function.arguments, sources, owner, lang) : null;
         if (composed?.display) madeFile = true;
         const { result, display } = composed ? composed : tc.function?.name === 'page_context' && page
-          ? { result: { page: page.title, panels: page.panels, ...page.data }, display: { intent: 'page', evidence: [], scope: `Scope: ${page.title} · engine run ${run.run_id}` } as Display }
+          ? { result: { page: page.title, panels: page.panels, ...page.data }, display: { intent: live ? 'live_replay' : 'page',
+              evidence: live ? [page.link] : [], scope: live ? page.title : `Scope: ${page.title} · engine run ${run.run_id}` } as Display }
+          : live ? { result: { error: 'Only page_context is available for live replay evidence.' }, display: undefined }
           : runTool(tc.function?.name, tc.function?.arguments, lang);
         if (display) used.push(display);
         const content = JSON.stringify(result);
@@ -293,13 +347,16 @@ export async function ask(question: string, history: Turn[] = [], page: PageCont
     // the report was saved but the rounds ran out before the model wrote its answer: still show it
     const made = [...used].reverse().find((d) => d.report);
     if (made?.report) {
-      const fr = detectLang(q) === 'fr';
-      return { lang: detectLang(q), intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', report: made.report };
+      const fr = qLang === 'fr';
+      return { lang: qLang, intent: 'compose_report', text: [fr ? `Le rapport « ${made.report.title} » est prêt : aperçu ci-dessous.` : `The report “${made.report.title}” is ready: preview below.`], evidence: made.evidence, scope: made.scope ?? '', suggestions: rules.suggestions, source: 'model', model: 'online', report: made.report };
     }
   } catch (e) {
-    console.warn('[assistant] model unavailable, using the rules:', e instanceof Error ? e.message : e);
+    console.warn('[assistant] model unavailable, using the built-in answer:', e instanceof Error ? e.message : e);
+    statusCache = { at: Date.now(), v: 'offline' };
+    return { ...rules, source: 'rules', model: 'offline', fallback: 'model_offline' };
   } finally {
     clearTimeout(timer);
   }
-  return { ...rules, source: 'rules' };
+  // reachable, but no answer passed the checks: the built-in answer rather than an unverified one
+  return { ...rules, source: 'rules', model: 'online', fallback: 'model_rejected' };
 }

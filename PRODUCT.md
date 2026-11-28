@@ -41,7 +41,7 @@ Every alert is explained against the merchant's own history ("12 transactions ag
 ## Brand Commitments
 
 - Client: SATIM. The SATIM logo identifies the client. SATIM's palette and the TechnoCraft badge are **not** binding for the visual world (user, 2026-11-26).
-- Brand colour: navy #0B2545 (user, 2026-11-27; replaced burgundy so red appears only when something is off).
+- Identity: SATIM (user, 2026-11-27). SATIM red #E2211C is the primary colour (buttons, active navigation, hero cards), with the SATIM emblem and wordmark in the sidebar, login and report headers. Data is drawn in SATIM charcoal and greys. This replaced navy #0B2545; the user chose red as primary knowing alerts are red too.
 - Avoid: generic SaaS-template dashboards; alarmist noise (everything red, badges everywhere, constant pulsing); anything slow to read at a glance.
 
 ## Evidence on Hand

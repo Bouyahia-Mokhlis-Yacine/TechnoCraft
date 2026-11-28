@@ -6,6 +6,10 @@
 import { useEffect, useState } from 'react';
 import { Sparkles } from 'lucide-react';
 import type { Selection } from '@/lib/selection';
+import { makeT, type Key } from '@/lib/i18n';
+
+// client component: the page locale (set by the provider)
+const tr = (key: string, vars?: Record<string, string>) => makeT()(key as Key, vars);
 
 // nearest meaningful thing under the pointer, from the most specific to the whole panel
 const PICKABLE = '[data-tip], tr, .kpi, .ref-row, .mix-row, .hc, .sig, .inc-chip, .m-tile, .mx-cell, .pr, .ns-step, .hyp, li, .story, svg, .panel, article';
@@ -16,7 +20,7 @@ function panelTitle(el: Element): string | undefined {
   if (!panel) return undefined;
   const h = panel.querySelector('h2, h3, .panel-head b');
   if (h?.textContent?.trim()) return clean(h.textContent, 80);
-  return panel.classList.contains('story') ? 'Summary card' : undefined;
+  return panel.classList.contains('story') ? tr('pick.summary') : undefined;
 }
 
 function links(el: Element): string[] {
@@ -30,19 +34,20 @@ export function describeElement(target: Element): Selection {
   const el = target.closest(PICKABLE) ?? target;
   const tipEl = el.closest('[data-tip]');
   const tip = tipEl ? clean(tipEl.getAttribute('data-tip'), 300) : undefined;
-  const date = (el.closest('[data-date]') ?? el.querySelector('[data-date]'))?.getAttribute('data-date') ?? undefined;
+  // only the element's own date (a chart bar): a whole panel holds many bars and is not about one day
+  const date = el.closest('[data-date]')?.getAttribute('data-date') ?? undefined;
   const panel = panelTitle(el);
   const text = clean(el instanceof HTMLElement ? el.innerText : el.getAttribute('aria-label') ?? el.textContent);
   if (el.tagName === 'TR') {
     const heads = [...(el.closest('table')?.querySelectorAll('thead th') ?? [])].map((th) => clean(th.textContent, 40));
     const cells = [...el.children].map((td) => clean((td as HTMLElement).innerText, 120));
     const table = Object.fromEntries(cells.map((c, i) => [heads[i] || `column ${i + 1}`, c]).filter(([, v]) => v));
-    return { kind: 'table row', label: `Row: ${cells.filter(Boolean).slice(0, 2).join(' · ').slice(0, 48)}`, panel, table, links: links(el) };
+    return { kind: 'table row', label: `${tr('pick.row')} ${cells.filter(Boolean).slice(0, 2).join(' · ').slice(0, 48)}`, panel, table, links: links(el) };
   }
-  if (tip) return { kind: 'chart element', label: `${panel ?? 'Chart'}: ${tip.split('\n')[0]}`.slice(0, 60), panel, tip, date, links: links(el) };
-  if (el.tagName.toLowerCase() === 'svg') return { kind: 'chart', label: `Chart: ${panel ?? 'chart'}`.slice(0, 60), panel, text: clean(el.getAttribute('aria-label') ?? text, 600), links: links(el) };
-  if (el.classList.contains('kpi')) return { kind: 'card', label: `Card: ${text.split('\n').slice(0, 2).join(' ').slice(0, 44)}`, panel, text, links: links(el) };
-  if (el.matches('.panel, article, .story')) return { kind: 'panel', label: `Panel: ${panel ?? text.split('\n')[0]}`.slice(0, 60), panel, text, date, links: links(el) };
+  if (tip) return { kind: 'chart element', label: `${panel ?? tr('pick.chart')} : ${tip.split('\n')[0]}`.slice(0, 60), panel, tip, date, links: links(el) };
+  if (el.tagName.toLowerCase() === 'svg') return { kind: 'chart', label: `${tr('pick.chart')} ${panel ?? ''}`.slice(0, 60), panel, text: clean(el.getAttribute('aria-label') ?? text, 600), links: links(el) };
+  if (el.classList.contains('kpi')) return { kind: 'card', label: `${tr('pick.card')} ${text.split('\n').slice(0, 2).join(' ').slice(0, 44)}`, panel, text, links: links(el) };
+  if (el.matches('.panel, article, .story')) return { kind: 'panel', label: `${tr('pick.panel')} ${panel ?? text.split('\n')[0]}`.slice(0, 60), panel, text, date, links: links(el) };
   return { kind: 'element', label: `${panel ? `${panel}: ` : ''}${text.split('\n')[0]}`.slice(0, 60), panel, text, date, links: links(el) };
 }
 
@@ -80,7 +85,7 @@ export function AskSelection({ onAsk }: { onAsk: (s: Selection) => void }) {
     <button type="button" className="ask-sel" style={{ left: cur.x, top: cur.y }}
       onMouseDown={(e) => e.preventDefault()} // keep the text selected while clicking
       onClick={() => { onAsk(cur.sel); window.getSelection()?.removeAllRanges(); setCur(null); }}>
-      <Sparkles aria-hidden />Ask about this
+      <Sparkles aria-hidden />{tr('pick.ask')}
     </button>
   );
 }
@@ -116,7 +121,7 @@ export function PickOverlay({ onPick, onCancel }: { onPick: (s: Selection) => vo
   }, [onPick, onCancel]);
   return (
     <>
-      <div className="pick-banner" role="status">Click a chart, row, card or panel to ask about it <kbd>Esc</kbd> to cancel</div>
+      <div className="pick-banner" role="status">{tr('pick.banner')} <kbd>Esc</kbd> {tr('pick.cancel')}</div>
       {box && <div className="pick-box" style={{ left: box.x - 3, top: box.y - 3, width: box.w + 6, height: box.h + 6 }}><span>{box.label}</span></div>}
     </>
   );

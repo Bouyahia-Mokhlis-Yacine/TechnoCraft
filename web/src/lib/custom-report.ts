@@ -13,7 +13,6 @@ import { simulate, type Baseline } from './simulate';
 import { fmtCompactDzd, fmtDelta, fmtInt, fmtNum, fmtPct } from './format';
 import { LIFECYCLE, REVIEW, SEVERITIES, TYPES, observedVsExpected } from './labels';
 import { runsDir } from './snapshot';
-import type { Role } from './session';
 
 /* ── spec (what the model sends, what is stored) ─────────────────────── */
 export const SECTION_KINDS = ['kpis', 'activity', 'channel_mix', 'alerts', 'incidents', 'incident', 'merchant', 'compare', 'top_declines', 'shortfall', 'forecast', 'network_signals', 'engine_quality', 'simulation', 'text'] as const;
@@ -32,7 +31,7 @@ export interface SectionSpec {
 }
 export interface ReportSpec { title: string; subtitle?: string; sections: SectionSpec[] }
 /** `history` keeps earlier versions (oldest first); `version` = history.length + 1. */
-export interface StoredReport { id: string; owner: Role; created: string; updated?: string; run_id: string; spec: ReportSpec; version?: number; history?: ReportSpec[] }
+export interface StoredReport { id: string; owner: string; created: string; updated?: string; run_id: string; spec: ReportSpec; version?: number; history?: ReportSpec[] }
 
 const str = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
 const date = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
@@ -92,19 +91,19 @@ const write = (r: StoredReport) => {
   fs.renameSync(`${f}.tmp`, f);
   return r;
 };
-export function saveReport(owner: Role, spec: ReportSpec): StoredReport {
+export function saveReport(owner: string, spec: ReportSpec): StoredReport {
   const now = new Date().toISOString();
   return write({ id: crypto.randomBytes(8).toString('hex'), owner, created: now, updated: now, run_id: model().snap.run.run_id, spec, version: 1, history: [] });
 }
 /** A change the user asked for: the new spec becomes the current version, the old one is kept. */
-export function updateReport(owner: Role, id: string, spec: ReportSpec): StoredReport | null {
+export function updateReport(owner: string, id: string, spec: ReportSpec): StoredReport | null {
   const r = getReport(owner, id);
   if (!r) return null;
   const history = [...(r.history ?? []), r.spec].slice(-30);
   return write({ ...r, spec, history, version: (r.version ?? 1) + 1, updated: new Date().toISOString(), run_id: model().snap.run.run_id });
 }
 /** Back to the previous version (the undone one is dropped). */
-export function undoReport(owner: Role, id: string): StoredReport | null {
+export function undoReport(owner: string, id: string): StoredReport | null {
   const r = getReport(owner, id);
   if (!r || !r.history?.length) return null;
   const history = r.history.slice(0, -1);
@@ -116,11 +115,11 @@ export function specAt(r: StoredReport, v?: number): ReportSpec {
   if (!v || v >= cur) return r.spec;
   return r.history?.[v - 1] ?? r.spec;
 }
-export function getReport(owner: Role, id: string | undefined): StoredReport | null {
+export function getReport(owner: string, id: string | undefined): StoredReport | null {
   if (!id || !ID.test(id)) return null;
   try { const r = JSON.parse(fs.readFileSync(path.join(/*turbopackIgnore: true*/ dir(), `${id}.json`), 'utf8')) as StoredReport; return r.owner === owner ? r : null; } catch { return null; }
 }
-export function listReports(owner: Role): StoredReport[] {
+export function listReports(owner: string): StoredReport[] {
   let names: string[] = [];
   try { names = fs.readdirSync(dir()).filter((n) => n.endsWith('.json')); } catch { return []; }
   return names.map((n) => getReport(owner, n.slice(0, -5))).filter((r): r is StoredReport => !!r).sort((a, b) => b.created.localeCompare(a.created));
@@ -154,7 +153,7 @@ export type Built =
   | { kind: 'forecast'; scope: string; points: { date: string; expected: number; lo: number; hi: number }[]; backtest: string }
   | { kind: 'network_signals'; scope: string; advisories: { id: string; day: string; channel: string; rate: string; expected: string; merchants: number }[]; clusters: { day: string; kind: string; channel: string; merchants: number; observed: number; expected: number; rr: string; p: string }[] }
   | { kind: 'engine_quality'; rows: { label: string; value: string }[] }
-  | { kind: 'simulation'; scenario: string; rows: { label: string; value: string }[]; flagged: string[] }
+  | { kind: 'simulation'; scenario: string; rows: { label: string; value: string }[] }
   | { kind: 'text'; body: string };
 export type BuiltSection = Built & { title: string; note?: string };
 
@@ -171,7 +170,7 @@ function buildOne(s: SectionSpec): Built {
   switch (s.kind) {
     case 'kpis': {
       const w = windowOf(s), o = getOverview({ ...w, merchant: s.merchant, channel: s.channel, category: s.category }), k = o.kpis;
-      const d = (v: number, p: number | null) => (p ? `${fmtDelta(v, p)} vs previous period` : 'no previous period');
+      const d = (v: number | null, p: number | null) => (p && v !== null ? `${fmtDelta(v, p)} vs previous period` : 'no previous period');
       return { kind: 'kpis', scope: scopeText(w, s), cards: [
         { label: 'Transactions', value: fmtInt(k.events.value), note: d(k.events.value, k.events.prior) },
         { label: 'Accepted value', value: fmtCompactDzd(k.acceptedValue.value), note: d(k.acceptedValue.value, k.acceptedValue.prior) },
@@ -251,7 +250,7 @@ function buildOne(s: SectionSpec): Built {
       return { kind: 'engine_quality', rows: [
         { label: 'Precision (labelled period)', value: fmtPct(v.precision) }, { label: 'Recall', value: fmtPct(v.recall) }, { label: 'Caught / false alerts / missed days', value: `${v.tp} / ${v.fp} / ${v.fn}` },
         { label: 'Episodes found', value: `${Math.round(v.episode_recall * v.true_episodes)} of ${v.true_episodes}` }, { label: 'Alert threshold', value: String(r.policy.high) },
-        { label: 'Forecast error (model vs naive)', value: `${fmtNum(bt.mae_model, 1)} vs ${fmtNum(bt.mae_seasonal_naive, 1)}` }, { label: 'Rows cleaned', value: `${fmtInt(r.cleaning.rows_raw)} → ${fmtInt(r.cleaning.rows_clean)}` },
+        { label: 'Forecast error (model vs naive)', value: `${fmtNum(bt.mae_model, 1)} vs ${fmtNum(bt.mae_seasonal_naive, 1)}` }, { label: 'Rows cleaned', value: `${fmtInt(r.cleaning.raw_rows)} → ${fmtInt(r.cleaning.retained_events)}` },
         { label: 'Data as of', value: `${r.as_of} (${r.batch_status})` },
       ] };
     }
@@ -260,9 +259,9 @@ function buildOne(s: SectionSpec): Built {
       const b = baseCache.b, channel = s.channel ?? (s.mode === 'declines' ? b.channels[0] : '');
       const sc = { mode: s.mode ?? 'outage', channel, category: s.category ?? '', weekend: s.day_type === 'weekend' ? 1 : 0, start: s.start_hour ?? 10, hours: s.hours ?? 3, rate: s.decline_rate ?? 40 } as const;
       const res = simulate(b, sc);
-      return { kind: 'simulation', flagged: res.flagged,
+      return { kind: 'simulation',
         scenario: `${sc.mode === 'outage' ? 'Outage' : `Decline surge to ${sc.rate} %`} on ${channel || 'all channels'}${sc.category ? ` · ${sc.category}` : ''} · ${sc.weekend ? 'Friday–Saturday' : 'weekday'} · ${sc.start}:00 to ${Math.min(24, sc.start + sc.hours)}:00`,
-        rows: [{ label: sc.mode === 'outage' ? 'Transactions lost (estimate)' : 'Extra declines (estimate)', value: fmtInt(Math.round(res.affected)) }, { label: 'Value at risk (estimate)', value: fmtCompactDzd(res.value) }, { label: 'Merchants touched', value: `${res.touched} of ${res.cohort}` }, { label: 'Merchants the engine would flag', value: String(res.flagged.length) }, ...(res.advisory === null ? [] : [{ label: 'Network advisory', value: res.advisory ? 'would open' : 'would not open' }])] };
+        rows: [{ label: sc.mode === 'outage' ? 'Transactions lost (estimate)' : 'Extra declines (estimate)', value: fmtInt(res.affected) }, { label: 'Value at risk (estimate)', value: fmtCompactDzd(res.value) }, { label: 'Merchants touched', value: `${res.touched} of ${res.cohort}` }] };
     }
     case 'text': return { kind: 'text', body: s.body ?? '' };
   }
@@ -294,7 +293,11 @@ export function reportSummary(sections: BuiltSection[]) {
   });
 }
 
-export const reportMeta = () => { const meta = getMeta(); return { run: meta.run.run_id, version: meta.run.policy.version, asOf: meta.asOf, batch: meta.run.batch_status }; };
+export const reportMeta = () => {
+  const meta = getMeta(), run = meta.run as typeof meta.run & { data_status?: string; selection?: { name: string }[] };
+  return { run: run.run_id, version: run.policy.version, asOf: meta.asOf, batch: run.batch_status,
+    imported: run.data_status === 'imported_batch' ? (run.selection ?? []).map((s) => s.name).join(', ') || '—' : null };
+};
 
 /* ── the tool the model calls ────────────────────────────────────────── */
 export function composeToolDef() {

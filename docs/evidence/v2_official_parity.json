@@ -1,0 +1,8 @@
+{
+  "equal_template_rows": 711,
+  "unchanged_config_sha256": "ae0e8b517a7890223ad3e9a023dea5a275793b54fabf00175ab99400e57c5c59",
+  "frozen_threshold": 1.432641416752573,
+  "exact_score_flag_digest_sha256": "d29398ed1d52a78558ddab4e7bfc2eba09849ac46714accd951732cdf476e29b",
+  "reference_last_date": "2026-10-16",
+  "comparison": "Unchanged IncidentMonitor versus operations backend using an identical frozen seed and reset epoch"
+}

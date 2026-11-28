@@ -2,70 +2,106 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { connection } from 'next/server';
-import { ArrowRight, Database } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { ArrowRight, Database, Layers } from 'lucide-react';
 import { NavFallback, NavLinks, NavTracker, SidebarToggle } from '@/components/client';
 import { AssistantDock } from '@/components/assistant-dock';
+import { PopoverGuard } from '@/components/popover-guard';
+import { I18nProvider } from '@/components/i18n';
 import { getMeta, openIncidentCount, rankedIncidents } from '@/lib/api';
-import { fmtDay } from '@/lib/format';
+import { resolveView } from '@/lib/dataset';
+import { fmtDay, fmtRange } from '@/lib/format';
 import { TYPES } from '@/lib/labels';
+import { PAGES } from '@/lib/accounts';
+import { currentUser } from '@/lib/session';
+import { getLocale, getT } from '@/lib/i18n/server';
 
-/** Top of the queue: reads the review ledger, so it renders per request. */
+/** Shown only when the account can open what it links to (assistant, incidents, data). */
+async function IfPage({ page, children }: { page: keyof typeof PAGES; children: React.ReactNode }) {
+  const user = await currentUser();
+  return user && (user.admin || user.pages.includes(page)) ? children : null;
+}
+
+/** Top of the queue of the active dataset: reads the review ledger, so it renders per request. */
 async function Spotlight() {
   await connection();
-  const top = rankedIncidents().find((i) => i.open);
-  if (!top) return <><b>All clear</b><p>No open incident right now.</p></>;
+  const t = await getT();
+  let top: ReturnType<typeof rankedIncidents>[number] | undefined;
+  try { const v = await resolveView(); top = rankedIncidents(v.runId).find((i) => i.open); } catch { return <b>{t('side.unavailable')}</b>; }
+  if (!top) return <><b>{t('side.allClear')}</b><p>{t('side.allClearBody')}</p></>;
   return (
     <>
-      <b>{top.severity === 'critical' ? 'Critical now' : 'Top of the queue'}</b>
-      <p>{TYPES[top.type].label} at {top.merchant}{top.days > 1 ? `, ${top.days} days running` : ''} · priority {top.priority}.</p>
-      <Link className="btn btn-light btn-block" href={`/incidents/${top.id}`}>Open incident <ArrowRight /></Link>
+      <b>{top.severity === 'critical' ? t('side.critical') : t('side.top')}</b>
+      <p>{t('side.topBody', { type: TYPES[top.type].label, merchant: top.merchant, days: top.days > 1 ? t('side.running', { n: top.days }) : '', priority: top.priority })}</p>
+      <Link className="btn btn-light btn-block" href={`/incidents/${top.id}`}>{t('side.openIncident')} <ArrowRight /></Link>
     </>
   );
 }
 
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const meta = getMeta();
+/** The sidebar menu, read per request so a newly published run or a new selection updates the badge. */
+async function RunNavigation() {
+  await connection();
+  let count: number | undefined;
+  try { count = openIncidentCount((await resolveView()).runId); } catch { return <NavFallback />; }
+  // only the account's pages (the administrator also gets Accounts)
+  const user = await currentUser();
+  return <NavLinks incidents={count} allow={user ? user.pages.map((k) => PAGES[k].path) : []} admin={!!user?.admin} />;
+}
+
+async function RunStatus() {
+  await connection();
+  const t = await getT();
+  let meta: ReturnType<typeof getMeta>, view: Awaited<ReturnType<typeof resolveView>>;
+  try { view = await resolveView(); meta = getMeta(view.runId); } catch { return <span className="side-status">{t('side.unavailable')}</span>; }
+  const imported = view.kind === 'collections';
   return (
-    <>
-      <a className="skip" href="#content">Skip to content</a>
+    <Link href={imported ? '/data#collections' : '/data'} className="side-status" title={t('side.statusTitle')}>
+      {imported ? <Layers aria-hidden /> : <Database aria-hidden />}
+      <span><b>{imported ? (view.combined ? t('ds.combined', { n: view.ids.length }) : view.names[0]) : meta.run.parity.sealed ? t('side.archive') : t('side.preview')}</b>
+        <small>{imported ? fmtRange(meta.firstDate, meta.asOf) : t('side.through', { date: fmtDay(meta.asOf), batch: t(`batch.${meta.run.batch_status}` as 'batch.complete') })}</small></span>
+    </Link>
+  );
+}
+
+export default function AppLayout({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={null}><AuthorizedApp>{children}</AuthorizedApp></Suspense>;
+}
+
+async function AuthorizedApp({ children }: { children: React.ReactNode }) {
+  if (!await currentUser()) redirect('/login');
+  const locale = await getLocale();
+  const t = await getT();
+  return (
+    <I18nProvider locale={locale}>
+      <a className="skip" href="#content">{t('common.skip')}</a>
       <Suspense fallback={null}><NavTracker /></Suspense>
       <div className="app">
         <aside className="sidebar" style={{ viewTransitionName: 'sidebar' }}>
           <div className="side-head">
-          <Link href="/" className="brand" aria-label="Payment Anomaly Intelligence, overview">
+          <Link href="/" className="brand" aria-label={t('side.brandLabel')}>
             <span className="brand-tile">
-              <svg viewBox="0 0 32 32" aria-hidden shapeRendering="crispEdges">
-                <path className="m-draw" pathLength={1} d="M4 19H9V15H12V21H15V10H19V19H28" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="square" />
-                <rect className="m-pixel" style={{ '--delay': '700ms' } as React.CSSProperties} x="14" y="5" width="6" height="6" fill="#93b4dc" />
-              </svg>
+              <Image src="/brand/satim-emblem.png" alt="" width={40} height={40} priority />
             </span>
-            <span className="brand-name">Anomaly<br />Intelligence</span>
+            <span className="brand-name"><b className="brand-satim">SATIM</b><span>{t('brand.product')}</span></span>
           </Link>
           <SidebarToggle />
           </div>
 
-          <Suspense fallback={<NavFallback />}><NavLinks incidents={openIncidentCount()} /></Suspense>
+          <Suspense fallback={<NavFallback />}><RunNavigation /></Suspense>
 
-          <div className="spot">
-            <span className="spot-logo"><Image src="/brand/satim-logo.png" alt="SATIM" width={92} height={28} /></span>
-            <Suspense fallback={<b>Loading queue…</b>}><Spotlight /></Suspense>
-          </div>
+          <Suspense fallback={null}><IfPage page="incidents">
+            <div className="spot"><Spotlight /></div>
+          </IfPage></Suspense>
 
-          {/* Data status (FR-11, FR-20): which run, how fresh, complete or not. Lives in the sidebar foot. */}
-          <Link href="/data" className="side-status" title="Run details and data audit">
-            <Database aria-hidden />
-            <span>
-              <b>Run {meta.run.run_id}</b>
-              <small>Engine {meta.run.policy.version} · as of {fmtDay(meta.asOf)}</small>
-            </span>
-            <i className={`status-dot ${meta.run.batch_status === 'complete' ? 'ok' : 'warn'}`} aria-label={`Batch ${meta.run.batch_status}`} />
-          </Link>
+          {/* Data status (FR-11, FR-20): which dataset, how fresh, complete or not. Lives in the sidebar foot. */}
+          <Suspense fallback={null}><IfPage page="data"><RunStatus /></IfPage></Suspense>
         </aside>
         <main id="content" className="content">
           {children}
         </main>
       </div>
-      <Suspense fallback={null}><AssistantDock /></Suspense>
-    </>
+      <Suspense fallback={null}><IfPage page="assistant"><AssistantDock /></IfPage></Suspense>
+      <PopoverGuard />
+    </I18nProvider>
   );
 }

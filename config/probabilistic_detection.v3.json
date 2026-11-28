@@ -1,0 +1,61 @@
+{
+  "version": "satim-probabilistic-v3",
+  "base_version": "satim-probabilistic-v2",
+  "official_predictions": "v2",
+  "channel": {
+    "minimum_exposure": 5,
+    "unknown_channel": "diagnostic_only",
+    "threshold_selection": "Smallest eligible V1 rank cutoff under the paired V2 workload budget, then try the frozen V2 above-maximum multipliers if needed."
+  },
+  "collective": {
+    "mode": "advisory",
+    "rejection_odds_ratios": [
+      1.25,
+      1.5,
+      2,
+      3,
+      5,
+      10
+    ],
+    "local_tail": 0.05,
+    "minimum_attributed": 2,
+    "cohorts": "known channel and known channel crossed with stable prior category",
+    "warning_rule": "strictly above the maximum of the ordinary calibration date maxima"
+  },
+  "frozen": {
+    "ordinary_last_date": "2026-10-16",
+    "calibration_merchant_days": 490,
+    "channel_calibration_count": 363,
+    "burden_merchant_days": 385,
+    "budget_per_merchant_week": 0.07,
+    "channel_policy": {
+      "alpha": null,
+      "threshold": 2.8526745072995263,
+      "ordinary_alerts": 0,
+      "additional_ordinary_alerts": 0,
+      "above_max_multiplier": 1.25
+    },
+    "collective_sorted_date_maxima": [
+      9.484814458082909,
+      10.343292015397111,
+      10.498069752151935,
+      11.085498221720997,
+      11.320064308936942,
+      11.472472366422998,
+      12.607700774103783,
+      12.62506621464138,
+      12.627035301334615,
+      12.705681566185312,
+      12.82015493547388,
+      13.569869689585763,
+      14.872977531628354,
+      18.633891804788455
+    ],
+    "ordinary_advisory_days": 0,
+    "ordinary_burden_dates": 11,
+    "ordinary_advisory_day_interval_iid_95": [
+      0.0,
+      0.28491415291815436
+    ]
+  }
+}

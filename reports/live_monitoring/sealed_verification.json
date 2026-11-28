@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-27",
+  "base_commit": "4ce5a1c2bf2ee0ca00386b0af8f853f6bf7d41a9",
+  "environment": "Windows x64 sealed Conda environment",
+  "development_rows": 280,
+  "development_score_flag_sha256": "9396f8464bab86463fa9a36bc14951c4e6b2e8bb175412cfa1ae4dfee94ef0bf",
+  "official_rows": 711,
+  "official_flags": 52,
+  "official_score_flag_sha256": "d29398ed1d52a78558ddab4e7bfc2eba09849ac46714accd951732cdf476e29b",
+  "official_csv_sha256": "4613fbe37e1dd6bf104119943753928733b30e82dca30e6efe07ccd7eaa6ddff",
+  "existing_csv_matches_isolated_export": true,
+  "output_run_id": "7e14adfefa004683"
+}

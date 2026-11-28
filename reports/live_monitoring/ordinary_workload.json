@@ -1,0 +1,66 @@
+{
+  "method_warning_days": {
+    "fixed": 4,
+    "cumulative": 6,
+    "adaptive": 6,
+    "gap": 1,
+    "cusum": 4,
+    "fusion": 5,
+    "selected": 2,
+    "collective": 3
+  },
+  "selected_lifecycle": {
+    "days": 14,
+    "merchant_days": 490,
+    "merchant_warnings": 0,
+    "merchant_warnings_per_day": 0.0,
+    "merchant_warnings_per_week": 0.0,
+    "network_warnings_per_day": 0.14285714285714285,
+    "all_notifications": 7,
+    "collective_notifications": 3,
+    "repeat_scope_symptom_day": 0,
+    "fraction_time_warning": 0.01711309523809524,
+    "notifications_per_day": 0.5
+  },
+  "budget_sensitivity": {
+    "0.5": {
+      "days": 14,
+      "merchant_days": 490,
+      "merchant_warnings": 0,
+      "merchant_warnings_per_day": 0.0,
+      "merchant_warnings_per_week": 0.0,
+      "network_warnings_per_day": 0.14285714285714285,
+      "all_notifications": 6,
+      "collective_notifications": 2,
+      "repeat_scope_symptom_day": 0,
+      "fraction_time_warning": 0.014632936507936508,
+      "notifications_per_day": 0.42857142857142855
+    },
+    "1": {
+      "days": 14,
+      "merchant_days": 490,
+      "merchant_warnings": 0,
+      "merchant_warnings_per_day": 0.0,
+      "merchant_warnings_per_week": 0.0,
+      "network_warnings_per_day": 0.14285714285714285,
+      "all_notifications": 7,
+      "collective_notifications": 3,
+      "repeat_scope_symptom_day": 0,
+      "fraction_time_warning": 0.01711309523809524,
+      "notifications_per_day": 0.5
+    },
+    "2": {
+      "days": 14,
+      "merchant_days": 490,
+      "merchant_warnings": 3,
+      "merchant_warnings_per_day": 0.006122448979591836,
+      "merchant_warnings_per_week": 0.04285714285714286,
+      "network_warnings_per_day": 0.42857142857142855,
+      "all_notifications": 27,
+      "collective_notifications": 9,
+      "repeat_scope_symptom_day": 0,
+      "fraction_time_warning": 0.07837301587301587,
+      "notifications_per_day": 1.9285714285714286
+    }
+  }
+}

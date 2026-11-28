@@ -1,108 +1,160 @@
-# Handoff: TechnoCraft 2026 · SATIM Payment Anomaly Intelligence (frontend)
+# Handoff: SATIM Payment Anomaly Intelligence (TechnoCraft 2026)
 
-Written 2026-11-27. Read this first, then `web/README.md`.
+Written 2026-11-27 for the next agent working in this directory. Read this first, then:
+- [README.md](README.md): run commands, sealed vs Linux preview;
+- [web/README.md](web/README.md): accounts, KPIs, import, assistant;
+- [docs/FINAL_PLATFORM_INTEGRATION_REPORT.md](docs/FINAL_PLATFORM_INTEGRATION_REPORT.md): what is verified;
+- [docs/DECISION_LOG.md](docs/DECISION_LOG.md).
 
-## What the project is
-- Hackathon TechnoCraft 2026 (ENSIA × SATIM). Our team owns the **frontend**. Teammates built the Python engine in `engine/` (do not modify their files).
-- The spec is `SATIM_Platform_SRS.pdf` (root). The product record is `PRODUCT.md`.
-- The app is in `web/`: Next.js 16.4 App Router, React 19, TypeScript, Turbopack, `cacheComponents: true`.
+## 1. State right now
 
-## Run it
-```bash
-# from repo root (venv already exists at .venv, Python 3.14)
-.venv/bin/python -m engine.export        # writes runs/<run_id>/snapshot.json + runs/latest.json
-cd web && npm run build && npm start     # http://localhost:3000; sign in by picking a role
-```
-- `npm run engine` (in `web/`) re-runs the export. Rebuild after a new export because the alert pages are prerendered.
-- Previews were run with `PORT=3100 npm run start` in the background and stopped with `fuser -k 3100/tcp`. The "failed exit code 1" notices that follow are just that kill.
+**Git**
+- Branch: `final-platform-integration`, pushed to `origin` up to `2cafe55`.
+- No pull request exists yet. The `gh` CLI is not installed; the compare link is in the report.
+- Do **not** merge into `main`: the AI team must first regenerate the official `y_pred_anomalies.csv` in the sealed Windows environment.
+- **Committed in `cdb9fc5`** (pushed; tested end to end):
+  - **Data collections** (replaces the old single-file import panel): `engine/import_batch.py`, `web/src/lib/imports.ts`, `web/src/lib/dataset.ts`, `web/src/app/api/v1/{imports,collections}/`, `web/src/components/{collections,dataset,dataset-client}.tsx`. Multi-file import → one batch; new or existing collection; SATIM protected; combined views analysed by the backend (run ID = hash of selected IDs + versions); Trash/restore; selection in the `pai_view` cookie, `?run=` pins an analysis.
+  - **French UI (default) + EN**: `web/src/lib/i18n/` (flat dictionaries, `en.ts` is the reference, `fr.ts` must define every key; plurals `_one`/`_other`), `web/src/components/i18n.tsx` (provider, `useT`, FR/EN switch, `pai_lang` cookie). Backend messages carry `code` + `values` (`msg.*` keys). Untyped helpers (`tr`, `tk`, template keys) are not checked by tsc: re-run the key scan in section 5 after adding strings.
+  - "Transactions for this alert", red filter bar, `date-range.tsx`, and edits across pages, `globals.css` (dated blocks at the bottom), `web/README.md`, `web/.env.example`.
+  - Also in `cdb9fc5`: KPI editor (collapsible cards, unit check, current-state warning, new measures), Intelligence tabs, episode metrics, merchant accepted value over known days, `components/balanced.tsx` (two-column dashboards packed by height).
+  - No historical forecast vintages exist in the snapshot, so actual-vs-past-forecast is not shown.
+- `git stash@{0}`: a teammate's uncommitted Overview edit (full-width "ov-lower" grid). It conflicts with the user's two-column layout decision and depends on CSS that no longer exists. It is also saved at `.verification/teammate-overview-grid.patch`. Don't apply it without asking the user.
 
-## Hard rules (from the user + SRS) — never break
-1. Never use the word "fraud" or synonyms such as "suspicious" anywhere in the UI, the assistant or the docs. Use "operational anomalies" only.
-2. Never show `masked_pan` or card numbers. Exports and the assistant must not reach card data.
-3. Every number shown is computed from engine data (the snapshot). Never hand-write predictions.
-4. Everything runs locally and offline. No payment data goes to third parties: the assistant's model runs on our own HPC slice (optional, with the deterministic rules as fallback), and fonts are self-hosted.
+**2026-11-28 (pushed, `f680c8b`)**: Live Monitoring merged (`a314f80`), localised (`00a7306`); future batches continue the official run's sequential state, Hybrid ML on imports, platform-wide activation (`runs/active.json`), `operational_predictions_<run_id>.csv`, run history (`53369f9`); read APIs follow `pai_lang` (`f680c8b`). See README "Import future transaction data" and the integration report table.
+
+**2026-11-28 second pass**: continuous learning merged (`4cf98c0`, from `0805305`); dataset-scoped reports, PDF, simulator and assistant, French live explanations, forecast vintages (`c6086e7`); learning adapter, import feed and `/learning` (`e6bb1eb`). Learning state lives in `runs/continuous_learning/` (private); vintages in `runs/forecast-vintages/`.
+
+**Release candidate**: tag `rc-final` on `final-platform-integration`. Feature freeze: only release-blocking fixes. Do not merge into `main` until the sealed Windows verification (README "Verify the release candidate on Windows") passes on that tag. Merging changes main's `y_pred_anomalies.csv` from the pre-sealed `5a8952c6…` to the sealed `4613fbe3…`.
+
+**Running processes**
+- Replay service: `python -m src.live_monitoring.service` on 127.0.0.1:8765 (state `runs/live-monitoring/replay.sqlite3`, log `.verification/live-service.log`). Its token is `LIVE_MONITORING_TOKEN` in `web/.env.local` (private, git-ignored); start the service with the same value.
+- Demo on port 3000, all interfaces (the team reaches it at `http://10.80.223.212:3000`).
+  - Started detached from `web/` with `SATIM_PYTHON=<conda env python> setsid nohup npm start -- -p 3000`. Its log is `.verification/demo-server.log`.
+  - It serves preview run `cbb4e4f7167a4688` from `runs/`.
+  - After every `npm run build`, restart it: the build replaces `.next` under the running server.
+- The HPC model tunnel (`llm/tunnel.sh`) was up during testing. `web/.env.local` sets `LLM_URL`; it is private and in `.gitignore`.
+
+**Credentials (never print, commit or send them)**
+- The demo administrator is `admin`. Its password is in `runs/admin-password.txt`, which is owner-only.
+- Test servers used `ADMIN_PASSWORD=…` with an isolated `RUNS_DIR`, because the admin is bootstrapped on the first start against an empty `runs/`.
+- `Deepseek_key.txt` (repo root, git-ignored) is an API key. Don't touch it or read it into requests.
+
+**Python**
+- Use the conda env `satim-sealed-linux` (Python 3.12.7 with the pinned NumPy, SciPy, pandas and scikit-learn, MKL). It is at `/home/mokhlis/miniconda3/envs/satim-sealed-linux/bin/python`.
+- Run it with `PYTHONNOUSERSITE=1`.
+- The repo `.venv` is Python 3.14 from the old prototype. Don't use it for the engine.
+
+## 2. Architecture
+
+Official CSVs → `python -m engine.export` (frozen V1–V4 in `src/` + `config/`, replay and gates in `engine/`) → `runs/<run_id>/snapshot.json`, the per-run prediction CSV and `runs/latest.json` → Next.js readers → `/api/v1` routes and pages.
+
+**Engine (`engine/`)**
+- The engine is the only source of numbers. The web layer filters and sums; it never detects.
+- Do **not** modify `src/`, `config/` (frozen; fingerprinted byte for byte, and V1–V3 are stored with CRLF on purpose) or the official exporter logic.
+- `engine/import_batch.py` is new and imports the frozen code without changing it.
+- Interface names: Probabilistic Detection (V1), Sequential Detection (V2, the only source of the official flag and score), Collective Detection (V3, advisory) and Hybrid ML (V4, advisory). Internal IDs stay `v1`–`v4`.
+- The official submission `y_pred_anomalies.csv` is the sealed Windows output (SHA-256 `4613fbe3…`).
+  - On Linux, exact parity is **not** reproducible: the 280 development pairs match, all 52 official flags match, but 3 scores differ by 1e-16.
+  - So run `--allow-unsealed-preview` on Linux. A preview can never write the submission, and the app refuses the official download for it.
+
+**Web (`web/src/lib/`)**
+
+| File | Role |
+| --- | --- |
+| `snapshot.ts` | `snapshot(run?)`: the official run from `latest.json`, re-read per request, or an imported run from `runs/imports/<id>/` |
+| `model.ts` | `model(run?)` |
+| `api.ts` | Page contract. `getMeta`, `listAnomalies`, `getAnomaly`, `listTransactions` and `rankedIncidents` accept a run |
+| `reviews.ts` | Append-only ledger `runs/reviews.jsonl`. A version mismatch returns 409. Imported runs get no review overlay |
+| `accounts.ts` + `session.ts` + `src/proxy.ts` | One administrator creates accounts (`/admin`) with pages and actions (review, manage, export). Scrypt passwords. The proxy gates every page and API. `can(user, action)`: `import` and `audit` are administrator-only |
+| `formula.ts` | Per-account KPI cards: formulas over named measures. Parsed, never evaluated as code. Self-test: `node web/src/lib/formula.test.ts` |
+| `llm.ts` + `assistant.ts` | HPC model first. On off, timeout or rejection, the deterministic assistant answers, marked `fallback` and labelled in the chat |
+| `imports.ts` | Transaction import: backend validation, detached worker, `status.json` polling, dedup by file SHA plus coverage, retry |
+
+## 3. Hard rules (user + SRS): never break them
+
+1. Never write "fraud" or synonyms such as "suspicious", anywhere. Say "operational anomalies".
+2. Never expose `masked_pan` or card numbers in UI, API, logs, exports, snapshots, status files or assistant output.
+3. Every number comes from engine evidence. No mock, hand-written or JS-invented statistics.
+4. Everything runs locally. No third-party AI or CDNs; fonts are self-hosted.
 5. Keep the user's email and personal details out of any external request.
+6. Official predictions are immutable from the UI. Reviews, imports, simulations and advisories can't change them.
+7. Gross affected activity is "an estimate, not a confirmed loss". Collective causes are hypotheses.
 
-## Architecture (where things live)
-- `engine/export.py` (ours): calls `predict.score_all()`, then adds NB intervals, hourly and channel data, advisories (from `detect.channel_incidents`), the forecast with its backtest, validation, and sanitized transactions. It is deterministic: run_id = sha256(input, code, policy). Current run is `7f8b28eb5120`.
-- `web/src/lib/snapshot.ts` loads `runs/latest.json` (override with `RUNS_DIR`).
-- `web/src/lib/model.ts`: types, severity mapping, B4 explanations, incidents (consecutive flagged days → active / recovering / resolved), and the playbook.
-- `web/src/lib/api.ts` is the page contract: overview, ranked queue (SRS priority = 100 × (0.4 I + 0.3 U + 0.2 E + 0.1 A)), merchants, transactions and briefs.
-- `web/src/lib/reviews.ts` is an append-only ledger in `runs/reviews.jsonl`. It handles version checks (409), and close/escalate/comment require a reason. Delete the file to reset the demo.
-- `web/src/lib/session.ts` signs an HMAC cookie `pai_session` with 4 roles (analyst, supervisor, reader, admin). `src/proxy.ts` gates every page and the API.
-- `web/src/lib/assistant.ts` is the chat assistant. It is deterministic and allowlisted: EN/FR answers plus Darija keywords, with guards for prohibited, card, write and cause questions. Every answer carries evidence links and a scope line. `web/src/lib/llm.ts` puts the HPC model (Gemma 4 26B, `llm/README.md`) in front of it when `LLM_URL` is set: guards first, the model calls the 9 tools (which run these rules), numbers are checked against tool results, and any failure falls back to the rules. `source` in the reply says which one answered. The model sees the last 6 turns of the conversation and has 17 tools (9 benchmarked + 8 in `assistant-tools.ts`: incident detail, alerts, compare merchants, what-if simulation, collective anomalies, engine quality, PDF report, CSV export). Conversations are saved per account in `runs/conversations/` with a history rail on the assistant page. PDFs come from `GET /api/v1/reports/pdf` (headless Chromium prints the Reports page). The assistant is also on every page (`assistant-dock.tsx`): questions carry the page, and `lib/page-context.ts` gives the model that page's figures by panel name (keep it in step when a page's panels change). The panel can be dragged, and users can attach selected text or picked elements (chart bars, rows, cards, panels) to a question (`page-select.tsx`, `lib/selection.ts`); `day_detail` explains a selected day. Reports are composed by the model (`compose_report`, `lib/custom-report.ts`): ordered sections filled from engine data, previewed live in the conversation (`/embed/reports/<id>`), edited by asking (versions + Undo), page `/reports/<id>`, PDF `?id=`. Text written by the user or the model (chat paragraphs, question bubbles, composer, history titles, report titles and text) carries `dir="auto"` so Arabic reads right to left; keep it on any new place that shows such text, and use `text-align: start` / `padding-inline-start` rather than left. LaTeX was considered and not used: the structured spec keeps every figure engine-computed and needs no TeX install offline.
-- `web/src/components/`:
-  - `ui.tsx`: badges, PageHeader, IncidentRow, ExportLink (takes a `label`)
-  - `client.tsx`: NavLinks with the gliding pill, SidebarToggle, HeaderActions, FilterForm, ReviewPanel
-  - `charts.tsx`: hand-made SVG charts
-  - `chat.tsx`
-- Design tokens are in `design/tokens.css` (imported via `@design/*`). Motion is in `design/motion.css` and `design/motion.js`. All styles are in `web/src/app/globals.css`; recent overrides are appended at the bottom in dated blocks.
+## 4. User decisions (latest wins)
 
-## Current design direction (user's latest decisions, in order — the later ones win)
-- Brand colour is navy **#0B2545** (the scale is `--brand-950..50`), with cool slate neutrals. It replaced burgundy #35030F on 2026-11-27 because red kept users on edge: red is now reserved for critical severity, flagged markers and bad deltas. The look is calm and muted, with no neon. The old tokens are not kept in the repo.
-- **No shadows anywhere**: every `--shadow-*` is `none`. Surfaces are separated by tone plus a 1px border.
-- **Corners are Apple-like and moderate**: 10px on controls, 14px on cards, 18px on chat bubbles. Not square, not pill-heavy.
-- **No coloured-background badges or chips.**
-  - Severity shows as a coloured dot plus coloured text.
-  - Lifecycle, review status, deltas and chips are plain coloured text.
-  - Evidence links read "Label ›".
-- **No "AI-looking" icon tiles** in list rows. The KPI-card icon tiles were kept because they come from the user's reference design.
-- **Dark-mode nav pill is #1D4A80** (navy).
-- **Header is minimal**: role name, theme toggle and sign-out only. The assistant, search and bell buttons were removed because the sidebar already has them.
-- **Sidebar folds** into an icon rail. The choice is saved in localStorage `sidebar` and applied before paint by the script in `app/layout.tsx`. The run/data status sits in the sidebar footer.
-- **Filters fit on one line** (they wrap below 900px).
-- **Design references the user liked**: the green "PinenMFB" sales-report dashboard and the slate inventory dashboard. The user rejected generic SaaS, "AI slop" and alarmist looks.
+**Layout and look**
+- **Overview layout:** two columns. Left: KPIs, Network activity, Signals. Right: Channels, Open incidents, Next 7 days. The user rejected the full-width lower grid.
+- **SATIM identity:**
+  - SATIM red `#E2211C` is the primary colour, and the dark theme is near-black.
+  - No shadows (except popovers), moderate corners and no coloured-background badges.
+  - The channel pie is exploded, with percentages inside the slices.
+- **Filter bar:** a SATIM red container with white fields and white labels, in both themes. Field text colours are set explicitly. One date-range control (hidden `from`/`to`, inclusive ISO dates), with presets anchored to the run's last date. It wraps on narrow screens.
 
-## Tips / gotchas
-- Next 16 rules:
-  - Runtime APIs (searchParams, cookies, params) must sit inside `<Suspense>`.
-  - Use `connection()` for request-time rendering.
-  - `RouteContext<'/x'>` types come from `npx next typegen`.
-  - fs paths need a `/*turbopackIgnore: true*/` comment.
-- Lint is strict React 19:
-  - No `setState` inside an effect; use `useSyncExternalStore` or a lazy init instead.
-  - No mutation during render.
-- Always run `npx tsc --noEmit && npm run lint && npm run build` before saying something is done. Then check in Chrome at 1366×655 in both light and dark (set `localStorage.theme`).
-- The user gives feedback as screenshots and wants a short, plain report afterwards: what changed, what was kept and why, and what's left.
-- Design context (product, users, tone) lives in `PRODUCT.md` and `.impeccable/surfaces/`.
+**Behaviour**
+- **Merchants table:** whole rows open the merchant, and the merchant link stays the keyboard route.
+- **Assistant fallback:** restored on purpose, after first being removed. Keep it clearly labelled and never write new mock answers.
+- **Accounts:** administrator-created, not fixed roles.
+- **KPIs:** chosen per account, including formulas and one-click suggestions.
 
-## Visual-first pass (2026-11-27)
-- Shared visuals live in `web/src/components/visuals.tsx`: `Gauge`/`GaugeCell` (normal range band, expected tick, observed dot), `NextSteps` (owner + numbered checks from `PLAYBOOK[t].steps`), `PriorityStack`, `MerchantTiles`, `RateBars`, `Pipeline`, `HitDots`, `MethodNote` (method text folded behind a "How it's computed" toggle).
-- Hero cards show one big number and a gauge; the full B4 sentence stays in an `sr-only` paragraph and in the gauge's aria-label, so screen readers still get it.
-- Rule: no page should scroll sideways at 1366px. Check with `scrollWidth` vs `clientWidth` on `.panel`.
+**Working style**
+- The user wants a short, plain report after each task: what changed, what was kept and why, what's left, and the checks actually run.
+- The user pastes long briefs from teammates. When a brief contradicts an earlier explicit decision of the user's, flag it rather than silently overriding it.
 
-## Spacing system (2026-11-27)
-- Semantic spacing tokens in `design/tokens.css`: `--page-pad`, `--gutter`, `--card-pad`, `--card-pad-lg`, `--head-gap`, `--item-gap` (rows of one list), `--tile-gap` (tiles inside a card). Breakpoints (1180 / 900 / 640px) retune these tokens instead of overriding each component; see the last block of `globals.css`.
-- Table cells use `--cell-x` so cell text lines up with the card's content edge.
-- No inline spacing styles in TSX: use `.panel-head.tight` / `.flush` and `.legend.above` / `.below`.
-- At 640px and below, the sidebar turns into a top icon bar.
-- Check at 1920, 1366, 820 and 390px: no page may scroll sideways.
-- Next keeps visited pages mounted but hidden (cacheComponents / Activity). Never style the shared `.content` with `:has()` on one page's elements; scope page layouts to a wrapper of their own, as `.assistant-page` does.
+## 5. How to verify
 
-## Decision-support pass (2026-11-27)
-- `engine/collective.py` (ours, advisory only; official V2 flags unchanged): counterfactual bounds for each signal that fired, a V3 subset scan (expectation-based Poisson scan, LTSS, 999 Monte Carlo replicas, p ≤ 0.001, at least 2 merchants), a category-level cold-start reference, calibration bands and a value curve per threshold. It is wired into `engine/export.py`; teammates' files are untouched. Current run: `ceefbe13ee8b`.
-- `web/src/lib/insights.ts`: the merchant health score (weighted mean of the six components; unknown components are excluded and the coverage is shown), rule-based incident hypotheses, the weekly brief, clusters and the simulator baseline.
-- New UI:
-  - "What would have been normal" on alert pages
-  - Health score on merchant pages and the merchants list
-  - "Possible causes" on incident pages (the assistant shows them for cause questions)
-  - Collective anomalies on `/intelligence`
-  - Weekly brief on `/reports`
-  - Calibration chart and known limitations on `/data`
-  - `/simulate`
-- The simulator mirrors the engine's tests, including incident inheritance. As a check, 40 % declines all day on E-commerce gives an advisory and 15 flagged merchants (the real 5 Nov had 16).
-- Still missing: an Arabic UI or Arabic answers (Darija keywords only) and external benchmarking (needs cited sources).
+From `web/`:
+```bash
+npx tsc --noEmit && npm run lint && npm run build && node src/lib/formula.test.ts
+```
+After adding UI text, also check that every `tr('x.y')` / `tk('x.y')` / template key (`stage.${…}`, `measure.${…}`, `kpi.name.${formula}`…) exists in `en.ts` and `fr.ts`: missing keys show the raw key on screen. Isolated test server: copy `runs/latest.json` + the official run into a scratch dir and start with `RUNS_DIR=<dir> ADMIN_PASSWORD=<test> npm start -- -p 3100`.
 
-- **Back button** on detail pages (`BackButton` + `NavTracker` in `client.tsx`). It goes up one level in the hierarchy (incident → Incidents, merchant → Merchants…), never through the visit history, and reopens the list with the filters it was last left with (remembered per tab in sessionStorage). Top-level pages have no Back button; the sidebar covers them.
-- **The Overview shows stats only.** The priority queue, advisory list and watchlist were removed because they live on their own pages. A "Signals" row keeps the counts and links to them.
+Backend tests, from the repo root, with the conda python:
+```bash
+RUNS_DIR=<runs> python -m unittest discover -s tests
+```
+These 7 tests pass. The 84 research tests aren't in this repo.
 
-- **Page enter/exit**: React `<ViewTransition>` in `components/page-transition.tsx`, used by `template.tsx` in `(app)/` and in `incidents/`, `alerts/`, `merchants/` and `intelligence/` (a template only remounts when its own child segment changes, so detail pages need their section template). The Back button and breadcrumbs pass the `nav-back` type, which slides the other way. Animations are at the end of `globals.css`; the sidebar is anchored and never animates. Don't use `usePathname` in the layout for this: it breaks prerendering outside Suspense.
+**Browser journey (`scripts/verify.mjs`)**
+- Run it on an **isolated** copy of the run: it performs review actions.
+- Copy `runs/<id>` and `latest.json` into a scratch folder, then start `npx next start -p 3001` with `RUNS_DIR=<copy>`, `ADMIN_PASSWORD=<test pw>` and `SATIM_PYTHON=<conda python>`. Then:
+  ```bash
+  RUNS_DIR=<copy> SATIM_TEST_ORIGIN=http://127.0.0.1:3001 SATIM_TEST_PASSWORD=<test pw> \
+    SATIM_TEST_ALLOW_PREVIEW=1 node scripts/verify.mjs
+  ```
+- Delete the copy's `reviews.jsonl` between runs: a second pass hits "already acknowledged".
+- It covers sign-in, snapshot/API parity, every page, reviews with the 409, PDFs, CSVs, widths 1920/1366/820/390 and the assistant (model or fallback).
 
-- **Loading skeletons**: one per page in `web/src/components/skeletons.tsx`. They use the same layout classes as the real page (header, filters, grids, panels, dark hero), sized to the measured panel heights at 1366 px; at that width every block lands within 1–2 px of the real one. When a page's layout changes, update its skeleton too.
-- **Header groups**: page actions (Print, Open incident…) and the account block (role, theme, logout) are separated by a gap and a thin divider; on phones the account block takes its own line under the actions. Plain text between chips gets slightly more room than chip-to-chip.
+**Manual Chrome checks:** 1366 px and 390 px, light and dark. No page may scroll sideways; check with `scrollWidth` against `clientWidth`.
 
-## Open items / known limits
-- The pie chart, severity bubbles and chart dots are still round on purpose.
-- On alert pages the evidence bullets are English only.
-- Not built: FR-35 (incident review groups). Sign-in uses demo role accounts with no passwords.
-- Cleaning differs from the SRS: the engine sign-corrects negative amounts, while the SRS excludes them. Both counts are shown on `/data`.
+## 6. Gotchas
+
+**Next.js 16 and React**
+- Runtime APIs (`searchParams`, `cookies`, `params`) must be read inside `<Suspense>`.
+- `currentUser()` calls `connection()`.
+- `RouteContext<'/x'>` types come from `npx next typegen`.
+- Filesystem paths in server code need `/*turbopackIgnore: true*/`.
+- Strict React 19 lint: no `setState` called directly in an effect. Start the fetch in the effect and set state in the `.then` callback, as `import-panel.tsx` does.
+
+**Styles and layout**
+- All styles are in `web/src/app/globals.css`, with newer blocks appended at the bottom under dated headings. Tokens are in `design/tokens.css`.
+- Next keeps visited pages mounted, so never style `.content` with `:has()` on one page's elements.
+- `FilterForm` keeps `?run=` on submit and Reset, and ignores change events from inside `.dr-pop` (the preset select).
+
+**Runs and imports**
+- An imported run never moves `runs/latest.json`.
+- Run-scoped pages use `?run=<16 hex>`. Incidents, Overview and Reports are official-run only.
+- The import worker needs the official CSVs in the repo root, for the frozen reference.
+- Batches must start after 16 Oct 2026.
+
+**Engine**
+- The engine `src/` was written for Windows. Don't "fix" line endings in `config/`: that breaks the fingerprints.
+
+## 7. Open items
+
+1. **Sealed release:** a sealed Windows export must reproduce both official digests, then the team can merge into `main`. The user said not to merge before that.
+2. **Commit and PR:** commit the uncommitted import, alert-link and filter-bar work, then open the PR (`docs/PULL_REQUEST.md` has the description).
+3. **Teammate stash:** decide with the user whether to apply it or drop it.
+4. **Assistant scope:** the assistant isn't limited to an account's pages.
+5. **Import-feature checks not yet done:** native dropdown menus in dark mode, a screen reader on the date picker, a channel-specific alert link (none in the data), and files near the 25 MB / 200,000-row limit.
+6. **Imported runs and history:** an imported run starts the detector's lifecycle at the batch's first date, so it can differ from the official run on overlapping days. Explain this if asked.
+7. **Not built:** an Arabic UI (only Darija keywords exist in the assistant), FR-35 incident review groups, production identity (SSO) and live feed ingestion.

@@ -1,0 +1,19 @@
+{
+  "version": "satim-live-monitoring-v1",
+  "fit_start": "2026-09-01",
+  "calibration_start": "2026-09-22",
+  "evaluation_start": "2026-10-03",
+  "development_start": "2026-10-17",
+  "archive_end": "2026-10-24",
+  "base_minutes": 5,
+  "minimum_exposure": 3,
+  "maximum_window_bins": 72,
+  "minimum_reference_days": 14,
+  "ratios": [0.5, 1.75],
+  "profile_prior_events": 80,
+  "weekday_prior_days": 4,
+  "outcome_prior_attempts": 60,
+  "minimum_outcome_attempts": 12,
+  "calibration_budget_per_day": 1,
+  "scenario_seed": 91340
+}
