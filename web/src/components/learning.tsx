@@ -53,7 +53,8 @@ function Registry({ t, supervisor, report }: { t: T; supervisor: boolean; report
       <div className="panel-head"><div><h2>{t('cl.registry')}</h2><p>{active ? t('cl.activeModel', { id: String(active.model_id ?? active.id) }) : t('cl.noModel')}</p></div></div>
       {reg && reg.models.length > 0 && <div className="table-scroll"><table className="data"><thead><tr><th>{t('cl.model')}</th><th>{t('col.status')}</th><th>{t('rh.reference')}</th><th>{t('cl.integrity')}</th><th>{t('cl.created')}</th></tr></thead>
         <tbody>{reg.models.map((m) => <tr key={String(m.model_id ?? m.id)}><td className="num">{fmt(m.model_id ?? m.id)}</td><td>{fmt(m.state)}</td><td className="num">{fmt((m.metadata as Json | undefined)?.reference_version)}</td><td>{fmt((m.training_integrity as Json | undefined)?.status ?? m.training_integrity)}</td><td className="num">{fmt((m.metadata as Json | undefined)?.calibration_end)}</td></tr>)}</tbody></table></div>}
-      {stats && <p className="muted small">{t('cl.stats', { n: Number(stats.total ?? 0) })} · {Object.entries((stats.current_labels as Json) ?? {}).map(([k, v]) => `${t(`cl.label.${k}` as never)} ${v}`).join(' · ')}</p>}
+      {reg && !reg.models.length && <ol className="cl-start">{[1, 2, 3, 4].map((n) => <li key={n}>{t(`cl.start${n}` as never)}</li>)}</ol>}
+      {stats && <p className="muted small">{t('cl.targeted')} {t('cl.stats', { n: Number(stats.total ?? 0) })} · {Object.entries((stats.current_labels as Json) ?? {}).map(([k, v]) => `${t(`cl.label.${k}` as never)} ${v}`).join(' · ')}</p>}
       {supervisor && <div className="row cl-actions">
         <label className="field grow">{t('cl.reason')}<input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} /></label>
         {reg && !reg.models.length && <button type="button" className="btn btn-primary" disabled={!reason.trim()} onClick={async () => { report(await call('initialize_baseline', { reason }), t('cl.baselineStarted')); }}>{t('cl.initialize')}</button>}
@@ -121,6 +122,17 @@ function QueueItem({ t, row, supervisor, report, onDone }: { t: T; row: Json; su
 function Jobs({ t, dates, report }: { t: T; dates: string[]; report: Report }) {
   const [plan, setPlan] = useState({ fit_start: '', calibration_start: '', calibration_end: '', eval_start: '', eval_end: '', refit_isolation_forest: true });
   const [job, setJob] = useState('');
+  // the API has no job listing: the jobs registered from this browser are offered as choices
+  const [known, setKnown] = useState<string[]>([]);
+  useEffect(() => { const id = setTimeout(() => { try { setKnown(JSON.parse(localStorage.getItem('pai-cl-jobs') ?? '[]')); } catch { /* storage off */ } }, 0); return () => clearTimeout(id); }, []);
+  const remember = (id: string) => setKnown((k) => { const next = [id, ...k.filter((x) => x !== id)].slice(0, 10); try { localStorage.setItem('pai-cl-jobs', JSON.stringify(next)); } catch { /* storage off */ } return next; });
+  // a suggested split of the days with observations: half to fit, a quarter to calibrate, the last quarter to evaluate
+  const suggest = () => {
+    const d = [...dates].sort(), n = d.length;
+    if (n < 8) return;
+    const a = Math.floor(n / 2), b = Math.floor((n * 3) / 4);
+    setPlan((x) => ({ ...x, fit_start: d[0], calibration_start: d[a], calibration_end: d[b - 1], eval_start: d[b], eval_end: d[n - 1] }));
+  };
   const [status, setStatus] = useState<Json | null>(null);
   const [cmp, setCmp] = useState<Json | null>(null);
   const [shadowDay, setShadowDay] = useState(dates.at(-1) ?? '');
@@ -132,9 +144,12 @@ function Jobs({ t, dates, report }: { t: T; dates: string[]; report: Report }) {
       <div className="panel-head"><div><h2>{t('cl.jobs')}</h2><p>{t('cl.jobsSub')}</p></div></div>
       <div className="row cl-actions">{(['fit_start', 'calibration_start', 'calibration_end', 'eval_start', 'eval_end'] as const).map(dateField)}
         <label className="check-inline"><input type="checkbox" checked={plan.refit_isolation_forest} onChange={(e) => setPlan({ ...plan, refit_isolation_forest: e.target.checked })} />{t('cl.refit')}</label>
-        <button type="button" className="btn btn-primary" onClick={async () => { const r = await call('start_learning_job', { plan }); report(r, t('cl.jobQueued')); if (r.ok) setJob(String((r.data as Json).job_id)); }}>{t('cl.startJob')}</button></div>
+        <button type="button" className="btn btn-primary" onClick={async () => { const r = await call('start_learning_job', { plan }); report(r, t('cl.jobQueued')); if (r.ok) { const id = String((r.data as Json).job_id); setJob(id); remember(id); } }}>{t('cl.startJob')}</button>
+        <button type="button" className="btn btn-ghost" disabled={dates.length < 8} title={dates.length < 8 ? t('cl.suggestTooFew') : undefined} onClick={suggest}>{t('cl.suggest')}</button></div>
+      <p className="muted small">{t('cl.suggestNote')}</p>
       <div className="row cl-actions">
-        <label className="field">{t('cl.job')}<input value={job} onChange={(e) => setJob(e.target.value.trim())} /></label>
+        <label className="field">{t('cl.job')}<input value={job} list="cl-known-jobs" onChange={(e) => setJob(e.target.value.trim())} /></label>
+        <datalist id="cl-known-jobs">{known.map((k) => <option key={k} value={k} />)}</datalist>
         <button type="button" className="btn btn-secondary" disabled={!job} onClick={async () => report(await call('run_learning_job', { job_id: job }), t('cl.jobRunning'))}>{t('cl.runJob')}</button>
         <button type="button" className="btn btn-ghost" disabled={!job} onClick={refresh}>{t('cl.status')}</button>
         <button type="button" className="btn btn-ghost" disabled={!job} onClick={async () => report(await call('cancel_learning_job', { job_id: job }), t('cl.cancelled'))}>{t('common.cancel')}</button>
@@ -147,6 +162,7 @@ function Jobs({ t, dates, report }: { t: T; dates: string[]; report: Report }) {
       </div>
       {cmp && <div className="cl-cmp">
         <p><b>{cmp.eligible_for_promotion ? t('cl.eligible') : t('cl.notEligible')}</b> · {t('cl.datesScored', { n: Number(cmp.dates_scored ?? 0), of: Number(cmp.expected_dates ?? 0) })}</p>
+        {Array.isArray(cmp.blockers) && cmp.blockers.length > 0 && <p><b>{t('cl.blockersTitle')}</b> <span className="muted">{t('cl.blockersNote')}</span></p>}
         {Array.isArray(cmp.blockers) && cmp.blockers.length > 0 && <ul className="err">{(cmp.blockers as unknown[]).map((b, i) => <li key={i}>{String(b)}</li>)}</ul>}
         {cmp.recommendation != null && <p className="muted small">{String(cmp.recommendation)}</p>}
         <div className="row cl-actions">

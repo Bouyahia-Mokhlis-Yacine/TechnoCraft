@@ -6,14 +6,15 @@ import Link from 'next/link';
 import { ArrowRight, Ban, Banknote, CreditCard, Receipt, Sigma, Siren, Store } from 'lucide-react';
 import { getMeta, getOverview } from '@/lib/api';
 import { fmtDay, fmtDelta, fmtInt, fmtNum, fmtPct } from '@/lib/format';
-import { CHANNEL_INK, CHANNEL_VAR, SEVERITIES, categoryLabel, channelLabel } from '@/lib/labels';
+import { CHANNEL_INK, CHANNEL_VAR, categoryLabel, channelLabel } from '@/lib/labels';
 import { CountUp, FilterForm } from '@/components/client';
 import { ForecastEvidence } from '@/components/satim-evidence';
-import { Bubbles, ForecastBars, KpiChart, PairBars } from '@/components/charts';
+import { ForecastBars, KpiChart, PairBars } from '@/components/charts';
 import { KpiEditor } from '@/components/kpi-editor';
 import { DEFAULT_KPIS, evaluate, kpiLabel, parse } from '@/lib/formula';
 import { currentUser } from '@/lib/session';
-import { resolveView } from '@/lib/dataset';
+import { keepRun, resolveView } from '@/lib/dataset';
+import { NeedsAttention, SeverityCounts } from '@/components/needs-attention';
 import { getT } from '@/lib/i18n/server';
 import { ViewBanner, ViewPending } from '@/components/dataset';
 import { Delta, EmptyState, IconTile, InfoTip, PageHeader, flat } from '@/components/ui';
@@ -95,6 +96,8 @@ async function Overview({ searchParams }: { searchParams: SP }) {
         <label className="field">{t('f.merchant')}<select name="merchant" defaultValue={p.merchant ?? ''}><option value="">{t('f.allMerchants')}</option>{meta.merchants.map((m) => <option key={m}>{m}</option>)}</select></label>
       </FilterForm>
 
+      <NeedsAttention run={run} user={user} merchant={p.merchant} reviews={view.kind === 'archive'} keep={(h) => keepRun(h, view)} />
+
       <Balanced className="ov">
         <div className="stack">
           <div className="kpi-grid three">
@@ -120,7 +123,7 @@ async function Overview({ searchParams }: { searchParams: SP }) {
               <span><i />{t('ov.transactions')}</span><span><i style={{ background: 'var(--sev-critical)' }} />{t('ov.flaggedDays')}</span>
               {p.channel && <span className="muted">{t('ov.noExpectedChannel')}</span>}
             </div>
-            {o.trend.length > 31 ? <p className="muted">{t('ov.pick31')}</p> : <PairBars drill points={o.trend} label={t('ov.activityLabel')} />}
+            {o.trend.length > 31 ? <p className="muted">{t('ov.pick31')}</p> : <PairBars drill={new URLSearchParams(Object.entries({ category: p.category, channel: o.selectedChannels.length === 1 ? p.channel : undefined, merchant: p.merchant, run: view.pinned ? view.runId ?? undefined : undefined }).filter((e): e is [string, string] => !!e[1])).toString() || true} points={o.trend} label={t('ov.activityLabel')} />}
           </section>
 
           <section className="panel m-rise" style={css({ '--i': 7 })}>
@@ -151,8 +154,8 @@ async function Overview({ searchParams }: { searchParams: SP }) {
           </section>
 
           <section className="panel m-rise" style={css({ '--i': 3 })}>
-            <div className="panel-head"><div><div className="title-info"><h2>{t('ov.openIncidents')}</h2><InfoTip id="info-incidents">{t('ov.incidentsInfo')}</InfoTip></div><p>{t('ov.bySeverity')}</p></div></div>
-            {o.queue.length ? <Bubbles items={o.severityMix.map((s) => ({ label: SEVERITIES[s.severity].label, value: s.value, cls: `sev-${s.severity}`, href: `/incidents?severity=${s.severity}` }))} />
+            <div className="panel-head"><div><div className="title-info"><h2>{t('ov.openIncidents')}</h2><InfoTip id="info-incidents">{t('ov.incidentsInfo')}</InfoTip></div><p>{t('ov.bySeverity')}</p></div>{(p.category || p.channel || p.merchant) && <span className="chip" title={t('ov.networkWideTitle')}>{t('ov.networkWide')}</span>}</div>
+            {o.queue.length ? <SeverityCounts mix={o.severityMix} keep={(h) => keepRun(h, view)} />
               : <EmptyState title={t('ov.nothingOpen')} />}
           </section>
 

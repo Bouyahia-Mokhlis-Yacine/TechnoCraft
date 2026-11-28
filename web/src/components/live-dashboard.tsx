@@ -119,7 +119,7 @@ function Warnings({ title, values }: { title: string; values: ReplayWarning[] })
   </section>;
 }
 
-export function LiveDashboard({ control }: { control: boolean }) {
+export function LiveDashboard({ control, guided }: { control: boolean; guided?: { date: string; preset: string; original: number | null } }) {
   const t = useT();
   const [state, setState] = useState<ReplaySnapshot>();
   const [error, setError] = useState('');
@@ -155,7 +155,7 @@ export function LiveDashboard({ control }: { control: boolean }) {
     return () => { controller.abort(); clearTimeout(timer); };
   }, [params]);
 
-  async function command(action: string, value?: number) {
+  async function command(action: string, value?: number, preset?: typeof form) {
     if (mutating.current) return;
     mutating.current = true;
     revision.current++;
@@ -163,7 +163,7 @@ export function LiveDashboard({ control }: { control: boolean }) {
     setCommandError('');
     try {
       const data = action === 'start'
-        ? { action, ...form, start: form.start || state?.default_date, end: form.end || form.start || state?.default_date }
+        ? preset ? { action, ...preset } : { action, ...form, start: form.start || state?.default_date, end: form.end || form.start || state?.default_date }
         : { action, speed: value };
       setState(await request(params, data));
       setError('');
@@ -213,6 +213,9 @@ export function LiveDashboard({ control }: { control: boolean }) {
           {(state?.speeds ?? [600]).map(speed => <option value={speed} key={speed}>{speed}×</option>)}
         </select></label>
       </div>
+      {control && guided && <p className={styles.feed}><button type="button" className="btn btn-ghost" disabled={busy || !state || !unstarted}
+        onClick={() => { const g = { ...form, start: guided.date, end: guided.date, preset: guided.preset }; setForm(g); void command('start', undefined, g); }}>
+        <Play />{t('live.guidedBtn')}</button><span className="muted">{t('live.guidedHint')}</span></p>}
       {control ? <div className={styles.buttons}>
         <button className="btn btn-primary" disabled={busy || !state || !unstarted} onClick={() => command('start')}><Play />{t('live.btnStart')}</button>
         {state?.status === 'running'
@@ -233,6 +236,7 @@ export function LiveDashboard({ control }: { control: boolean }) {
       {commandError && <p className={styles.error} role="alert">{commandError || t('live.commandFailed')}</p>}
       {state?.status === 'failed' && <p className={styles.error} role="alert">{t('live.failed')}</p>}
     </section>
+    {state?.truth && <Milestones state={state} original={guided && state.start === guided.date && state.end === guided.date ? guided.original : null} stamp={stamp} t={t} />}
     {state?.truth && <details className={`panel ${styles.truth}`}><summary>{t('live.truth')}</summary>
       <p>{t('live.fromTo', { from: stamp(state.truth.onset), to: stamp(state.truth.end) })} · {state.truth.channel ? scopeLabel(t, ['channel', state.truth.channel]) : t('live.archiveScope')}
         {state.truth.merchants.length ? ` · ${state.truth.merchants.join(', ')}` : ''} · {t('live.changed', { n: state.truth.changed_events })}
@@ -297,4 +301,30 @@ export function LiveDashboard({ control }: { control: boolean }) {
       </div>
     </>}
   </div>;
+}
+
+/** Scenario milestones read from the replay itself: injected onset and end (scenario truth), the first warning on the
+ *  injected scope and when it resolved, and the daily closure. Nothing is filled in before the replay reaches it. */
+function Milestones({ state, original, stamp, t }: { state: ReplaySnapshot; original: number | null; stamp: (s?: string | null) => string; t: ReturnType<typeof useT> }) {
+  const truth = state.truth!;
+  const onScope = (w: ReplayWarning) => (truth.channel ? w.scope[0] === 'channel' && w.scope[1] === truth.channel : truth.merchants.some((m) => w.merchants?.includes(m) || w.scope[1] === m));
+  const warning = (state.warnings ?? []).filter(onScope).sort((a, b) => a.opened.localeCompare(b.opened))[0];
+  const resolved = warning?.timeline.find((x) => x.state === 'Resolved');
+  const reached = (at: string) => !!state.clock && state.clock >= at.slice(0, 19);
+  const closure = state.daily?.find((d) => d.date === state.start);
+  const last = state.points?.at(-1);
+  const replayed = closure && last && (state.scope ?? ['network'])[0] === 'network' ? last.cumulative : null;   // the network total only
+  const rows: [string, string | null][] = [
+    [t('live.msOnset'), reached(truth.onset) ? stamp(truth.onset) : null],
+    [t('live.msWarning'), warning ? stamp(warning.opened) : null],
+    [t('live.msEnd'), reached(truth.end) ? stamp(truth.end) : null],
+    [t('live.msResolved'), resolved ? stamp(resolved.time) : null],
+    [t('live.msClosure'), closure ? t('live.msClosureVal', { scored: closure.scored, flags: closure.flagged.length }) : null],
+    ...(original !== null ? [[t('live.msTotals'), replayed !== null ? t('live.msTotalsVal', { original, replayed }) : null] as [string, string | null]] : []),
+  ];
+  return <section className="panel milestones" aria-labelledby="ms-h">
+    <div className="panel-head"><div><h2 id="ms-h">{t('live.msTitle')}</h2><p>{t('live.msSub')}</p></div></div>
+    <ol className="ms-list">{rows.map(([label, value]) => <li key={label} className={value ? 'is-done' : ''}><b>{label}</b><span>{value ?? t('live.msPending')}</span></li>)}</ol>
+    <p className="muted small">{t('live.msCaveat')}</p>
+  </section>;
 }

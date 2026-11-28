@@ -24,6 +24,7 @@ import { makeT } from '@/lib/i18n';
 export async function POST(req: NextRequest) {
   const user = userOf(req);
   if (!user) return fail(401, 'unauthenticated', 'Sign in to ask questions.');
+  if (!canSee(user, '/assistant')) return fail(403, 'forbidden', 'Your account does not have access to the assistant.');
   let body: { question?: unknown; conversation_id?: unknown; page?: { path?: unknown; search?: unknown }; selection?: unknown };
   try { body = await req.json(); } catch { return fail(400, 'invalid_json', 'Body must be JSON.'); }
   if (typeof body.question !== 'string' || !body.question.trim()) return fail(422, 'invalid_payload', 'Expected { question }.');
@@ -49,7 +50,8 @@ async function answer(req: NextRequest, user: NonNullable<ReturnType<typeof user
   const live = path === '/live' || LIVE_QUESTION.test(question);
   if (live && !canSee(user, '/live')) return fail(403, 'forbidden', 'Your account does not have access to Live Monitoring.');
   const page = live ? await liveContext(user.id, question)
-    : path && path !== '/assistant' ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
+    // only a page this account may open: its figures are rebuilt here, never trusted from the browser
+    : path && path !== '/assistant' && canSee(user, path) ? withLocale(localeOf(req), () => describePage(path, search, user.id)) : null;
   const selection = page ? sanitizeSelections(rawSelection) : [];
   // the language model answers; the built-in assistant stands in (marked `fallback`) when it cannot
   const locale = localeOf(req);

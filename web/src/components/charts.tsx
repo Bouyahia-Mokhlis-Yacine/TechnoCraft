@@ -35,7 +35,8 @@ function Grid({ W, L, R, y, max, kind }: { W: number; L: number; R: number; y: (
 }
 
 /** Paired rounded bars per day: usual (light) next to actual (dark), like a two-series report. */
-export function PairBars({ points, height = 300, label, drill = false }: { points: (SeriesPoint & { anomalies?: number })[]; height?: number; label: string; drill?: boolean }) {
+/** `drill`: bars link to that day's alerts or transactions; a string is the query (filters, pinned run) carried along. */
+export function PairBars({ points, height = 300, label, drill = false }: { points: (SeriesPoint & { anomalies?: number })[]; height?: number; label: string; drill?: boolean | string }) {
   const W = 760, H = height, L = 48, R = 8, T = 24, B = 40;
   const max = niceMax(Math.max(...points.flatMap((p) => [p.value, p.usual ?? 0])), 'int');
   const y = (v: number) => T + (1 - v / max) * (H - T - B);
@@ -61,7 +62,8 @@ export function PairBars({ points, height = 300, label, drill = false }: { point
             <text className="xlabel sub" x={cx} y={H - 6} textAnchor="middle">{fmtDay(p.date)}</text>
           </g>
         );
-        return drill ? <Link key={p.date} href={p.anomalies ? `/alerts?from=${p.date}&to=${p.date}` : `/transactions?from=${p.date}&to=${p.date}`}>{col}</Link> : col;
+        const carry = typeof drill === 'string' && drill ? `&${drill}` : '';
+        return drill ? <Link key={p.date} href={p.anomalies ? `/alerts?from=${p.date}&to=${p.date}${carry}` : `/transactions?from=${p.date}&to=${p.date}${carry}`}>{col}</Link> : col;
       })}
     </svg>
     </ChartTip>

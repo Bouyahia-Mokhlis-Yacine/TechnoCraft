@@ -3,7 +3,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowRight, Receipt } from 'lucide-react';
-import { getAnomaly } from '@/lib/api';
+import { getAnomaly, getMerchant, getMeta } from '@/lib/api';
 import { fmtDate, fmtDelta, fmtInt, fmtNum, fmtRange } from '@/lib/format';
 import { CHANNEL_VAR, TYPES, channelLabel, fmtKind } from '@/lib/labels';
 import { AreaChart, HourBars, ProgressRows } from '@/components/charts';
@@ -44,6 +44,7 @@ async function Alert({ params, searchParams }: { params: Params; searchParams: S
   const pin = view.kind === 'collections' ? run : null;
   const scope = { merchant: a.merchant, channel: day.incident_channel, run: pin };
   const indicatorCap = a.indicator[0].toUpperCase() + a.indicator.slice(1);
+  const merchantInfo = getMerchant(a.merchant, run), batch = getMeta(run).run.batch_status;
 
   return (
     <>
@@ -51,6 +52,7 @@ async function Alert({ params, searchParams }: { params: Params; searchParams: S
         crumbs={<><Link transitionTypes={['nav-back']} href={keepRun('/alerts', view)}>{t('nav.alerts')}</Link><span>/</span><Link transitionTypes={['nav-back']} href={keepRun(`/merchants/${a.merchant}`, view)}>{a.merchant}</Link><span>/</span><span>{fmtDate(a.date)}</span></>}
         title={t('al.title')}
       >
+        {view.kind === 'archive' && <Link className="btn btn-secondary" href={`/reports?${new URLSearchParams({ type: 'alerts', merchant: a.merchant, from: a.date, to: a.date })}`}>{t('al.brief')}</Link>}
         <Link className="btn btn-primary" href={keepRun(`/incidents/${a.incidentId}`, view)}>{t('al.openIncident')} <ArrowRight /></Link>
       </PageHeader>
       <ViewBanner view={view} path={`/alerts/${a.id}`} />
@@ -65,9 +67,15 @@ async function Alert({ params, searchParams }: { params: Params; searchParams: S
             <Gauge tone="hero" size="lg" observed={a.observed} expected={a.expected} lo={a.lo} hi={a.hi} unit={a.unit} severity={a.severity} label={a.explanation} />
           </section>
 
+          {/* plain-language decision facts first: what kind of signal this is, how much data supports it, whether the cause is known */}
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>{t('al.evidence')}</h2></div></div>
             <ul className="reasons">{a.reasons.map((r) => <li key={r}>{r}</li>)}</ul>
+            <dl className="decision-facts">
+              <div><dt>{t('ex.kind')}</dt><dd>{t('ex.statAlert')}{incident ? ` · ${t('ex.partOf', { id: incident.id })}` : ''}{advisory ? ` · ${t('ex.collective')}` : ''}</dd></div>
+              <div><dt>{t('ex.data')}</dt><dd>{day.n === 0 ? t('ex.zero') : merchantInfo?.learning ? t('ex.shortHistory') : batch === 'partial' ? t('ex.partial') : t('ex.full')}</dd></div>
+              <div><dt>{t('ex.cause')}</dt><dd>{t('ex.unconfirmed')}</dd></div>
+            </dl>
           </section>
 
           {/* the transactions behind the evidence: same merchant, the evidence dates, the channel when the alert is channel-specific */}
@@ -130,7 +138,11 @@ async function Alert({ params, searchParams }: { params: Params; searchParams: S
         </div>
 
         <div className="stack">
-          {hybrid && <HybridEvidence row={hybrid} />}
+          <details className="panel model-details m-rise">
+            <summary>{t('ex.modelDetails')}</summary>
+            <p className="muted">{t('ex.scoreLine', { score: fmtNum(a.score, 1), threshold: fmtNum(policy.high, 1) })}</p>
+            {hybrid ? <><h3>{t('hy.title')}</h3><p className="muted small">{t('hy.sub')}</p><HybridEvidence row={hybrid} nested /></> : <p className="muted small">{t('ex.noHybrid')}</p>}
+          </details>
           <section className="panel m-rise" style={css({ '--i': 1 })}>
             <div className="panel-head"><div><h2>{t('al.perDay', { indicator: indicatorCap })}</h2><p>{t('al.window')}</p></div></div>
             <AreaChart points={series} kind={kind} highlight={a.date} label={t('al.chartLabel', { indicator: a.indicator, merchant: a.merchant, date: fmtDate(a.date) })} />

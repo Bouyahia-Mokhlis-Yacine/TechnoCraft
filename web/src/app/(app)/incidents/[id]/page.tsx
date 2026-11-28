@@ -122,10 +122,10 @@ async function IncidentView({ params, searchParams }: { params: Params; searchPa
             </div>
           </section>
 
-          <section className="panel m-rise" style={css({ '--i': 3 })}>
-            <div className="panel-head"><div><h2>{t('al.evidence')}</h2><p>{t('incd.strongest', { date: fmtDate(peak.date) })}</p></div></div>
+          <details className="panel model-details m-rise" style={css({ '--i': 3 })}>
+            <summary>{t('ex.modelDetails')} <span className="muted">· {t('incd.strongest', { date: fmtDate(peak.date) })}</span></summary>
             <ProgressRows rows={peak.signals.map((s) => ({ label: s.label, value: Math.min(s.score, 12), max: 12, color: 'var(--primary)', right: t('incd.scoreN', { v: fmtNum(s.score, 1) }) }))} />
-          </section>
+          </details>
 
 
           {hyps.length > 0 && (
